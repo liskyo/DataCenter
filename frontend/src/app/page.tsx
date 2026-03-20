@@ -41,6 +41,33 @@ export default function Dashboard() {
   const [data, setData] = useState<ServerTelemetry[]>([]);
   const [history, setHistory] = useState<any[]>([]);
   const [time, setTime] = useState("");
+  const [simMode, setSimMode] = useState("simulation");
+
+  // 初始化模式
+  useEffect(() => {
+    const fetchMode = async () => {
+      try {
+        const res = await fetch("http://localhost:8000/api/system/mode");
+        if (res.ok) {
+           const json = await res.json();
+           setSimMode(json.mode);
+        }
+      } catch (e) {}
+    };
+    fetchMode();
+  }, []);
+
+  const toggleMode = async () => {
+      const newMode = simMode === "simulation" ? "real" : "simulation";
+      try {
+          await fetch("http://localhost:8000/api/system/mode", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ mode: newMode })
+          });
+          setSimMode(newMode);
+      } catch (e) {}
+  };
 
   useEffect(() => {
     // 時間更新
@@ -112,6 +139,14 @@ export default function Dashboard() {
         </div>
 
         <div className="flex gap-8 items-center text-sm font-bold font-mono text-cyan-500">
+          <button 
+            onClick={toggleMode}
+            className={`flex items-center gap-2 px-4 py-1.5 rounded-full border transition-all duration-300 ${simMode === 'simulation' ? 'bg-cyan-950/80 border-cyan-400 text-cyan-300 shadow-[0_0_10px_rgba(6,182,212,0.5)] hover:bg-cyan-900' : 'bg-[#0a1e3f] border-slate-600 text-slate-400 hover:border-slate-400'} text-[10px] uppercase tracking-widest`}
+          >
+            <div className={`w-2 h-2 rounded-full ${simMode === 'simulation' ? 'bg-cyan-400 animate-pulse' : 'bg-rose-500'}`}></div>
+            {simMode === 'simulation' ? 'SIMULATION MODE' : 'LIVE DATA MODE'}
+          </button>
+
           <div className="flex items-center gap-2">
             <span className="relative flex h-3 w-3">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
@@ -132,7 +167,7 @@ export default function Dashboard() {
         {/* Left Column (Charts) */}
         <div className="col-span-3 flex flex-col gap-6">
           <TechPanel title="全區負載趨勢 (CPU Trend)" className="h-[280px]">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <AreaChart data={history} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorCpu" x1="0" y1="0" x2="0" y2="1">
@@ -149,7 +184,7 @@ export default function Dashboard() {
           </TechPanel>
 
           <TechPanel title="機房溫度趨勢 (Temp Trend)" className="h-[280px]">
-             <ResponsiveContainer width="100%" height="100%">
+             <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <AreaChart data={history} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorTemp" x1="0" y1="0" x2="0" y2="1">
@@ -166,7 +201,7 @@ export default function Dashboard() {
           </TechPanel>
 
           <TechPanel title="設備健康狀態分佈 (Health)" className="flex-1 min-h-[220px]">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <PieChart>
                 <Pie
                   data={pieData}
@@ -242,7 +277,7 @@ export default function Dashboard() {
         {/* Right Column (Alarms & Details) */}
         <div className="col-span-3 flex flex-col gap-6">
           <TechPanel title="各節點 CPU 負載佔比" className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <BarChart data={data} layout="vertical" margin={{ top: 0, right: 20, left: 10, bottom: 0 }}>
                 <XAxis type="number" domain={[0, 100]} hide />
                 <YAxis dataKey="server_id" type="category" stroke="#1e3a8a" fontSize={10} width={70} tick={{fill: '#06b6d4'}} />

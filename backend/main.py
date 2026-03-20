@@ -132,14 +132,16 @@ def get_history():
     return {"data": server_history}
 
 def kafka_consumer_worker():
+    import uuid
+    import uuid as unique_id
     consumer = None
     while not consumer:
         try:
             consumer = KafkaConsumer(
                 TOPIC,
                 bootstrap_servers=[KAFKA_BROKER],
-                group_id='influx_writer_group',
-                auto_offset_reset='earliest',
+                group_id=f'influx_writer_group_{uuid.uuid4().hex}',
+                auto_offset_reset='latest',
                 value_deserializer=lambda m: json.loads(m.decode('utf-8'))
             )
         except Exception as e:
@@ -188,12 +190,81 @@ def init_kafka_producer():
         except Exception as e:
             time.sleep(3)
 
+import random
+
+# System Mode
+system_mode = "simulation"
+
+@app.get("/api/system/mode")
+def get_system_mode():
+    return {"mode": system_mode}
+
+@app.post("/api/system/mode")
+def toggle_system_mode(payload: dict):
+    global system_mode
+    mode = payload.get("mode")
+    if mode in ["simulation", "real"]:
+        system_mode = mode
+    return {"status": "success", "mode": system_mode}
+
+def simulation_worker():
+    servers = [f"SERVER-{str(i).zfill(3)}" for i in range(1, 13)]
+    base_metrics = { s_id: {"temp": random.uniform(20, 25), "cpu": random.uniform(10, 30)} for s_id in servers }
+    
+    active_anomalies = []
+    loops = 0
+
+    while True:
+        if system_mode == "simulation" and producer:
+            try:
+                # 每 15 秒重新抽籤，固定挑選 2 台伺服器進入異常高載模式
+                if loops % 15 == 0:
+                    active_anomalies = random.sample(servers, 2)
+                loops += 1
+
+                for s_id in servers:
+                    base = base_metrics[s_id]
+                    
+                    # 基礎微幅亂數震盪
+                    base["temp"] += random.uniform(-1.0, 1.0)
+                    base["cpu"] += random.uniform(-4.0, 4.0)
+                    
+                    if s_id in active_anomalies:
+                        # 異常目標：溫度逼近 75°C，CPU 逼近 95%
+                        if base["temp"] < 75: base["temp"] += 2.5
+                        if base["cpu"] < 95: base["cpu"] += 6.0
+                    else:
+                        # 正常目標：溫度回歸 25°C，CPU 回歸 25%
+                        if base["temp"] > 25: base["temp"] -= 1.5
+                        if base["cpu"] > 25: base["cpu"] -= 3.0
+                    
+                    # 絕對上下限保護
+                    base["temp"] = max(18, min(base["temp"], 90))
+                    base["cpu"] = max(2, min(base["cpu"], 100))
+                    
+                    # 加上不到 1% 機率的極短毛刺 (Spikes)
+                    current_temp = base["temp"] + (random.uniform(15, 25) if random.random() < 0.005 else 0)
+                    current_cpu = base["cpu"] + (random.uniform(30, 50) if random.random() < 0.005 else 0)
+                    
+                    payload = {
+                        "server_id": s_id,
+                        "temperature": min(current_temp, 99.9),
+                        "cpu_usage": min(current_cpu, 100.0),
+                        "timestamp": int(time.time() * 1000)
+                    }
+                    producer.send(TOPIC, value=payload)
+                producer.flush()
+            except Exception as e:
+                pass
+        time.sleep(1)
+
 @app.on_event("startup")
 async def startup_event():
     # 初始化 MongoDB
     threading.Thread(target=init_mongo, daemon=True).start()
     threading.Thread(target=init_kafka_producer, daemon=True).start()
     threading.Thread(target=kafka_consumer_worker, daemon=True).start()
+    threading.Thread(target=simulation_worker, daemon=True).start() # 啟動內建模擬器
 
 @app.get("/health")
 def health_check():
