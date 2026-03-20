@@ -117,6 +117,20 @@ def get_metrics():
     # 回傳給前端即時狀態
     return {"data": list(latest_metrics.values())}
 
+@app.get("/alerts")
+def get_alerts(limit: int = 50):
+    # 回傳給 /logs 頁面 MongoDB 儲存的歷史告警，最新的在前
+    if alerts_collection is None:
+        return {"data": []}
+    
+    cursor = alerts_collection.find({}, {"_id": 0}).sort("timestamp", -1).limit(limit)
+    return {"data": list(cursor)}
+
+@app.get("/history")
+def get_history():
+    # 回傳給 /analysis 頁面 AI 異常檢測所追蹤的歷史時序資料
+    return {"data": server_history}
+
 def kafka_consumer_worker():
     consumer = None
     while not consumer:
