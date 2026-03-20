@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { 
   BarChart3, SlidersHorizontal, LineChart, LifeBuoy, 
-  CloudDownload, Globe, FileText, Wrench, Settings, Languages, MonitorIcon
+  CloudDownload, Globe, FileText, Wrench, Settings, Languages, MonitorIcon, Factory
 } from "lucide-react";
 
 export default function Navbar() {
@@ -12,6 +12,7 @@ export default function Navbar() {
 
   const navItems = [
     { name: "狀態總覽", href: "/", icon: BarChart3 },
+    { name: "廠務監控", href: "/facility", icon: Factory },
     { name: "設備控制", href: "/control", icon: SlidersHorizontal },
     { name: "趨勢分析", href: "/analysis", icon: LineChart },
     { name: "維護保養", href: "/maintenance", icon: LifeBuoy },
