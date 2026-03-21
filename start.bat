@@ -14,7 +14,7 @@ cd backend
 echo Installing Python requirements...
 pip install -r requirements.txt
 echo Starting FastAPI Backend (in new window)...
-start cmd /k "title Backend && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
+start cmd /k "title Backend && python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
 cd ..
 
 echo.

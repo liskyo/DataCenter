@@ -211,15 +211,18 @@ def simulation_worker():
     servers = [f"SERVER-{str(i).zfill(3)}" for i in range(1, 13)]
     base_metrics = { s_id: {"temp": random.uniform(20, 25), "cpu": random.uniform(10, 30)} for s_id in servers }
     
-    active_anomalies = []
+    active_critical = None
+    active_warning = None
     loops = 0
 
     while True:
         if system_mode == "simulation" and producer:
             try:
-                # 每 15 秒重新抽籤，固定挑選 2 台伺服器進入異常高載模式
-                if loops % 15 == 0:
-                    active_anomalies = random.sample(servers, 2)
+                # 每 20 秒重新抽籤：一台變紅 (Critical)，一台變黃 (Warning)
+                if loops % 20 == 0:
+                    sampled = random.sample(servers, 2)
+                    active_critical = sampled[0]
+                    active_warning = sampled[1]
                 loops += 1
 
                 for s_id in servers:
@@ -229,10 +232,14 @@ def simulation_worker():
                     base["temp"] += random.uniform(-1.0, 1.0)
                     base["cpu"] += random.uniform(-4.0, 4.0)
                     
-                    if s_id in active_anomalies:
-                        # 異常目標：溫度逼近 75°C，CPU 逼近 95%
+                    if s_id == active_critical:
+                        # 異常目標：溫度逼近 75°C，CPU 逼近 95% (紅色 Critical)
                         if base["temp"] < 75: base["temp"] += 2.5
                         if base["cpu"] < 95: base["cpu"] += 6.0
+                    elif s_id == active_warning:
+                        # 警告目標：溫度逼近 45°C，CPU 逼近 75% (黃色 Warning)
+                        if base["temp"] < 45: base["temp"] += 1.5
+                        if base["cpu"] < 75: base["cpu"] += 3.0
                     else:
                         # 正常目標：溫度回歸 25°C，CPU 回歸 25%
                         if base["temp"] > 25: base["temp"] -= 1.5
@@ -255,7 +262,12 @@ def simulation_worker():
                     producer.send(TOPIC, value=payload)
                 producer.flush()
             except Exception as e:
-                pass
+                try:
+                    import traceback
+                    with open("sim_error.log", "a", encoding="utf-8") as f:
+                        f.write(f"Simulator Error: {traceback.format_exc()}\n")
+                except:
+                    pass
         time.sleep(1)
 
 @app.on_event("startup")
@@ -269,3 +281,11 @@ async def startup_event():
 @app.get("/health")
 def health_check():
     return {"status": "healthy"}
+
+@app.get("/debug")
+def debug():
+    return {
+        "producer_ready": producer is not None,
+        "latest_metrics_len": len(latest_metrics),
+        "system_mode": system_mode
+    }
