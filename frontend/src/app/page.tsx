@@ -245,36 +245,64 @@ export default function Dashboard() {
         <div className="col-span-6 flex flex-col gap-6">
           <TechPanel title="機房伺服器陣列監控矩陣 (Server Matrix)" className="flex-1">
             <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mt-2">
-              {data.length === 0 ? (
-                <div className="col-span-full h-full flex items-center justify-center text-cyan-800 animate-pulse font-mono tracking-widest mt-20">
-                  AWAITING VITAL SIGNALS...
-                </div>
-              ) : (
-                data.map((srv) => {
+              {(() => {
+                const storeServers = store.racks.flatMap(r => r.servers.map(s => ({ ...s, rackName: r.name })));
+                const storeServerNames = new Set(storeServers.map(s => s.name));
+
+                // Unmounted servers emitting signals
+                const unmountedServers = data.filter(d => !storeServerNames.has(d.server_id)).map(d => ({
+                  id: d.server_id,
+                  name: d.server_id,
+                  rackName: "Unmounted",
+                }));
+
+                const allGridItems = [...storeServers, ...unmountedServers].sort((a, b) => a.name.localeCompare(b.name));
+
+                if (allGridItems.length === 0) {
+                  return (
+                    <div className="col-span-full h-full flex items-center justify-center text-cyan-800 animate-pulse font-mono tracking-widest mt-20">
+                      AWAITING VITAL SIGNALS...
+                    </div>
+                  );
+                }
+
+                return allGridItems.map(item => {
+                  const srv = data.find(d => d.server_id === item.name);
+
+                  if (!srv) {
+                    return (
+                      <div key={item.id} className="p-4 border-l-4 bg-gradient-to-r from-[#03112b] to-transparent border-slate-700 opacity-60 hover:opacity-100 transition-all">
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex flex-col">
+                            <div className="font-mono font-bold text-slate-500 text-lg">{item.name}</div>
+                            <div className="text-[10px] text-slate-600 bg-[#0a1e3f] border border-slate-800 px-1.5 py-0.5 rounded w-fit flex items-center gap-1 mt-1">
+                              <LayoutGrid size={10} /> {item.rackName}
+                            </div>
+                          </div>
+                          <Power size={16} className="text-slate-700 mt-1" />
+                        </div>
+                        <div className="mt-4 flex items-center justify-center py-5 bg-slate-900/30 rounded border border-slate-800/50">
+                          <span className="text-[10px] text-slate-500 tracking-widest font-mono">OFFLINE / NO SIGNAL</span>
+                        </div>
+                      </div>
+                    );
+                  }
+
                   let liveStatus = 'normal';
                   if (srv.temperature > 50 || srv.cpu_usage > 85) liveStatus = 'critical';
                   else if (srv.temperature > 40 || srv.cpu_usage > 60) liveStatus = 'warning';
-
-                  // Lookup rack name
-                  let rackName = "Unmounted";
-                  for (const rack of store.racks) {
-                    if (rack.servers.some(s => s.name === srv.server_id)) {
-                      rackName = rack.name;
-                      break;
-                    }
-                  }
 
                   const borderColor = liveStatus === 'critical' ? 'border-red-500' : liveStatus === 'warning' ? 'border-yellow-500' : 'border-cyan-500';
                   const titleColor = liveStatus === 'critical' ? 'text-red-400' : liveStatus === 'warning' ? 'text-yellow-400' : 'text-cyan-100';
                   const shadowCss = liveStatus === 'critical' ? 'shadow-[inset_0_0_15px_rgba(239,68,68,0.2)]' : liveStatus === 'warning' ? 'shadow-[inset_0_0_15px_rgba(245,158,11,0.2)]' : 'hover:bg-[#06183a]';
 
                   return (
-                    <div key={srv.server_id} className={`p-4 border-l-4 bg-gradient-to-r from-[#03112b] to-transparent ${borderColor} ${shadowCss} transition-all`}>
+                    <div key={item.id || item.name} className={`p-4 border-l-4 bg-gradient-to-r from-[#03112b] to-transparent ${borderColor} ${shadowCss} transition-all`}>
                       <div className="flex justify-between items-start mb-2">
                         <div className="flex flex-col">
                           <div className={`font-mono font-bold ${titleColor} text-lg`}>{srv.server_id}</div>
                           <div className="text-[10px] text-cyan-500 bg-[#0a1e3f] border border-cyan-800/50 px-1.5 py-0.5 rounded w-fit flex items-center gap-1 mt-1">
-                            <LayoutGrid size={10} /> {rackName}
+                            <LayoutGrid size={10} /> {item.rackName}
                           </div>
                         </div>
                         {liveStatus === 'critical' ? <AlertTriangle size={16} className="text-red-500 animate-pulse mt-1" /> : liveStatus === 'warning' ? <AlertTriangle size={16} className="text-yellow-500 mt-1" /> : <Power size={16} className="text-cyan-700 mt-1" />}
@@ -304,8 +332,8 @@ export default function Dashboard() {
                       </div>
                     </div>
                   );
-                })
-              )}
+                });
+              })()}
             </div>
           </TechPanel>
         </div>
