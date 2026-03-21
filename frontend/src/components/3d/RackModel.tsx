@@ -33,10 +33,10 @@ export default function RackModel({ data, isSelected, telemetry = {} }: { data: 
     });
 
     let frameColor = "#1e3a8a"; // normal blue frame
-    if (hasCriticalServer || powerUsagePercent > 90) {
-        frameColor = "#ef4444"; // Red
-    } else if (hasWarningServer || powerUsagePercent > 70) {
-        frameColor = "#f59e0b"; // Yellow
+    if (powerUsagePercent > 90) {
+        frameColor = "#ef4444"; // Red (Only for Power > 90%)
+    } else if (powerUsagePercent > 70) {
+        frameColor = "#f59e0b"; // Yellow (Only for Power > 70%)
     }
 
     if (isSelected) {
@@ -108,6 +108,19 @@ export default function RackModel({ data, isSelected, telemetry = {} }: { data: 
                 >
                     {data.name}
                 </Text>
+
+                {/* Server Anomaly Floating Icon */}
+                {(hasCriticalServer || hasWarningServer) && (
+                    <Text
+                        position={[0, rackHeight + 0.35, 0]}
+                        fontSize={0.25}
+                        color={hasCriticalServer ? "#ef4444" : "#f59e0b"}
+                        anchorX="center"
+                        anchorY="middle"
+                    >
+                        {hasCriticalServer ? "🔥" : "⚠️"}
+                    </Text>
+                )}
 
                 {/* Power Usage Mini Bar */}
                 <mesh position={[0, rackHeight - 0.15, RACK_DEPTH / 2 + 0.01]}>

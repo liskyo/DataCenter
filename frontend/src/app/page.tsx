@@ -251,7 +251,10 @@ export default function Dashboard() {
                 </div>
               ) : (
                 data.map((srv) => {
-                  const isWarn = srv.cpu_usage > 85 || srv.temperature > 50;
+                  let liveStatus = 'normal';
+                  if (srv.temperature > 50 || srv.cpu_usage > 85) liveStatus = 'critical';
+                  else if (srv.temperature > 40 || srv.cpu_usage > 60) liveStatus = 'warning';
+
                   // Lookup rack name
                   let rackName = "Unmounted";
                   for (const rack of store.racks) {
@@ -261,16 +264,20 @@ export default function Dashboard() {
                     }
                   }
 
+                  const borderColor = liveStatus === 'critical' ? 'border-red-500' : liveStatus === 'warning' ? 'border-yellow-500' : 'border-cyan-500';
+                  const titleColor = liveStatus === 'critical' ? 'text-red-400' : liveStatus === 'warning' ? 'text-yellow-400' : 'text-cyan-100';
+                  const shadowCss = liveStatus === 'critical' ? 'shadow-[inset_0_0_15px_rgba(239,68,68,0.2)]' : liveStatus === 'warning' ? 'shadow-[inset_0_0_15px_rgba(245,158,11,0.2)]' : 'hover:bg-[#06183a]';
+
                   return (
-                    <div key={srv.server_id} className={`p-4 border-l-4 bg-gradient-to-r from-[#03112b] to-transparent ${isWarn ? 'border-red-500 shadow-[inset_0_0_15px_rgba(239,68,68,0.2)]' : 'border-cyan-500 hover:bg-[#06183a]'} transition-all`}>
+                    <div key={srv.server_id} className={`p-4 border-l-4 bg-gradient-to-r from-[#03112b] to-transparent ${borderColor} ${shadowCss} transition-all`}>
                       <div className="flex justify-between items-start mb-2">
                         <div className="flex flex-col">
-                          <div className={`font-mono font-bold ${isWarn ? 'text-red-400' : 'text-cyan-100'} text-lg`}>{srv.server_id}</div>
+                          <div className={`font-mono font-bold ${titleColor} text-lg`}>{srv.server_id}</div>
                           <div className="text-[10px] text-cyan-500 bg-[#0a1e3f] border border-cyan-800/50 px-1.5 py-0.5 rounded w-fit flex items-center gap-1 mt-1">
                             <LayoutGrid size={10} /> {rackName}
                           </div>
                         </div>
-                        {isWarn ? <AlertTriangle size={16} className="text-red-500 animate-pulse mt-1" /> : <Power size={16} className="text-cyan-700 mt-1" />}
+                        {liveStatus === 'critical' ? <AlertTriangle size={16} className="text-red-500 animate-pulse mt-1" /> : liveStatus === 'warning' ? <AlertTriangle size={16} className="text-yellow-500 mt-1" /> : <Power size={16} className="text-cyan-700 mt-1" />}
                       </div>
 
                       {/* Metrics Mini-Bar */}
@@ -278,20 +285,20 @@ export default function Dashboard() {
                         <div className="relative">
                           <div className="flex justify-between text-[10px] text-cyan-600 font-bold mb-1">
                             <span className="flex items-center gap-1"><Cpu size={10} /> CPU</span>
-                            <span className={srv.cpu_usage > 85 ? 'text-red-400' : 'text-white'}>{srv.cpu_usage.toFixed(1)}%</span>
+                            <span className={srv.cpu_usage > 85 ? 'text-red-400' : srv.cpu_usage > 60 ? 'text-yellow-400' : 'text-white'}>{srv.cpu_usage.toFixed(1)}%</span>
                           </div>
                           <div className="h-1 w-full bg-[#0a1e3f] overflow-hidden">
-                            <div className={`h-full ${srv.cpu_usage > 85 ? 'bg-red-500' : 'bg-cyan-400'}`} style={{ width: `${srv.cpu_usage}%` }}></div>
+                            <div className={`h-full ${srv.cpu_usage > 85 ? 'bg-red-500' : srv.cpu_usage > 60 ? 'bg-yellow-400' : 'bg-cyan-400'}`} style={{ width: `${srv.cpu_usage}%` }}></div>
                           </div>
                         </div>
 
                         <div className="relative">
                           <div className="flex justify-between text-[10px] text-cyan-600 font-bold mb-1">
                             <span className="flex items-center gap-1"><Thermometer size={10} /> TEMP</span>
-                            <span className={srv.temperature > 50 ? 'text-red-400' : 'text-white'}>{srv.temperature.toFixed(1)}°C</span>
+                            <span className={srv.temperature > 50 ? 'text-red-400' : srv.temperature > 40 ? 'text-yellow-400' : 'text-white'}>{srv.temperature.toFixed(1)}°C</span>
                           </div>
                           <div className="h-1 w-full bg-[#0a1e3f] overflow-hidden">
-                            <div className={`h-full ${srv.temperature > 50 ? 'bg-red-500' : 'bg-yellow-400'}`} style={{ width: `${(srv.temperature / 100) * 100}%` }}></div>
+                            <div className={`h-full ${srv.temperature > 50 ? 'bg-red-500' : srv.temperature > 40 ? 'bg-yellow-400' : 'bg-blue-400'}`} style={{ width: `${(srv.temperature / 100) * 100}%` }}></div>
                           </div>
                         </div>
                       </div>
