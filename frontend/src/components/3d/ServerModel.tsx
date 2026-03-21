@@ -19,7 +19,8 @@ export default function ServerModel({ data, telemetry }: { data: ServerData, tel
     }
 
     // Position based on U-space (1 to 42, bottom to top)
-    const yPos = (data.uPosition - 1) * U_HEIGHT + (data.uHeight * U_HEIGHT) / 2;
+    // Add 0.1m offset because the RackBase mesh occupies y=0 to y=0.1
+    const yPos = 0.1 + (data.uPosition - 1) * U_HEIGHT + (data.uHeight * U_HEIGHT) / 2;
 
     // 動態網格發光指示燈
     const materialRef = useRef<THREE.MeshStandardMaterial>(null);

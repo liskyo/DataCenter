@@ -81,6 +81,14 @@ export default function TwinsPage() {
 
     const handleAddServer = () => {
         if (!selectedRack) return;
+
+        // Enforce unique server name globally
+        const allServers = store.racks.flatMap(r => r.servers);
+        if (allServers.some(s => s.name === newServer.name)) {
+            alert(`❌ 無法新增！伺服器名稱 ${newServer.name} 已經存在於其他機櫃中，名稱不可重複！`);
+            return;
+        }
+
         const success = store.addServerToRack(selectedRack.id, newServer);
         if (!success) {
             alert("❌ 無法新增！該 U 空間已被佔用或超出範圍！ (U-Space overlapping or out of bounds)");
