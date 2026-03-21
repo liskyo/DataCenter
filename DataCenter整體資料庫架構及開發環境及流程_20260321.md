@@ -56,8 +56,15 @@ Kafka 就像是高速公路上的交流道。所有的感測器 (Sensors) 只要
 #### **如何設定與運作：**
 - **對外端口**: 監聽於標準的 `27017`。
 - **權限與初始化配置**：
-  設定參數了 `MONGO_INITDB_ROOT_USERNAME=root`。
   我們在 Python 後端實作了由 `pymongo` 帶領的 Lazy Instantiation (懶漢載入) 機制。也就是說，Python 第一次接到包含 `AI_ANOMALY` 的紅色警報並呼叫 `.insert_one()` 時，MongoDB 會在記憶體中瞬間動態切出名為 `datacenter` 的資料庫與 `alerts` 集合。一切都是無痕且自動的！
+
+---
+
+### 4️⃣ LocalStorage (前端實體配置記憶體快取)
+#### **它在做什麼？**
+這套系統並非完全依賴伺服器資料庫。當操作員進入「數位分身 (Digital Twin)」花了大量時間將機櫃與空調拖拉到定點，按下 F5 不該讓一切化為烏有。
+- 前端利用了 React/Zustand 的 `persist` Middleware 機制，自動將所有實體機櫃的佔地座標與內部伺服器架構，悄悄打包成 JSON 並寫入你瀏覽器的 LocalStorage 字典裡。
+- 它是這套系統最輕量、卻最保護使用者建置體驗的「第四個隱形資料庫」。
 
 ---
 
