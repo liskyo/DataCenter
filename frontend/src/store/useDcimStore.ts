@@ -11,6 +11,16 @@ export type ServerData = {
     status: 'normal' | 'warning' | 'critical' | 'offline';
 };
 
+export type EquipmentType = 'crac' | 'pdu' | 'cdu';
+
+export type EquipmentData = {
+    id: string;
+    name: string;
+    type: EquipmentType;
+    position: [number, number, number];
+    rotation: [number, number, number];
+};
+
 export type RackData = {
     id: string;
     name: string;
@@ -22,19 +32,43 @@ export type RackData = {
 };
 
 type DcimState = {
+    isEditMode: boolean;
+    setEditMode: (mode: boolean) => void;
+
     racks: RackData[];
     selectedRackId: string | null;
+
+    equipments: EquipmentData[];
+    selectedEquipmentId: string | null;
     addRack: (position: [number, number, number]) => void;
     updateRackPosition: (id: string, position: [number, number, number]) => void;
     removeRack: (id: string) => void;
     addServerToRack: (rackId: string, server: Omit<ServerData, 'id'>) => boolean; // Returns false if no space
     removeServerFromRack: (rackId: string, serverId: string) => void;
     selectRack: (id: string | null) => void;
+
+    addEquipment: (type: EquipmentType, position: [number, number, number]) => void;
+    updateEquipmentPosition: (id: string, position: [number, number, number]) => void;
+    removeEquipment: (id: string) => void;
+    selectEquipment: (id: string | null) => void;
+
     exportState: () => string;
     importState: (jsonConfig: string) => boolean;
 };
 
 export const useDcimStore = create<DcimState>((set, get) => ({
+    isEditMode: false,
+    setEditMode: (mode) => set({ isEditMode: mode, selectedRackId: null, selectedEquipmentId: null }),
+
+    equipments: [
+        { id: uuidv4(), name: 'CRAC-01', type: 'crac', position: [-4, 0, -5], rotation: [0, 0, 0] },
+        { id: uuidv4(), name: 'CRAC-02', type: 'crac', position: [0, 0, -5], rotation: [0, 0, 0] },
+        { id: uuidv4(), name: 'CRAC-03', type: 'crac', position: [4, 0, -5], rotation: [0, 0, 0] },
+        { id: uuidv4(), name: 'PDU-A', type: 'pdu', position: [-8, 0, -2], rotation: [0, 0, 0] },
+        { id: uuidv4(), name: 'PDU-B', type: 'pdu', position: [-8, 0, 2], rotation: [0, 0, 0] }
+    ],
+    selectedEquipmentId: null,
+
     racks: [
         {
             id: uuidv4(), name: 'RACK-A01', position: [-2.4, 0, -1.2], rotation: [0, 0, 0], uCapacity: 42, maxPowerKw: 15,
@@ -140,18 +174,47 @@ export const useDcimStore = create<DcimState>((set, get) => ({
         } : r)
     })),
 
-    selectRack: (id) => set({ selectedRackId: id }),
+    selectRack: (id) => set({ selectedRackId: id, selectedEquipmentId: null }),
+
+    addEquipment: (type, position) => set((state) => ({
+        equipments: [
+            ...state.equipments,
+            {
+                id: uuidv4(),
+                name: `${type.toUpperCase()}-${Math.floor(Math.random() * 1000)}`,
+                type,
+                position,
+                rotation: [0, 0, 0]
+            }
+        ]
+    })),
+
+    updateEquipmentPosition: (id, position) => set((state) => ({
+        equipments: state.equipments.map(e => e.id === id ? { ...e, position } : e)
+    })),
+
+    removeEquipment: (id) => set((state) => ({
+        equipments: state.equipments.filter(e => e.id !== id),
+        selectedEquipmentId: state.selectedEquipmentId === id ? null : state.selectedEquipmentId
+    })),
+
+    selectEquipment: (id) => set({ selectedEquipmentId: id, selectedRackId: null }),
 
     exportState: () => {
         const state = get();
-        return JSON.stringify({ racks: state.racks }, null, 2);
+        return JSON.stringify({ racks: state.racks, equipments: state.equipments }, null, 2);
     },
 
     importState: (jsonConfig) => {
         try {
             const parsed = JSON.parse(jsonConfig);
             if (parsed && Array.isArray(parsed.racks)) {
-                set({ racks: parsed.racks, selectedRackId: null });
+                set({
+                    racks: parsed.racks,
+                    equipments: Array.isArray(parsed.equipments) ? parsed.equipments : get().equipments,
+                    selectedRackId: null,
+                    selectedEquipmentId: null
+                });
                 return true;
             }
             return false;

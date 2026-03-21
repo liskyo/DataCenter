@@ -52,29 +52,24 @@ export default function RackModel({ data, isSelected, telemetry = {} }: { data: 
         updateRackPosition(data.id, [snappedX, 0, snappedZ]);
     };
 
+    const isEditMode = useDcimStore(state => state.isEditMode);
+
     return (
         <PivotControls
-            visible={isSelected}
-            disableAxes={true}
-            disableSliders={true}
+            visible={isEditMode && isSelected}
+            disableAxes={!isEditMode}
+            disableSliders={!isEditMode}
             disableRotations={true}
             activeAxes={[true, false, true]}
             onDragEnd={() => { }}
-            onDrag={(l, dl, w, dw) => {
-                // Using world matrix for placement
-                const pos = new THREE.Vector3().setFromMatrixPosition(w);
-                const snappedX = Math.round(pos.x / 0.6) * 0.6;
-                const snappedZ = Math.round(pos.z / 0.6) * 0.6;
-                updateRackPosition(data.id, [snappedX, 0, snappedZ]);
-            }}
+            onDrag={handleDrag}
             matrix={new THREE.Matrix4().setPosition(data.position[0], 0, data.position[2])}
         >
             <group
                 ref={groupRef}
-                position={data.position}
                 onClick={(e) => {
                     e.stopPropagation();
-                    selectRack(data.id);
+                    if (isEditMode) selectRack(data.id);
                 }}
             >
                 {/* Rack Frame outer box (Translucent) */}

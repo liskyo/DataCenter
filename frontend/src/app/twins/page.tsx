@@ -5,12 +5,14 @@ import { OrbitControls } from "@react-three/drei";
 import { useDcimStore, ServerData } from "@/store/useDcimStore";
 import RoomContext from "@/components/3d/RoomContext";
 import RackModel from "@/components/3d/RackModel";
-import { Activity, Download, Upload, Plus, Server, Trash, Save } from "lucide-react";
+import EquipmentModel from "@/components/3d/EquipmentModel";
+import { Activity, Download, Upload, Server, Trash, Save, Edit, Lock, Thermometer, Zap, Box } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
 
 export default function TwinsPage() {
     const store = useDcimStore();
     const selectedRack = store.racks.find((r) => r.id === store.selectedRackId);
+    const selectedEquipment = store.equipments.find((e) => e.id === store.selectedEquipmentId);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Form State for new server
@@ -77,10 +79,6 @@ export default function TwinsPage() {
         reader.readAsText(file);
     };
 
-    const handleAddRack = () => {
-        store.addRack([Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)]);
-    };
-
     const handleAddServer = () => {
         if (!selectedRack) return;
         const success = store.addServerToRack(selectedRack.id, newServer);
@@ -100,9 +98,24 @@ export default function TwinsPage() {
                 <button className="p-3 bg-[#0a1e3f] rounded-xl text-cyan-400 hover:bg-cyan-900 border border-cyan-700 transition" title="Dashboard">
                     <Activity size={24} />
                 </button>
-                <button onClick={handleAddRack} className="p-3 bg-[#020b1a] rounded-xl text-slate-400 hover:text-cyan-400 hover:bg-[#0a1e3f] transition" title="Add Rack">
-                    <Plus size={24} />
-                </button>
+
+                {store.isEditMode && (
+                    <div className="flex flex-col gap-3 mt-2 pt-4 border-t border-cyan-900/50 w-full items-center">
+                        <button onClick={() => store.addRack([Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)])} className="p-3 bg-[#020b1a] rounded-xl text-slate-400 hover:text-cyan-400 hover:bg-[#0a1e3f] transition" title="Add RACK">
+                            <Server size={24} />
+                        </button>
+                        <button onClick={() => store.addEquipment('crac', [Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)])} className="p-3 bg-[#020b1a] rounded-xl text-slate-400 hover:text-cyan-400 hover:bg-[#0a1e3f] transition" title="Add CRAC (Cooling)">
+                            <Thermometer size={24} />
+                        </button>
+                        <button onClick={() => store.addEquipment('pdu', [Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)])} className="p-3 bg-[#020b1a] rounded-xl text-slate-400 hover:text-cyan-400 hover:bg-[#0a1e3f] transition" title="Add PDU (Power)">
+                            <Zap size={24} />
+                        </button>
+                        <button onClick={() => store.addEquipment('cdu', [Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)])} className="p-3 bg-[#020b1a] rounded-xl text-slate-400 hover:text-cyan-400 hover:bg-[#0a1e3f] transition" title="Add CDU (Liquid Cooling)">
+                            <Box size={24} />
+                        </button>
+                    </div>
+                )}
+
                 <div className="flex-1"></div>
                 <button onClick={handleExport} className="p-3 text-slate-400 hover:text-cyan-400 transition" title="Export Layout">
                     <Download size={24} />
@@ -122,14 +135,31 @@ export default function TwinsPage() {
                     <p className="text-xs text-cyan-700 font-mono mt-1">REAL-TIME INFRASTRUCTURE VISUALIZATION</p>
                 </div>
 
+                {/* Edit Mode HUD */}
+                <div className="absolute top-4 right-4 z-10 flex gap-4">
+                    <button
+                        onClick={() => store.setEditMode(!store.isEditMode)}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold tracking-widest transition-all border ${store.isEditMode ? 'bg-cyan-600 border-cyan-400 text-white shadow-[0_0_15px_rgba(6,182,212,0.5)]' : 'bg-[#0a1e3f]/80 border-[#1e3a8a] text-slate-400 hover:text-white'}`}
+                    >
+                        {store.isEditMode ? <Edit size={16} /> : <Lock size={16} />}
+                        {store.isEditMode ? 'EDIT MODE' : 'VIEW ONLY'}
+                    </button>
+                </div>
+
                 <Canvas
                     camera={{ position: [5, 4, 8], fov: 45 }}
                     className="w-full h-full outline-none"
-                    onPointerMissed={() => store.selectRack(null)}
+                    onPointerMissed={() => {
+                        store.selectRack(null);
+                        store.selectEquipment(null);
+                    }}
                 >
                     <RoomContext />
                     {store.racks.map((rack) => (
                         <RackModel key={rack.id} data={rack} isSelected={rack.id === store.selectedRackId} telemetry={telemetry} />
+                    ))}
+                    {store.equipments.map((eq) => (
+                        <EquipmentModel key={eq.id} data={eq} />
                     ))}
                     <OrbitControls makeDefault minPolarAngle={0} maxPolarAngle={Math.PI / 2 - 0.05} />
                 </Canvas>
@@ -272,6 +302,34 @@ export default function TwinsPage() {
                             </div>
                         </div>
 
+                    </div>
+                </div>
+            )}
+
+            {/* 右側屬性面板 (Equipment) */}
+            {selectedEquipment && (
+                <div className="w-80 bg-[#020b1a] border-l border-[#1e3a8a] flex flex-col z-10 shadow-[-2px_0_15px_rgba(6,182,212,0.1)]">
+                    <div className="p-4 border-b border-[#1e3a8a] flex justify-between items-center bg-gradient-to-r from-transparent to-[#0a1e3f]">
+                        <h2 className="text-cyan-400 font-bold tracking-widest">{selectedEquipment.name}</h2>
+                        {store.isEditMode && (
+                            <button onClick={() => store.removeEquipment(selectedEquipment.id)} className="text-red-500 hover:text-red-400 transition" title="Delete Equipment">
+                                <Trash size={16} />
+                            </button>
+                        )}
+                    </div>
+                    <div className="p-4 flex flex-col gap-6">
+                        <div className="bg-[#03112b] p-4 rounded-lg border border-slate-800">
+                            <div className="text-xs text-slate-400 mb-1 uppercase tracking-widest">Facility Type</div>
+                            <div className="text-cyan-400 font-bold tracking-widest text-lg">
+                                {selectedEquipment.type === 'crac' && 'CRAC (Cooling HVAC)'}
+                                {selectedEquipment.type === 'pdu' && 'PDU (Power Dist. Unit)'}
+                                {selectedEquipment.type === 'cdu' && 'CDU (Liquid Cooling)'}
+                            </div>
+                        </div>
+                        <div className="bg-[#03112b] p-4 rounded-lg border border-slate-800 text-xs text-slate-500 font-mono flex flex-col gap-1">
+                            <p>X Position: {Math.round(selectedEquipment.position[0] * 100) / 100}m</p>
+                            <p>Z Position: {Math.round(selectedEquipment.position[2] * 100) / 100}m</p>
+                        </div>
                     </div>
                 </div>
             )}
