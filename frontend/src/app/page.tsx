@@ -27,6 +27,9 @@ type ServerTelemetry = {
   cpu_usage: number;
   temperature: number;
   timestamp: number;
+  traffic_gbps?: number;
+  ports_active?: number;
+  ports_total?: number;
 };
 
 const PIE_COLORS = ['#00f2fe', '#4facfe', '#00f2c3', '#f83600'];
@@ -129,18 +132,50 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, []);
 
+  // --- Unified Health Scoring Logic ---
+  const getDeviceStatus = (item: any, srv: ServerTelemetry | undefined) => {
+    if (!srv) return 'offline';
+    
+    // Switch specific thresholds (Dynamic)
+    if (item.type === 'switch' || item.rackType === 'network') {
+      const traffic = srv.traffic_gbps || 0;
+      const ports = srv.ports_active || 0;
+      const cpu = srv.cpu_usage || 0;
+      const temp = srv.temperature || 0;
+      if (traffic > 35 || ports > 42 || cpu > 85 || temp > 55) return 'critical';
+      if (traffic > 25 || ports > 35 || cpu > 60 || temp > 45) return 'warning';
+      return 'normal';
+    } 
+    // Server thresholds
+    else {
+      const cpu = srv.cpu_usage || 0;
+      const temp = srv.temperature || 0;
+      if (cpu > 85 || temp > 55) return 'critical';
+      if (cpu > 60 || temp > 45) return 'warning';
+      return 'normal';
+    }
+  };
+
   // Calculate stats based on store servers
-  const storeServers = store.racks.flatMap(r => r.servers.map(s => s.name));
-  const activeStoreData = data.filter(d => storeServers.includes(d.server_id));
-  
-  const totalServers = storeServers.length;
-  const warningServers = activeStoreData.filter(d => d.temperature > 50 || d.cpu_usage > 85).length;
-  const healthyServers = totalServers - warningServers;
+  const allGridItems = store.racks.flatMap(r => r.servers.map(s => ({ ...s, rackName: r.name, rackType: r.type })));
+  const totalServers = allGridItems.length;
+
+  const healthData = allGridItems.reduce((acc, item) => {
+    const srv = data.find(d => d.server_id === item.name);
+    const status = getDeviceStatus(item, srv);
+    if (status === 'critical') acc.critical++;
+    else if (status === 'warning') acc.warning++;
+    else acc.normal++;
+    return acc;
+  }, { normal: 0, warning: 0, critical: 0 });
 
   const pieData = [
-    { name: '正常運行 (Healthy)', value: healthyServers },
-    { name: '高負載/異常 (Warning)', value: warningServers }
-  ];
+    { name: '正常 (Normal)', value: healthData.normal, color: '#06b6d4' },
+    { name: '警告 (Warning)', value: healthData.warning, color: '#fbbf24' },
+    { name: '異常 (Critical)', value: healthData.critical, color: '#ef4444' }
+  ].filter(d => d.value > 0);
+
+  const activeStoreData = data.filter(d => allGridItems.some(i => i.name === d.server_id));
 
   return (
     <div className="w-full bg-[#010613] text-slate-300 font-sans flex flex-col overflow-x-hidden selection:bg-cyan-900">
@@ -219,27 +254,31 @@ export default function Dashboard() {
           </TechPanel>
 
           <TechPanel title="設備健康狀態分佈 (Health)" className="flex-1 min-h-[220px]">
-            <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
-              <PieChart>
-                <Pie
-                  data={pieData}
-                  innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={5}
-                  dataKey="value"
-                  isAnimationActive={false}
-                >
-                  {pieData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={index === 0 ? '#06b6d4' : '#ef4444'} />
-                  ))}
-                </Pie>
-                <RechartsTooltip contentStyle={{ backgroundColor: '#020b1a', borderColor: '#1e3a8a', color: '#fff' }} />
-              </PieChart>
-            </ResponsiveContainer>
-            {/* 中間文字 */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-4">
-              <span className="text-3xl font-black text-white">{totalServers}</span>
-              <span className="text-[10px] text-cyan-600 font-bold uppercase tracking-widest">Total</span>
+            <div className="h-[180px] w-full relative flex items-center justify-center">
+              <ResponsiveContainer width={200} height={180}>
+                <PieChart>
+                  <Pie
+                    data={pieData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="value"
+                    isAnimationActive={false}
+                  >
+                    {pieData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <RechartsTooltip contentStyle={{ backgroundColor: '#020b1a', borderColor: '#1e3a8a', color: '#fff' }} />
+                </PieChart>
+              </ResponsiveContainer>
+              {/* 中間文字 */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-1">
+                <span className="text-3xl font-black text-white leading-none">{totalServers}</span>
+                <span className="text-[10px] text-cyan-600 font-bold uppercase tracking-widest">Total</span>
+              </div>
             </div>
           </TechPanel>
         </div>
@@ -250,9 +289,9 @@ export default function Dashboard() {
             <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mt-2">
               {(() => {
                 const storeServers = store.racks.flatMap(r => r.servers.map(s => ({ ...s, rackName: r.name })));
-                const allGridItems = storeServers.sort((a, b) => a.name.localeCompare(b.name));
+                const items = storeServers.sort((a, b) => a.name.localeCompare(b.name));
 
-                if (allGridItems.length === 0) {
+                if (items.length === 0) {
                   return (
                     <div className="col-span-full h-full flex items-center justify-center text-cyan-800 animate-pulse font-mono tracking-widest mt-20">
                       AWAITING VITAL SIGNALS...
@@ -260,8 +299,13 @@ export default function Dashboard() {
                   );
                 }
 
-                return allGridItems.map(item => {
+                return items.map(item => {
                   const srv = data.find(d => d.server_id === item.name);
+                  const liveStatus = getDeviceStatus(item, srv);
+                  
+                  const borderColor = liveStatus === 'critical' ? 'border-red-500' : liveStatus === 'warning' ? 'border-yellow-500' : 'border-cyan-500';
+                  const titleColor = liveStatus === 'critical' ? 'text-red-400' : liveStatus === 'warning' ? 'text-yellow-400' : 'text-cyan-100';
+                  const shadowCss = liveStatus === 'critical' ? 'shadow-[inset_0_0_15px_rgba(239,68,68,0.2)]' : liveStatus === 'warning' ? 'shadow-[inset_0_0_15px_rgba(245,158,11,0.2)]' : 'hover:bg-[#06183a]';
 
                   if (!srv) {
                     return (
@@ -282,14 +326,6 @@ export default function Dashboard() {
                     );
                   }
 
-                  let liveStatus = 'normal';
-                  if (srv.temperature > 50 || srv.cpu_usage > 85) liveStatus = 'critical';
-                  else if (srv.temperature > 40 || srv.cpu_usage > 60) liveStatus = 'warning';
-
-                  const borderColor = liveStatus === 'critical' ? 'border-red-500' : liveStatus === 'warning' ? 'border-yellow-500' : 'border-cyan-500';
-                  const titleColor = liveStatus === 'critical' ? 'text-red-400' : liveStatus === 'warning' ? 'text-yellow-400' : 'text-cyan-100';
-                  const shadowCss = liveStatus === 'critical' ? 'shadow-[inset_0_0_15px_rgba(239,68,68,0.2)]' : liveStatus === 'warning' ? 'shadow-[inset_0_0_15px_rgba(245,158,11,0.2)]' : 'hover:bg-[#06183a]';
-
                   return (
                     <div key={item.id || item.name} className={`p-4 border-l-4 bg-gradient-to-r from-[#03112b] to-transparent ${borderColor} ${shadowCss} transition-all`}>
                       <div className="flex justify-between items-start mb-2">
@@ -309,19 +345,42 @@ export default function Dashboard() {
                             <div className="relative">
                               <div className="flex justify-between text-[10px] text-purple-400 font-bold mb-1">
                                 <span className="flex items-center gap-1"><Link2 size={10} /> TRAFFIC</span>
-                                <span className="text-white">{(srv.traffic_gbps || 0).toFixed(1)} Gbps</span>
+                                <span className={(srv.traffic_gbps || 0) > 35 ? 'text-red-400' : (srv.traffic_gbps || 0) > 25 ? 'text-yellow-400' : 'text-white'}>{(srv.traffic_gbps || 0).toFixed(1)} Gbps</span>
                               </div>
                               <div className="h-1 w-full bg-[#0a1e3f] overflow-hidden">
-                                <div className="h-full bg-purple-500" style={{ width: `${Math.min(((srv.traffic_gbps || 0) / 40) * 100, 100)}%` }}></div>
+                                <div className={`h-full ${(srv.traffic_gbps || 0) > 35 ? 'bg-red-500' : (srv.traffic_gbps || 0) > 25 ? 'bg-yellow-400' : 'bg-purple-500'}`} 
+                                     style={{ width: `${Math.min(((srv.traffic_gbps || 0) / 40) * 100, 100)}%` }}></div>
                               </div>
                             </div>
                             <div className="relative">
                               <div className="flex justify-between text-[10px] text-purple-400 font-bold mb-1">
                                 <span className="flex items-center gap-1"><Box size={10} /> PORTS</span>
-                                <span className="text-white">{srv.ports_active || 0} / {srv.ports_total || 48}</span>
+                                <span className={(srv.ports_active || 0) > 42 ? 'text-red-400' : (srv.ports_active || 0) > 35 ? 'text-yellow-400' : 'text-white'}>{srv.ports_active || 0} / {srv.ports_total || 48}</span>
                               </div>
                               <div className="h-1 w-full bg-[#0a1e3f] overflow-hidden">
-                                <div className="h-full bg-purple-400" style={{ width: `${((srv.ports_active || 0) / (srv.ports_total || 48)) * 100}%` }}></div>
+                                <div className={`h-full ${(srv.ports_active || 0) > 42 ? 'bg-red-500' : (srv.ports_active || 0) > 35 ? 'bg-yellow-400' : 'bg-purple-400'}`} 
+                                     style={{ width: `${((srv.ports_active || 0) / (srv.ports_total || 48)) * 100}%` }}></div>
+                              </div>
+                            </div>
+                            {/* Mgmt Info: CPU & Temp */}
+                            <div className="flex gap-4 pt-1 border-t border-cyan-900/40 mt-1">
+                              <div className="flex-1">
+                                <div className="flex justify-between text-[8px] text-cyan-700 font-bold mb-0.5">
+                                  <span>CPU</span>
+                                  <span className={(srv.cpu_usage || 0) > 85 ? 'text-red-400' : (srv.cpu_usage || 0) > 60 ? 'text-yellow-400' : 'text-cyan-800'}>{(srv.cpu_usage || 0).toFixed(0)}%</span>
+                                </div>
+                                <div className="h-[2px] w-full bg-[#0a1e3f]">
+                                  <div className={`h-full ${(srv.cpu_usage || 0) > 85 ? 'bg-red-500' : (srv.cpu_usage || 0) > 60 ? 'bg-yellow-400' : 'bg-cyan-800'}`} style={{ width: `${srv.cpu_usage || 0}%` }}></div>
+                                </div>
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex justify-between text-[8px] text-cyan-700 font-bold mb-0.5">
+                                  <span>TEMP</span>
+                                  <span className={(srv.temperature || 0) > 55 ? 'text-red-400' : (srv.temperature || 0) > 45 ? 'text-yellow-400' : 'text-cyan-800'}>{(srv.temperature || 0).toFixed(0)}°C</span>
+                                </div>
+                                <div className="h-[2px] w-full bg-[#0a1e3f]">
+                                  <div className={`h-full ${(srv.temperature || 0) > 55 ? 'bg-red-500' : (srv.temperature || 0) > 45 ? 'bg-yellow-400' : 'bg-blue-800'}`} style={{ width: `${srv.temperature || 0}%` }}></div>
+                                </div>
                               </div>
                             </div>
                           </>
@@ -376,24 +435,47 @@ export default function Dashboard() {
 
           <TechPanel title="即時系統警報 (Real-time Alarms)" className="flex-1">
             <div className="h-full overflow-y-auto pr-2 space-y-2 custom-scrollbar">
-              {activeStoreData.filter(s => s.cpu_usage > 85 || s.temperature > 50).length === 0 ? (
-                <div className="text-xs text-cyan-800 font-mono text-center mt-10">NO ACTIVE ALARMS</div>
-              ) : (
-                activeStoreData.filter(s => s.cpu_usage > 85 || s.temperature > 50).map(srv => (
-                  <div key={`alarm-${srv.server_id}`} className="bg-red-950/40 border border-red-900 p-3 rounded-none flex gap-3 items-start relative overflow-hidden group">
-                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-red-500"></div>
-                    <AlertTriangle className="text-red-500 shrink-0" size={16} />
-                    <div className="flex-1">
-                      <div className="text-red-400 text-xs font-bold font-mono">[{srv.server_id}] CRITICAL WARNING</div>
-                      <div className="text-red-200/60 text-[10px] mt-1 space-y-1">
-                        {srv.cpu_usage > 85 && <div>- CPU Overload ({srv.cpu_usage.toFixed(1)}%)</div>}
-                        {srv.temperature > 50 && <div>- High Temperature ({srv.temperature.toFixed(1)}°C)</div>}
+              {(() => {
+                const criticalDevices = allGridItems.filter(item => {
+                  const srv = data.find(d => d.server_id === item.name);
+                  return getDeviceStatus(item, srv) === 'critical';
+                });
+
+                if (criticalDevices.length === 0) {
+                  return <div className="text-xs text-cyan-800 font-mono text-center mt-10 uppercase tracking-widest">No Active Alarms</div>;
+                }
+
+                return criticalDevices.map(item => {
+                  const srv = data.find(d => d.server_id === item.name);
+                  if (!srv) return null;
+                  
+                  return (
+                    <div key={`alarm-${item.name}`} className="bg-red-950/40 border border-red-900 p-3 rounded-none flex gap-3 items-start relative overflow-hidden group">
+                      <div className="absolute left-0 top-0 bottom-0 w-1 bg-red-500"></div>
+                      <AlertTriangle className="text-red-500 shrink-0" size={16} />
+                      <div className="flex-1">
+                        <div className="text-red-400 text-xs font-bold font-mono">[{item.name}] CRITICAL STATE</div>
+                        <div className="text-red-200/60 text-[10px] mt-1 space-y-1">
+                          {item.type === 'switch' ? (
+                            <>
+                              {srv.traffic_gbps > 35 && <div>- Network Congestion ({srv.traffic_gbps.toFixed(1)} Gbps)</div>}
+                              {srv.ports_active > 42 && <div>- Port Saturation ({srv.ports_active}/48)</div>}
+                              {srv.cpu_usage > 85 && <div>- Mgmt CPU Critical ({srv.cpu_usage.toFixed(0)}%)</div>}
+                              {srv.temperature > 55 && <div>- Chassis Overheat ({srv.temperature.toFixed(0)}°C)</div>}
+                            </>
+                          ) : (
+                            <>
+                              {srv.cpu_usage > 85 && <div>- Processor Overload ({srv.cpu_usage.toFixed(1)}%)</div>}
+                              {srv.temperature > 55 && <div>- High Core Temperature ({srv.temperature.toFixed(1)}°C)</div>}
+                            </>
+                          )}
+                        </div>
+                        <div className="text-red-900 text-[9px] mt-2 text-right">{new Date(srv.timestamp).toLocaleTimeString()}</div>
                       </div>
-                      <div className="text-red-900 text-[9px] mt-2 text-right">{new Date(srv.timestamp).toLocaleTimeString()}</div>
                     </div>
-                  </div>
-                ))
-              )}
+                  );
+                });
+              })()}
             </div>
           </TechPanel>
         </div>

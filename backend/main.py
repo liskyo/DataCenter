@@ -270,12 +270,14 @@ def simulation_worker():
                     base["traffic"] = max(0.1, min(base["traffic"], 50))
                     
                     if s_id.startswith("SW-"):
-                        # Network Switch specific payload
+                        # Network Switch specific payload (Network + Control Plane + Chassis)
                         payload = {
                             "server_id": s_id,
                             "traffic_gbps": round(base["traffic"], 2),
                             "ports_active": int(48 * (base["cpu"] / 100)), # Link ports to "cpu" for simplicity
                             "ports_total": 48,
+                            "cpu_usage": round(base["cpu"], 2),      # Control Plane Load
+                            "temperature": round(base["temp"], 2),  # Chassis Temp
                             "timestamp": int(time.time() * 1000)
                         }
                     else:
