@@ -210,9 +210,11 @@ def get_system_mode():
 
 @app.post("/api/system/mode")
 def toggle_system_mode(payload: dict):
-    global system_mode
+    global system_mode, latest_metrics
     mode = payload.get("mode")
     if mode in ["simulation", "real"]:
+        if mode != system_mode:
+            latest_metrics.clear()
         system_mode = mode
     return {"status": "success", "mode": system_mode}
 
