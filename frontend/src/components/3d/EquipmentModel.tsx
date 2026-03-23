@@ -1,10 +1,10 @@
 "use client";
 import React, { useRef } from 'react';
-import { PivotControls, Text } from '@react-three/drei';
+import { PivotControls, Text, Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { EquipmentData, useDcimStore } from '@/store/useDcimStore';
 
-export default function EquipmentModel({ data }: { data: EquipmentData }) {
+export default function EquipmentModel({ data, telemetry }: { data: EquipmentData, telemetry?: any }) {
     const isEditMode = useDcimStore(state => state.isEditMode);
     const updateEquipmentPosition = useDcimStore(state => state.updateEquipmentPosition);
     const selectEquipment = useDcimStore(state => state.selectEquipment);
@@ -21,6 +21,8 @@ export default function EquipmentModel({ data }: { data: EquipmentData }) {
         const snappedZ = Math.round(pos.z / 0.6) * 0.6;
         updateEquipmentPosition(data.id, [snappedX, 0, snappedZ]);
     };
+
+    const racks = useDcimStore(state => state.racks);
 
     let innerContent;
 
@@ -135,32 +137,131 @@ export default function EquipmentModel({ data }: { data: EquipmentData }) {
             </group>
         );
     } else if (data.type === 'dashboard') {
+        const allServers = racks.flatMap(r => r.servers.map(s => ({ ...s, rackType: r.type })));
+        
+        const stats = {
+            traffic: Object.values(telemetry || {}).reduce((acc: number, s: any) => acc + (s.traffic_gbps || 0), 0) as number,
+            alarms: allServers.filter(srvInStore => {
+                const s = telemetry[srvInStore.name];
+                if (!s) return false;
+                const cpu = s.cpu_usage || 0;
+                const temp = s.temperature || 0;
+                const traffic = s.traffic_gbps || 0;
+                const ports = s.ports_active || 0;
+                
+                // Unified Critical Thresholds
+                if (srvInStore.type === 'switch' || srvInStore.rackType === 'network') {
+                    return cpu > 85 || temp > 55 || traffic > 35 || ports > 42;
+                } else {
+                    return cpu > 85 || temp > 55;
+                }
+            }).length
+        };
+
+        const isCriticalHub = stats.alarms > 0;
+
         innerContent = (
             <group>
-                {/* Desk */}
-                <mesh position={[0, 0.375, 0]} castShadow>
-                    <boxGeometry args={[1.6, 0.75, 0.8]} />
-                    <meshStandardMaterial color="#475569" />
+                {/* Desk Surface (Slim) */}
+                <mesh position={[0, 0.725, 0]}>
+                    <boxGeometry args={[1.8, 0.05, 0.9]} />
+                    <meshStandardMaterial color={isSelected ? "#334155" : "#1e293b"} roughness={0.4} metalness={0.7} />
                 </mesh>
-                {/* Monitor 1 */}
-                <mesh position={[-0.4, 0.9, -0.1]} rotation={[0, 0.2, 0]}>
-                    <boxGeometry args={[0.7, 0.4, 0.05]} />
-                    <meshStandardMaterial color="#000" emissive="#06b6d4" emissiveIntensity={0.2} />
-                </mesh>
-                {/* Monitor 2 */}
-                <mesh position={[0.4, 0.9, -0.1]} rotation={[0, -0.2, 0]}>
-                    <boxGeometry args={[0.7, 0.4, 0.05]} />
-                    <meshStandardMaterial color="#000" emissive="#06b6d4" emissiveIntensity={0.2} />
-                </mesh>
-                {/* IP Label */}
-                {data.ipAddress && (
-                    <Text position={[0, 1.2, 0]} fontSize={0.12} color="#22d3ee" anchorX="center" anchorY="middle">
-                        IP: {data.ipAddress}
+                {/* Metallic Legs */}
+                {[[-0.8, -0.35], [0.8, -0.35], [-0.8, 0.35], [0.8, 0.35]].map(([x, z], i) => (
+                    <mesh key={`leg-${i}`} position={[x, 0.35, z]}>
+                        <boxGeometry args={[0.06, 0.7, 0.06]} />
+                        <meshStandardMaterial color="#94a3b8" metalness={1} roughness={0.1} />
+                    </mesh>
+                ))}
+
+                {/* Left Monitor (High-Visibility Stats) */}
+                <group position={[-0.45, 0.75, -0.2]} rotation={[0, 0.2, 0]}>
+                    <mesh position={[0, 0.1, 0]}>
+                        <boxGeometry args={[0.05, 0.2, 0.03]} />
+                        <meshStandardMaterial color="#020617" />
+                    </mesh>
+                    <mesh position={[0, 0.25, 0.01]} castShadow>
+                        <boxGeometry args={[0.8, 0.45, 0.04]} />
+                        <meshStandardMaterial color="#020617" />
+                    </mesh>
+                    {/* Screen Background + Frame */}
+                    <mesh position={[0, 0.25, 0.031]}>
+                        <planeGeometry args={[0.76, 0.41]} />
+                        <meshBasicMaterial color="#000" />
+                    </mesh>
+                    <mesh position={[0, 0.25, 0.032]}>
+                        <planeGeometry args={[0.78, 0.43]} />
+                        <meshBasicMaterial color="#06b6d4" transparent opacity={0.3} />
+                    </mesh>
+                    {/* Large Native Text for perfect stability */}
+                    <Text position={[0, 0.32, 0.035]} fontSize={0.08} color="#06b6d4" anchorX="center" anchorY="middle">
+                        TRAFFIC
                     </Text>
-                )}
-                <Text position={[0, 1.4, 0]} fontSize={0.15} color="#334155" anchorX="center" anchorY="middle">
-                    {data.name} (HUB)
-                </Text>
+                    <Text position={[0, 0.18, 0.035]} fontSize={0.24} color="#fff" anchorX="center" anchorY="middle">
+                        {stats.traffic.toFixed(1)}
+                    </Text>
+                    <Text position={[0, 0.05, 0.035]} fontSize={0.06} color="#0e7490" anchorX="center" anchorY="middle">
+                        Gbps
+                    </Text>
+                </group>
+
+                {/* Right Monitor (High-Visibility Alarms) */}
+                <group position={[0.45, 0.75, -0.2]} rotation={[0, -0.2, 0]}>
+                    <mesh position={[0, 0.1, 0]}>
+                        <boxGeometry args={[0.05, 0.2, 0.03]} />
+                        <meshStandardMaterial color="#020617" />
+                    </mesh>
+                    <mesh position={[0, 0.25, 0.01]} castShadow>
+                        <boxGeometry args={[0.8, 0.45, 0.04]} />
+                        <meshStandardMaterial color="#020617" />
+                    </mesh>
+                    {/* Screen Background + Frame */}
+                    <mesh position={[0, 0.25, 0.031]}>
+                        <planeGeometry args={[0.76, 0.41]} />
+                        <meshBasicMaterial color="#000" />
+                    </mesh>
+                    <mesh position={[0, 0.25, 0.032]}>
+                        <planeGeometry args={[0.78, 0.43]} />
+                        <meshBasicMaterial color={isCriticalHub ? "#ef4444" : "#10b981"} transparent opacity={0.3} />
+                    </mesh>
+                    {/* Large Native Text for perfect stability */}
+                    <Text position={[0, 0.32, 0.035]} fontSize={0.08} color={isCriticalHub ? "#f87171" : "#34d399"} anchorX="center" anchorY="middle">
+                        ALARMS
+                    </Text>
+                    <Text position={[0, 0.18, 0.035]} fontSize={0.28} color={isCriticalHub ? "#ef4444" : "#10b981"} anchorX="center" anchorY="middle">
+                        {stats.alarms}
+                    </Text>
+                    <Text position={[0, 0.05, 0.035]} fontSize={0.05} color={isCriticalHub ? "#991b1b" : "#064e3b"} anchorX="center" anchorY="middle">
+                        {isCriticalHub ? 'CRITICAL ALERT' : 'SYSTEM OPTIMAL'}
+                    </Text>
+                </group>
+
+                {/* Peripherals */}
+                <mesh position={[0, 0.755, 0.1]}>
+                    <boxGeometry args={[0.5, 0.01, 0.18]} />
+                    <meshStandardMaterial color="#020617" />
+                </mesh>
+                <mesh position={[0.4, 0.755, 0.15]}>
+                    <boxGeometry args={[0.06, 0.01, 0.1]} />
+                    <meshStandardMaterial color="#020617" />
+                </mesh>
+
+                {/* Command Floating HUD */}
+                <group position={[0, 1.4, 0]}>
+                    <Text fontSize={0.12} color="#22d3ee" anchorX="center" anchorY="middle">
+                        IP: {data.ipAddress || "172.168.100.1"}
+                    </Text>
+                    <Text position={[0, 0.25, 0]} fontSize={0.18} color={isCriticalHub ? "#ef4444" : "#06b6d4"} anchorX="center" anchorY="middle" fontStyle="bold">
+                        {data.name} (HUB)
+                    </Text>
+                    {isCriticalHub && (
+                        <mesh position={[0, 0.5, 0]} castShadow>
+                            <sphereGeometry args={[0.07, 24, 24]} />
+                            <meshStandardMaterial color="#ef4444" emissive="#ef4444" emissiveIntensity={2} />
+                        </mesh>
+                    )}
+                </group>
             </group>
         );
     }

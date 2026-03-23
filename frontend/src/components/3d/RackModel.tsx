@@ -27,8 +27,9 @@ export default function RackModel({ data, isSelected, telemetry = {} }: { data: 
     data.servers.forEach(server => {
         const sTel = telemetry[server.name];
         if (sTel) {
-            if (sTel.temperature > 50 || sTel.cpu_usage > 85) hasCriticalServer = true;
-            else if (sTel.temperature > 40 || sTel.cpu_usage > 60) hasWarningServer = true;
+            // Updated to sync with dashboard thresholds
+            if (sTel.temperature > 55 || sTel.cpu_usage > 85) hasCriticalServer = true;
+            else if (sTel.temperature > 45 || sTel.cpu_usage > 60) hasWarningServer = true;
         }
     });
 

@@ -218,7 +218,7 @@ export default function TwinsPage() {
                         <RackModel key={rack.id} data={rack} isSelected={rack.id === store.selectedRackId} telemetry={telemetry} />
                     ))}
                     {store.equipments.map((eq) => (
-                        <EquipmentModel key={eq.id} data={eq} />
+                        <EquipmentModel key={eq.id} data={eq} telemetry={telemetry} />
                     ))}
                     <NetworkLines />
                     <OrbitControls makeDefault minPolarAngle={0} maxPolarAngle={Math.PI / 2 - 0.05} />

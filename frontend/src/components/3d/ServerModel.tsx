@@ -13,8 +13,9 @@ export default function ServerModel({ data, telemetry }: { data: ServerData, tel
 
     let liveStatus = data.status;
     if (telemetry) {
-        if (telemetry.temperature > 50 || telemetry.cpu_usage > 85) liveStatus = 'critical';
-        else if (telemetry.temperature > 40 || telemetry.cpu_usage > 60) liveStatus = 'warning';
+        // Sync with dashboard thresholds
+        if (telemetry.temperature > 55 || telemetry.cpu_usage > 85) liveStatus = 'critical';
+        else if (telemetry.temperature > 45 || telemetry.cpu_usage > 60) liveStatus = 'warning';
         else liveStatus = 'normal';
     }
 
