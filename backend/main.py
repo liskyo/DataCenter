@@ -1,14 +1,20 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from kafka import KafkaProducer, KafkaConsumer
-from influxdb_client import InfluxDBClient, Point
-from influxdb_client.client.write_api import SYNCHRONOUS
+from influxdb_client import InfluxDBClient, Point, WriteOptions
+from influxdb_client.client.write_api import ASYNCHRONOUS
 from pymongo import MongoClient
 import json
 import time
 import threading
 
 app = FastAPI(title="DataCenter Monitoring API")
+
+# 允許前端跨域請求
+from fastapi.middleware.gzip import GZipMiddleware
+
+# 啟動 GZip 壓縮，大幅提升 JSON 傳輸效能
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 # 允許前端跨域請求
 app.add_middleware(
@@ -30,7 +36,7 @@ INFLUX_TOKEN = "adminpassword"
 INFLUX_ORG = "datacenter"
 INFLUX_BUCKET = "telemetry"
 influx_client = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
-write_api = influx_client.write_api(write_options=SYNCHRONOUS)
+write_api = influx_client.write_api(write_options=ASYNCHRONOUS)
 
 # [3] MongoDB Config (應用資料庫: 儲存告警與狀態)
 MONGO_URI = "mongodb://admin:adminpassword@localhost:27017/"
@@ -43,7 +49,10 @@ def init_mongo():
         mongo_client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=2000)
         db = mongo_client["datacenter"]
         alerts_collection = db["alerts"]
-        print("MongoDB connected...")
+        
+        # 建立 Index 以預防海量歷史資料造成的記憶體排序效能瓶頸
+        alerts_collection.create_index([("timestamp", -1)])
+        print("MongoDB connected and index created...")
     except Exception as e:
         print(f"MongoDB connection failed: {e}")
 
