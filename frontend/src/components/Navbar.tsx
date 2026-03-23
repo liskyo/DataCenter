@@ -12,7 +12,7 @@ export default function Navbar() {
 
   const navItems = [
     { name: "狀態總覽", href: "/", icon: BarChart3 },
-    { name: "數位分身", href: "/twins", icon: Box },
+    { name: "3D動態機房", href: "/twins", icon: Box },
     { name: "廠務監控", href: "/facility", icon: Factory },
     { name: "設備控制", href: "/control", icon: SlidersHorizontal },
     { name: "趨勢分析", href: "/analysis", icon: LineChart },

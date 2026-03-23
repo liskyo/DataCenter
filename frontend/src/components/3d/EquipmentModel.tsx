@@ -94,6 +94,75 @@ export default function EquipmentModel({ data }: { data: EquipmentData }) {
                 </Text>
             </group>
         );
+    } else if (data.type === 'ups') {
+        innerContent = (
+            <group>
+                {/* Main Battery Cabinet */}
+                <mesh position={[0, 1.2, 0]} castShadow receiveShadow>
+                    <boxGeometry args={[0.8, 2.4, 0.8]} />
+                    <meshStandardMaterial color={isSelected ? "#b45309" : "#1c1917"} roughness={0.5} metalness={0.5} />
+                </mesh>
+                {/* Battery Status Indicator Bar */}
+                <mesh position={[0, 1.2, 0.41]}>
+                    <boxGeometry args={[0.1, 1.8, 0.05]} />
+                    <meshStandardMaterial color="#166534" emissive="#22c55e" emissiveIntensity={0.5} />
+                </mesh>
+                <mesh position={[0, 2.7, 0]}>
+                    <Text fontSize={0.15} color="#475569" anchorX="center" anchorY="middle">
+                        {data.name} (UPS)
+                    </Text>
+                </mesh>
+            </group>
+        );
+    } else if (data.type === 'chiller') {
+        innerContent = (
+            <group>
+                {/* Industrial Cooling Unit */}
+                <mesh position={[0, 1.3, 0]} castShadow receiveShadow>
+                    <boxGeometry args={[2.5, 2.6, 2.0]} />
+                    <meshStandardMaterial color={isSelected ? "#1e40af" : "#cbd5e1"} roughness={0.4} metalness={0.6} />
+                </mesh>
+                {/* Blue accents / Fans */}
+                <mesh position={[0, 2.61, 0]}>
+                    <cylinderGeometry args={[0.8, 0.8, 0.1, 32]} />
+                    <meshStandardMaterial color="#3b82f6" transparent opacity={0.6} />
+                </mesh>
+                <mesh position={[0, 2.9, 0]}>
+                    <Text fontSize={0.2} color="#1e3a8a" anchorX="center" anchorY="middle">
+                        {data.name} (CHILLER)
+                    </Text>
+                </mesh>
+            </group>
+        );
+    } else if (data.type === 'dashboard') {
+        innerContent = (
+            <group>
+                {/* Desk */}
+                <mesh position={[0, 0.375, 0]} castShadow>
+                    <boxGeometry args={[1.6, 0.75, 0.8]} />
+                    <meshStandardMaterial color="#475569" />
+                </mesh>
+                {/* Monitor 1 */}
+                <mesh position={[-0.4, 0.9, -0.1]} rotation={[0, 0.2, 0]}>
+                    <boxGeometry args={[0.7, 0.4, 0.05]} />
+                    <meshStandardMaterial color="#000" emissive="#06b6d4" emissiveIntensity={0.2} />
+                </mesh>
+                {/* Monitor 2 */}
+                <mesh position={[0.4, 0.9, -0.1]} rotation={[0, -0.2, 0]}>
+                    <boxGeometry args={[0.7, 0.4, 0.05]} />
+                    <meshStandardMaterial color="#000" emissive="#06b6d4" emissiveIntensity={0.2} />
+                </mesh>
+                {/* IP Label */}
+                {data.ipAddress && (
+                    <Text position={[0, 1.2, 0]} fontSize={0.12} color="#22d3ee" anchorX="center" anchorY="middle">
+                        IP: {data.ipAddress}
+                    </Text>
+                )}
+                <Text position={[0, 1.4, 0]} fontSize={0.15} color="#334155" anchorX="center" anchorY="middle">
+                    {data.name} (HUB)
+                </Text>
+            </group>
+        );
     }
 
     return (
@@ -111,7 +180,7 @@ export default function EquipmentModel({ data }: { data: EquipmentData }) {
                 ref={groupRef}
                 onClick={(e) => {
                     e.stopPropagation();
-                    if (isEditMode) selectEquipment(data.id);
+                    selectEquipment(data.id);
                 }}
             >
                 {innerContent}

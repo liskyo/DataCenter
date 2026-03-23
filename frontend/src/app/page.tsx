@@ -5,7 +5,7 @@ import {
   AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer,
   BarChart, Bar, PieChart, Pie, Cell
 } from "recharts";
-import { Activity, Server, AlertTriangle, Cpu, Thermometer, Clock, Database, Power, LayoutGrid } from "lucide-react";
+import { Activity, Server, AlertTriangle, Cpu, Thermometer, Clock, Database, Power, LayoutGrid, Box, Link2 } from "lucide-react";
 import { useDcimStore } from "@/store/useDcimStore";
 
 // ==========================================
@@ -129,9 +129,12 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, []);
 
-  // 計算狀態
-  const totalServers = data.length;
-  const warningServers = data.filter(d => d.temperature > 50 || d.cpu_usage > 85).length;
+  // Calculate stats based on store servers
+  const storeServers = store.racks.flatMap(r => r.servers.map(s => s.name));
+  const activeStoreData = data.filter(d => storeServers.includes(d.server_id));
+  
+  const totalServers = storeServers.length;
+  const warningServers = activeStoreData.filter(d => d.temperature > 50 || d.cpu_usage > 85).length;
   const healthyServers = totalServers - warningServers;
 
   const pieData = [
@@ -247,16 +250,7 @@ export default function Dashboard() {
             <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mt-2">
               {(() => {
                 const storeServers = store.racks.flatMap(r => r.servers.map(s => ({ ...s, rackName: r.name })));
-                const storeServerNames = new Set(storeServers.map(s => s.name));
-
-                // Unmounted servers emitting signals
-                const unmountedServers = data.filter(d => !storeServerNames.has(d.server_id)).map(d => ({
-                  id: d.server_id,
-                  name: d.server_id,
-                  rackName: "Unmounted",
-                }));
-
-                const allGridItems = [...storeServers, ...unmountedServers].sort((a, b) => a.name.localeCompare(b.name));
+                const allGridItems = storeServers.sort((a, b) => a.name.localeCompare(b.name));
 
                 if (allGridItems.length === 0) {
                   return (
@@ -310,25 +304,50 @@ export default function Dashboard() {
 
                       {/* Metrics Mini-Bar */}
                       <div className="mt-4 space-y-3">
-                        <div className="relative">
-                          <div className="flex justify-between text-[10px] text-cyan-600 font-bold mb-1">
-                            <span className="flex items-center gap-1"><Cpu size={10} /> CPU</span>
-                            <span className={srv.cpu_usage > 85 ? 'text-red-400' : srv.cpu_usage > 60 ? 'text-yellow-400' : 'text-white'}>{srv.cpu_usage.toFixed(1)}%</span>
-                          </div>
-                          <div className="h-1 w-full bg-[#0a1e3f] overflow-hidden">
-                            <div className={`h-full ${srv.cpu_usage > 85 ? 'bg-red-500' : srv.cpu_usage > 60 ? 'bg-yellow-400' : 'bg-cyan-400'}`} style={{ width: `${srv.cpu_usage}%` }}></div>
-                          </div>
-                        </div>
+                        {item.type === 'switch' ? (
+                          <>
+                            <div className="relative">
+                              <div className="flex justify-between text-[10px] text-purple-400 font-bold mb-1">
+                                <span className="flex items-center gap-1"><Link2 size={10} /> TRAFFIC</span>
+                                <span className="text-white">{(srv.traffic_gbps || 0).toFixed(1)} Gbps</span>
+                              </div>
+                              <div className="h-1 w-full bg-[#0a1e3f] overflow-hidden">
+                                <div className="h-full bg-purple-500" style={{ width: `${Math.min(((srv.traffic_gbps || 0) / 40) * 100, 100)}%` }}></div>
+                              </div>
+                            </div>
+                            <div className="relative">
+                              <div className="flex justify-between text-[10px] text-purple-400 font-bold mb-1">
+                                <span className="flex items-center gap-1"><Box size={10} /> PORTS</span>
+                                <span className="text-white">{srv.ports_active || 0} / {srv.ports_total || 48}</span>
+                              </div>
+                              <div className="h-1 w-full bg-[#0a1e3f] overflow-hidden">
+                                <div className="h-full bg-purple-400" style={{ width: `${((srv.ports_active || 0) / (srv.ports_total || 48)) * 100}%` }}></div>
+                              </div>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="relative">
+                              <div className="flex justify-between text-[10px] text-cyan-600 font-bold mb-1">
+                                <span className="flex items-center gap-1"><Cpu size={10} /> CPU</span>
+                                <span className={srv.cpu_usage > 85 ? 'text-red-400' : srv.cpu_usage > 60 ? 'text-yellow-400' : 'text-white'}>{(srv.cpu_usage || 0).toFixed(1)}%</span>
+                              </div>
+                              <div className="h-1 w-full bg-[#0a1e3f] overflow-hidden">
+                                <div className={`h-full ${srv.cpu_usage > 85 ? 'bg-red-500' : srv.cpu_usage > 60 ? 'bg-yellow-400' : 'bg-cyan-400'}`} style={{ width: `${srv.cpu_usage || 0}%` }}></div>
+                              </div>
+                            </div>
 
-                        <div className="relative">
-                          <div className="flex justify-between text-[10px] text-cyan-600 font-bold mb-1">
-                            <span className="flex items-center gap-1"><Thermometer size={10} /> TEMP</span>
-                            <span className={srv.temperature > 50 ? 'text-red-400' : srv.temperature > 40 ? 'text-yellow-400' : 'text-white'}>{srv.temperature.toFixed(1)}°C</span>
-                          </div>
-                          <div className="h-1 w-full bg-[#0a1e3f] overflow-hidden">
-                            <div className={`h-full ${srv.temperature > 50 ? 'bg-red-500' : srv.temperature > 40 ? 'bg-yellow-400' : 'bg-blue-400'}`} style={{ width: `${(srv.temperature / 100) * 100}%` }}></div>
-                          </div>
-                        </div>
+                            <div className="relative">
+                              <div className="flex justify-between text-[10px] text-cyan-600 font-bold mb-1">
+                                <span className="flex items-center gap-1"><Thermometer size={10} /> TEMP</span>
+                                <span className={srv.temperature > 50 ? 'text-red-400' : srv.temperature > 40 ? 'text-yellow-400' : 'text-white'}>{(srv.temperature || 0).toFixed(1)}°C</span>
+                              </div>
+                              <div className="h-1 w-full bg-[#0a1e3f] overflow-hidden">
+                                <div className={`h-full ${srv.temperature > 50 ? 'bg-red-500' : srv.temperature > 40 ? 'bg-yellow-400' : 'bg-blue-400'}`} style={{ width: `${((srv.temperature || 0) / 100) * 100}%` }}></div>
+                              </div>
+                            </div>
+                          </>
+                        )}
                       </div>
                     </div>
                   );
@@ -342,12 +361,12 @@ export default function Dashboard() {
         <div className="col-span-3 flex flex-col gap-6">
           <TechPanel title="各節點 CPU 負載佔比" className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
-              <BarChart data={data} layout="vertical" margin={{ top: 0, right: 20, left: 10, bottom: 0 }}>
+              <BarChart data={activeStoreData} layout="vertical" margin={{ top: 0, right: 20, left: 10, bottom: 0 }}>
                 <XAxis type="number" domain={[0, 100]} hide />
                 <YAxis dataKey="server_id" type="category" stroke="#1e3a8a" fontSize={10} width={70} tick={{ fill: '#06b6d4' }} />
                 <RechartsTooltip cursor={{ fill: '#1e3a8a' }} contentStyle={{ backgroundColor: '#020b1a', borderColor: '#06b6d4', color: '#fff' }} />
                 <Bar dataKey="cpu_usage" isAnimationActive={false}>
-                  {data.map((entry, index) => (
+                  {activeStoreData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.cpu_usage > 85 ? '#ef4444' : '#06b6d4'} />
                   ))}
                 </Bar>
@@ -357,10 +376,10 @@ export default function Dashboard() {
 
           <TechPanel title="即時系統警報 (Real-time Alarms)" className="flex-1">
             <div className="h-full overflow-y-auto pr-2 space-y-2 custom-scrollbar">
-              {data.filter(s => s.cpu_usage > 85 || s.temperature > 50).length === 0 ? (
+              {activeStoreData.filter(s => s.cpu_usage > 85 || s.temperature > 50).length === 0 ? (
                 <div className="text-xs text-cyan-800 font-mono text-center mt-10">NO ACTIVE ALARMS</div>
               ) : (
-                data.filter(s => s.cpu_usage > 85 || s.temperature > 50).map(srv => (
+                activeStoreData.filter(s => s.cpu_usage > 85 || s.temperature > 50).map(srv => (
                   <div key={`alarm-${srv.server_id}`} className="bg-red-950/40 border border-red-900 p-3 rounded-none flex gap-3 items-start relative overflow-hidden group">
                     <div className="absolute left-0 top-0 bottom-0 w-1 bg-red-500"></div>
                     <AlertTriangle className="text-red-500 shrink-0" size={16} />

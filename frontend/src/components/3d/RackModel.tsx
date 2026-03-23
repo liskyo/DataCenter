@@ -39,9 +39,25 @@ export default function RackModel({ data, isSelected, telemetry = {} }: { data: 
         frameColor = "#f59e0b"; // Yellow (Only for Power > 70%)
     }
 
+    if (data.type === 'network') {
+        frameColor = "#a855f7"; // Purple for Network Rack
+    }
+
     if (isSelected) {
         frameColor = "#06b6d4"; // Highlight when selected
     }
+
+    // Heatmap data: average temp of servers in this rack
+    const temps = data.servers.map(s => telemetry[s.name]?.temperature).filter(t => t !== undefined);
+    const avgTemp = temps.length > 0 ? temps.reduce((a, b) => a + b, 0) / temps.length : 22;
+
+    const getHeatColor = (t: number) => {
+        if (t > 50) return "#ef4444";
+        if (t > 40) return "#f59e0b";
+        return "#3b82f6";
+    };
+
+    const heatmapColor = getHeatColor(avgTemp);
 
     const handleDrag = (localMatrix: THREE.Matrix4) => {
         const pos = new THREE.Vector3();
@@ -78,10 +94,29 @@ export default function RackModel({ data, isSelected, telemetry = {} }: { data: 
                     <meshStandardMaterial
                         color={frameColor}
                         transparent
-                        opacity={isSelected ? 0.3 : 0.15}
-                        wireframe={!isSelected}
+                        opacity={isSelected ? (data.type === 'network' ? 0.4 : 0.3) : 0.15}
+                        wireframe={!isSelected && data.type !== 'network'}
+                        emissive={data.type === 'network' ? "#a855f7" : "#000"}
+                        emissiveIntensity={data.type === 'network' ? 0.2 : 0}
                     />
                 </mesh>
+
+                {/* Industrial Corner Pillars for Network Rack */}
+                {data.type === 'network' && (
+                    <group>
+                        {[
+                            [-RACK_WIDTH / 2, 0, -RACK_DEPTH / 2],
+                            [RACK_WIDTH / 2, 0, -RACK_DEPTH / 2],
+                            [-RACK_WIDTH / 2, 0, RACK_DEPTH / 2],
+                            [RACK_WIDTH / 2, 0, RACK_DEPTH / 2]
+                        ].map((pos, i) => (
+                            <mesh key={i} position={[pos[0], rackHeight / 2, pos[2]]}>
+                                <boxGeometry args={[0.04, rackHeight, 0.04]} />
+                                <meshStandardMaterial color="#4c1d95" emissive="#a855f7" emissiveIntensity={0.5} />
+                            </mesh>
+                        ))}
+                    </group>
+                )}
 
                 {/* Rack Base / Roof for solid look */}
                 <mesh position={[0, 0.05, 0]}>
@@ -131,6 +166,32 @@ export default function RackModel({ data, isSelected, telemetry = {} }: { data: 
                 {data.servers.map(server => (
                     <ServerModel key={server.id} data={server} telemetry={telemetry[server.name]} />
                 ))}
+
+                {/* Heatmap Environmental Sensor Nodes (Front) */}
+                <group position={[0, 0, RACK_DEPTH / 2 + 0.05]}>
+                    {/* Top Sensor */}
+                    <mesh position={[0, rackHeight - 0.2, 0]}>
+                        <sphereGeometry args={[0.04, 16, 16]} />
+                        <meshStandardMaterial color={heatmapColor} emissive={heatmapColor} emissiveIntensity={0.8} transparent opacity={0.6} />
+                    </mesh>
+                    {/* Mid Sensor */}
+                    <mesh position={[0, rackHeight / 2, 0]}>
+                        <sphereGeometry args={[0.04, 16, 16]} />
+                        <meshStandardMaterial color={heatmapColor} emissive={heatmapColor} emissiveIntensity={0.8} transparent opacity={0.6} />
+                    </mesh>
+                    {/* Bottom Sensor */}
+                    <mesh position={[0, 0.2, 0]}>
+                        <sphereGeometry args={[0.04, 16, 16]} />
+                        <meshStandardMaterial color={heatmapColor} emissive={heatmapColor} emissiveIntensity={0.8} transparent opacity={0.6} />
+                    </mesh>
+                </group>
+
+                {/* Network Rack Identifier */}
+                {data.type === 'network' && (
+                    <Text position={[0, rackHeight + 0.25, 0]} fontSize={0.12} color="#a855f7">
+                        [ NETWORK CORE ]
+                    </Text>
+                )}
             </group>
         </PivotControls>
     );

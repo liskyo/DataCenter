@@ -221,7 +221,10 @@ def toggle_system_mode(payload: dict):
 def simulation_worker():
     global producer
     servers = [f"SERVER-{str(i).zfill(3)}" for i in range(1, 13)]
-    base_metrics = { s_id: {"temp": random.uniform(20, 25), "cpu": random.uniform(10, 30)} for s_id in servers }
+    switches = [f"SW-{str(i).zfill(3)}" for i in range(1, 13)]
+    all_ids = servers + switches
+    
+    base_metrics = { s_id: {"temp": random.uniform(20, 25), "cpu": random.uniform(10, 30), "traffic": random.uniform(2, 10)} for s_id in all_ids }
     
     active_critical = None
     active_warning = None
@@ -230,47 +233,62 @@ def simulation_worker():
     while True:
         if system_mode == "simulation" and producer:
             try:
-                # 每 1 分鐘重新抽籤：一台變紅 (Critical)，一台變黃 (Warning) (因為每次 sleep 5s，所以 12 loops = 1 分鐘)
+                # 每 1 分鐘重新抽籤：一台變紅 (Critical)，一台變黃 (Warning)
                 if loops % 12 == 0:
-                    sampled = random.sample(servers, 2)
+                    sampled = random.sample(all_ids, 2)
                     active_critical = sampled[0]
                     active_warning = sampled[1]
                 loops += 1
 
-                for s_id in servers:
+                for s_id in all_ids:
                     base = base_metrics[s_id]
                     
                     # 基礎微幅亂數震盪
                     base["temp"] += random.uniform(-1.0, 1.0)
                     base["cpu"] += random.uniform(-4.0, 4.0)
+                    base["traffic"] += random.uniform(-2.0, 2.0)
                     
                     if s_id == active_critical:
-                        # 異常目標：溫度逼近 75°C，CPU 逼近 95% (紅色 Critical)
+                        # 異常目標 (Red Critical)
                         if base["temp"] < 75: base["temp"] += 10.0
                         if base["cpu"] < 95: base["cpu"] += 20.0
+                        if base["traffic"] < 45: base["traffic"] += 10.0
                     elif s_id == active_warning:
-                        # 警告目標：溫度逼近 45°C，CPU 逼近 75% (黃色 Warning)
+                        # 警告目標 (Yellow Warning)
                         if base["temp"] < 45: base["temp"] += 5.0
                         if base["cpu"] < 75: base["cpu"] += 10.0
+                        if base["traffic"] < 30: base["traffic"] += 5.0
                     else:
-                        # 正常目標：溫度回歸 25°C，CPU 回歸 25%
+                        # 正常目標
                         if base["temp"] > 25: base["temp"] -= 5.0
                         if base["cpu"] > 25: base["cpu"] -= 10.0
+                        if base["traffic"] > 10: base["traffic"] -= 5.0
                     
                     # 絕對上下限保護
                     base["temp"] = max(18, min(base["temp"], 90))
                     base["cpu"] = max(2, min(base["cpu"], 100))
+                    base["traffic"] = max(0.1, min(base["traffic"], 50))
                     
-                    # 加上不到 1% 機率的極短毛刺 (Spikes)
-                    current_temp = base["temp"] + (random.uniform(15, 25) if random.random() < 0.005 else 0)
-                    current_cpu = base["cpu"] + (random.uniform(30, 50) if random.random() < 0.005 else 0)
-                    
-                    payload = {
-                        "server_id": s_id,
-                        "temperature": min(current_temp, 99.9),
-                        "cpu_usage": min(current_cpu, 100.0),
-                        "timestamp": int(time.time() * 1000)
-                    }
+                    if s_id.startswith("SW-"):
+                        # Network Switch specific payload
+                        payload = {
+                            "server_id": s_id,
+                            "traffic_gbps": round(base["traffic"], 2),
+                            "ports_active": int(48 * (base["cpu"] / 100)), # Link ports to "cpu" for simplicity
+                            "ports_total": 48,
+                            "timestamp": int(time.time() * 1000)
+                        }
+                    else:
+                        # Server specific payload
+                        current_temp = base["temp"] + (random.uniform(15, 25) if random.random() < 0.005 else 0)
+                        current_cpu = base["cpu"] + (random.uniform(30, 50) if random.random() < 0.005 else 0)
+                        payload = {
+                            "server_id": s_id,
+                            "temperature": min(current_temp, 99.9),
+                            "cpu_usage": min(current_cpu, 100.0),
+                            "timestamp": int(time.time() * 1000)
+                        }
+                        
                     producer.send(TOPIC, value=payload)
                 producer.flush()
             except Exception as e:

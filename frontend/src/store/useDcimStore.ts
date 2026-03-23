@@ -12,7 +12,7 @@ export type ServerData = {
     status: 'normal' | 'warning' | 'critical' | 'offline';
 };
 
-export type EquipmentType = 'crac' | 'pdu' | 'cdu';
+export type EquipmentType = 'crac' | 'pdu' | 'cdu' | 'ups' | 'chiller' | 'dashboard';
 
 export type EquipmentData = {
     id: string;
@@ -20,16 +20,20 @@ export type EquipmentData = {
     type: EquipmentType;
     position: [number, number, number];
     rotation: [number, number, number];
+    ipAddress?: string; // For Dashboard PC
 };
 
 export type RackData = {
     id: string;
     name: string;
+    type: 'server' | 'network';
     position: [number, number, number];
     rotation: [number, number, number];
     uCapacity: number; // usually 42
     maxPowerKw: number;
     servers: ServerData[];
+    connectedNetworkRackId?: string; // Link to a network rack
+    connectedSwitchId?: string | null; // Targeted switch inside the network rack
 };
 
 type DcimState = {
@@ -41,8 +45,10 @@ type DcimState = {
 
     equipments: EquipmentData[];
     selectedEquipmentId: string | null;
-    addRack: (position: [number, number, number]) => void;
+    addRack: (position: [number, number, number], type?: 'server' | 'network') => void;
     updateRackPosition: (id: string, position: [number, number, number]) => void;
+    updateRackConnection: (id: string, networkRackId: string | null, switchId?: string | null) => void;
+    updateRackName: (id: string, name: string) => void;
     removeRack: (id: string) => void;
     addServerToRack: (rackId: string, server: Omit<ServerData, 'id'>) => boolean; // Returns false if no space
     removeServerFromRack: (rackId: string, serverId: string) => void;
@@ -52,6 +58,8 @@ type DcimState = {
     updateEquipmentPosition: (id: string, position: [number, number, number]) => void;
     removeEquipment: (id: string) => void;
     selectEquipment: (id: string | null) => void;
+    updateEquipmentIp: (id: string, ip: string) => void;
+    updateEquipmentName: (id: string, name: string) => void;
 
     exportState: () => string;
     importState: (jsonConfig: string) => boolean;
@@ -74,7 +82,7 @@ export const useDcimStore = create<DcimState>()(
 
             racks: [
                 {
-                    id: uuidv4(), name: 'RACK-A01', position: [-2.4, 0, -1.2], rotation: [0, 0, 0], uCapacity: 42, maxPowerKw: 15,
+                    id: uuidv4(), name: 'RACK-A01', type: 'server', position: [-2.4, 0, -1.2], rotation: [0, 0, 0], uCapacity: 42, maxPowerKw: 15,
                     servers: [
                         { id: uuidv4(), name: 'SERVER-001', uPosition: 2, uHeight: 1, powerKw: 0.8, type: 'server', status: 'normal' },
                         { id: uuidv4(), name: 'SERVER-002', uPosition: 4, uHeight: 1, powerKw: 0.8, type: 'server', status: 'normal' },
@@ -82,54 +90,45 @@ export const useDcimStore = create<DcimState>()(
                     ]
                 },
                 {
-                    id: uuidv4(), name: 'RACK-A02', position: [-1.2, 0, -1.2], rotation: [0, 0, 0], uCapacity: 42, maxPowerKw: 15,
+                    id: uuidv4(), name: 'RACK-A02', type: 'server', position: [-1.2, 0, -1.2], rotation: [0, 0, 0], uCapacity: 42, maxPowerKw: 15,
                     servers: [
                         { id: uuidv4(), name: 'SERVER-004', uPosition: 2, uHeight: 2, powerKw: 2.0, type: 'server', status: 'normal' },
                         { id: uuidv4(), name: 'SERVER-005', uPosition: 6, uHeight: 2, powerKw: 2.0, type: 'server', status: 'normal' }
                     ]
                 },
                 {
-                    id: uuidv4(), name: 'RACK-A03', position: [0, 0, -1.2], rotation: [0, 0, 0], uCapacity: 42, maxPowerKw: 25,
-                    servers: [
-                        { id: uuidv4(), name: 'SERVER-006', uPosition: 2, uHeight: 4, powerKw: 6.0, type: 'server', status: 'normal' },
-                        { id: uuidv4(), name: 'SERVER-007', uPosition: 8, uHeight: 4, powerKw: 6.0, type: 'server', status: 'normal' }
-                    ]
-                },
-                {
-                    id: uuidv4(), name: 'RACK-A04', position: [1.2, 0, -1.2], rotation: [0, 0, 0], uCapacity: 42, maxPowerKw: 15,
-                    servers: [
-                        { id: uuidv4(), name: 'SERVER-008', uPosition: 2, uHeight: 1, powerKw: 1.0, type: 'server', status: 'normal' },
-                        { id: uuidv4(), name: 'SERVER-009', uPosition: 5, uHeight: 2, powerKw: 1.5, type: 'server', status: 'normal' },
-                        { id: uuidv4(), name: 'SERVER-010', uPosition: 9, uHeight: 1, powerKw: 1.0, type: 'server', status: 'normal' }
-                    ]
-                },
-                {
-                    id: uuidv4(), name: 'RACK-A05', position: [2.4, 0, -1.2], rotation: [0, 0, 0], uCapacity: 42, maxPowerKw: 15,
-                    servers: [
-                        { id: uuidv4(), name: 'SERVER-011', uPosition: 2, uHeight: 8, powerKw: 8.0, type: 'server', status: 'normal' },
-                        { id: uuidv4(), name: 'SERVER-012', uPosition: 12, uHeight: 4, powerKw: 4.0, type: 'server', status: 'normal' }
-                    ]
+                    id: uuidv4(), name: 'NET-RACK-01', type: 'network', position: [0, 0, -4.5], rotation: [0, 0, 0], uCapacity: 42, maxPowerKw: 10,
+                    servers: []
                 }
             ],
             selectedRackId: null,
 
-            addRack: (position) => set((state) => ({
+            addRack: (position, type = 'server') => set((state) => ({
                 racks: [
                     ...state.racks,
                     {
                         id: uuidv4(),
-                        name: `RACK-${Math.floor(Math.random() * 1000)}`,
+                        name: type === 'server' ? `RACK-${Math.floor(Math.random() * 1000)}` : `NET-RACK-${Math.floor(Math.random() * 1000)}`,
+                        type,
                         position,
                         rotation: [0, 0, 0],
                         uCapacity: 42,
-                        maxPowerKw: 15,
+                        maxPowerKw: type === 'server' ? 15 : 10,
                         servers: []
                     }
                 ]
             })),
 
+            updateRackConnection: (id, networkRackId, switchId = null) => set((state) => ({
+                racks: state.racks.map(r => r.id === id ? { ...r, connectedNetworkRackId: networkRackId || undefined, connectedSwitchId: switchId } : r)
+            })),
+
             updateRackPosition: (id, position) => set((state) => ({
                 racks: state.racks.map(r => r.id === id ? { ...r, position } : r)
+            })),
+
+            updateRackName: (id, name) => set((state) => ({
+                racks: state.racks.map(r => r.id === id ? { ...r, name } : r)
             })),
 
             removeRack: (id) => set((state) => ({
@@ -203,6 +202,14 @@ export const useDcimStore = create<DcimState>()(
 
             selectEquipment: (id) => set({ selectedEquipmentId: id, selectedRackId: null }),
 
+            updateEquipmentIp: (id, ip) => set((state) => ({
+                equipments: state.equipments.map(e => e.id === id ? { ...e, ipAddress: ip } : e)
+            })),
+
+            updateEquipmentName: (id, name) => set((state) => ({
+                equipments: state.equipments.map(e => e.id === id ? { ...e, name } : e)
+            })),
+
             exportState: () => {
                 const state = get();
                 return JSON.stringify({ racks: state.racks, equipments: state.equipments }, null, 2);
@@ -227,7 +234,7 @@ export const useDcimStore = create<DcimState>()(
             }
         }),
         {
-            name: 'datacenter-storage', // key in localStorage
+            name: 'datacenter-storage-v2', // key in localStorage - Updated to v2 to force reset defaults
             partialize: (state) => ({ racks: state.racks, equipments: state.equipments }), // Only preserve these keys
         })
 );
