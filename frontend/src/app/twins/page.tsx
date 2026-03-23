@@ -30,7 +30,7 @@ export default function TwinsPage() {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const res = await fetch("http://localhost:8000/metrics");
+                const res = await fetch("http://localhost:8000/metrics", { cache: "no-store" });
                 if (!res.ok) return;
                 const json = await res.json();
                 const tMap: Record<string, any> = {};
@@ -41,7 +41,7 @@ export default function TwinsPage() {
             } catch (e) { }
         };
         fetchData();
-        const interval = setInterval(fetchData, 1000);
+        const interval = setInterval(fetchData, 5000);
         return () => clearInterval(interval);
     }, []);
 

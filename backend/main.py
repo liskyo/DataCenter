@@ -20,7 +20,7 @@ app.add_middleware(
 )
 
 # [1] Kafka Config
-KAFKA_BROKER = "localhost:9092"
+KAFKA_BROKER = "localhost:29092"
 TOPIC = "telemetry"
 producer = None
 
@@ -133,50 +133,50 @@ def get_history():
 
 def kafka_consumer_worker():
     import uuid
-    import uuid as unique_id
-    consumer = None
-    while not consumer:
+    import traceback
+    
+    while True:
         try:
             consumer = KafkaConsumer(
                 TOPIC,
                 bootstrap_servers=[KAFKA_BROKER],
-                group_id=f'influx_writer_group_{uuid.uuid4().hex}',
+                group_id='influx_writer_group_persistent',
                 auto_offset_reset='latest',
                 value_deserializer=lambda m: json.loads(m.decode('utf-8'))
             )
+            print("Kafka Consumer started and polling...")
+            for msg in consumer:
+                try:
+                    data = msg.value
+                    server_id = data.get("server_id", "unknown")
+                    temp = float(data.get("temperature", 0))
+                    cpu = float(data.get("cpu_usage", 0))
+                    
+                    # 1. 執行固定閾值告警 (Rule-based)
+                    if temp > 40:
+                        trigger_alert(server_id, "HIGH_TEMPERATURE", f"溫度超過警戒值! 目前溫度: {temp:.1f}°C")
+                        data["alert"] = "High Temp"
+                        
+                    # 2. 執行 AI 異常檢測 (Anomaly Detection)
+                    is_anomaly, reason = detect_anomaly(server_id, cpu, temp)
+                    if is_anomaly:
+                        trigger_alert(server_id, "AI_ANOMALY", reason)
+                        data["anomaly"] = reason
+                    
+                    # 更新最新狀態到快取供前端 Dashboard 使用
+                    latest_metrics[server_id] = data
+                    
+                    # 3. 將資料寫入 InfluxDB
+                    point = Point("server_metrics") \
+                        .tag("server_id", server_id) \
+                        .field("temperature", temp) \
+                        .field("cpu_usage", cpu)
+                    write_api.write(bucket=INFLUX_BUCKET, org=INFLUX_ORG, record=point)
+                except Exception as e:
+                    print(f"Error processing message: {e}")
         except Exception as e:
+            print(f"Kafka Consumer crashed (likely Windows socket issue): {e}. Reconnecting...")
             time.sleep(3)
-            
-    print("Kafka Consumer started...")
-    for msg in consumer:
-        try:
-            data = msg.value
-            server_id = data.get("server_id", "unknown")
-            temp = float(data.get("temperature", 0))
-            cpu = float(data.get("cpu_usage", 0))
-            
-            # 1. 執行固定閾值告警 (Rule-based)
-            if temp > 40:
-                trigger_alert(server_id, "HIGH_TEMPERATURE", f"溫度超過警戒值! 目前溫度: {temp:.1f}°C")
-                data["alert"] = "High Temp"
-                
-            # 2. 執行 AI 異常檢測 (Anomaly Detection)
-            is_anomaly, reason = detect_anomaly(server_id, cpu, temp)
-            if is_anomaly:
-                trigger_alert(server_id, "AI_ANOMALY", reason)
-                data["anomaly"] = reason
-            
-            # 更新最新狀態到快取供前端 Dashboard 使用
-            latest_metrics[server_id] = data
-            
-            # 3. 將資料寫入 InfluxDB
-            point = Point("server_metrics") \
-                .tag("server_id", server_id) \
-                .field("temperature", temp) \
-                .field("cpu_usage", cpu)
-            write_api.write(bucket=INFLUX_BUCKET, org=INFLUX_ORG, record=point)
-        except Exception as e:
-            print(f"Error processing message: {e}")
 
 def init_kafka_producer():
     global producer
@@ -208,6 +208,7 @@ def toggle_system_mode(payload: dict):
     return {"status": "success", "mode": system_mode}
 
 def simulation_worker():
+    global producer
     servers = [f"SERVER-{str(i).zfill(3)}" for i in range(1, 13)]
     base_metrics = { s_id: {"temp": random.uniform(20, 25), "cpu": random.uniform(10, 30)} for s_id in servers }
     
@@ -218,8 +219,8 @@ def simulation_worker():
     while True:
         if system_mode == "simulation" and producer:
             try:
-                # 每 20 秒重新抽籤：一台變紅 (Critical)，一台變黃 (Warning)
-                if loops % 20 == 0:
+                # 每 1 分鐘重新抽籤：一台變紅 (Critical)，一台變黃 (Warning) (因為每次 sleep 5s，所以 12 loops = 1 分鐘)
+                if loops % 12 == 0:
                     sampled = random.sample(servers, 2)
                     active_critical = sampled[0]
                     active_warning = sampled[1]
@@ -234,16 +235,16 @@ def simulation_worker():
                     
                     if s_id == active_critical:
                         # 異常目標：溫度逼近 75°C，CPU 逼近 95% (紅色 Critical)
-                        if base["temp"] < 75: base["temp"] += 2.5
-                        if base["cpu"] < 95: base["cpu"] += 6.0
+                        if base["temp"] < 75: base["temp"] += 10.0
+                        if base["cpu"] < 95: base["cpu"] += 20.0
                     elif s_id == active_warning:
                         # 警告目標：溫度逼近 45°C，CPU 逼近 75% (黃色 Warning)
-                        if base["temp"] < 45: base["temp"] += 1.5
-                        if base["cpu"] < 75: base["cpu"] += 3.0
+                        if base["temp"] < 45: base["temp"] += 5.0
+                        if base["cpu"] < 75: base["cpu"] += 10.0
                     else:
                         # 正常目標：溫度回歸 25°C，CPU 回歸 25%
-                        if base["temp"] > 25: base["temp"] -= 1.5
-                        if base["cpu"] > 25: base["cpu"] -= 3.0
+                        if base["temp"] > 25: base["temp"] -= 5.0
+                        if base["cpu"] > 25: base["cpu"] -= 10.0
                     
                     # 絕對上下限保護
                     base["temp"] = max(18, min(base["temp"], 90))
@@ -268,7 +269,13 @@ def simulation_worker():
                         f.write(f"Simulator Error: {traceback.format_exc()}\n")
                 except:
                     pass
-        time.sleep(1)
+                # 若發生 Metadata Timeout 或 Socket 錯誤，強制重置 Producer 以觸發自動重連
+                try:
+                    producer.close(timeout=1)
+                except: pass
+                producer = None
+                threading.Thread(target=init_kafka_producer, daemon=True).start()
+        time.sleep(5)
 
 @app.on_event("startup")
 async def startup_event():
