@@ -12,9 +12,23 @@ app = FastAPI(title="DataCenter Monitoring API")
 
 # 允許前端跨域請求
 from fastapi.middleware.gzip import GZipMiddleware
+from starlette.types import ASGIApp, Receive, Scope, Send
+
+class SafeGZipMiddleware(GZipMiddleware):
+    """
+    自定義 GZip Middleware 解決 Windows Python 3.13 下
+    連線中斷導致的 'ValueError: I/O operation on closed file' 報錯。
+    """
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        try:
+            await super().__call__(scope, receive, send)
+        except (ValueError, RuntimeError) as e:
+            if "closed file" in str(e) or "Response already sent" in str(e):
+                return
+            raise e
 
 # 啟動 GZip 壓縮，大幅提升 JSON 傳輸效能
-app.add_middleware(GZipMiddleware, minimum_size=1000)
+app.add_middleware(SafeGZipMiddleware, minimum_size=1000)
 
 # 允許前端跨域請求
 app.add_middleware(
@@ -25,8 +39,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# [1] Kafka Config
-KAFKA_BROKER = "localhost:29092"
+# [1] Kafka Config (使用 127.0.0.1 避免 Windows localhost 解析問題)
+KAFKA_BROKER = "127.0.0.1:29092"
 TOPIC = "telemetry"
 producer = None
 
@@ -184,8 +198,9 @@ def kafka_consumer_worker():
                 except Exception as e:
                     print(f"Error processing message: {e}")
         except Exception as e:
-            print(f"Kafka Consumer crashed (likely Windows socket issue): {e}. Reconnecting...")
-            time.sleep(3)
+            # 提高對 Windows Socket 錯誤與 Kafka 啟動延遲的容忍度
+            print(f"Kafka Consumer crashed (likely Windows socket issue or Broker starting): {e}. Reconnecting in 5s...")
+            time.sleep(5)
 
 def init_kafka_producer():
     global producer
