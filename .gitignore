@@ -1,0 +1,15 @@
+/.venv
+/alembic
+/alembic.ini
+/app
+/check_conn.py
+/collector
+/debug_conn.txt
+/debug_docker.py
+/docker-compose.yml
+/Dockerfile
+/docker_error.txt
+/frontend
+/ps_a.txt
+/README.md
+/requirements.txt
