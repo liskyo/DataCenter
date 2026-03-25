@@ -23,7 +23,13 @@ git fetch origin
 git status
 ```
 
-### C. 合併 Leia 的進度 (`leia0` -> `main`)
+### C. 查看 Leia 的最新進度 (只看紀錄，不合併)
+這可以讓你在不改變目前程式碼的情況下，看到 Leia 最近推播了哪些更新：
+```bash
+git log origin/leia0 -n 5 --oneline
+```
+
+### D. 合併 Leia 的進度 (`leia0` -> `main`)
 當你要把 Leia 寫好的功能整合到你的 `main` 時，請執行：
 ```bash
 # 確保你在 main 分支
