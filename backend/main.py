@@ -29,6 +29,8 @@ app.add_middleware(
 KAFKA_BROKER = "localhost:29092"
 TOPIC = "telemetry"
 producer = None
+producer_init_lock = threading.Lock()
+producer_init_thread = None
 
 # [2] InfluxDB Config (時序資料庫)
 INFLUX_URL = "http://localhost:8086"
@@ -143,7 +145,11 @@ def get_history():
 def kafka_consumer_worker():
     import uuid
     import traceback
-    
+
+    backoff_s = 3.0
+    max_backoff_s = 60.0
+    fail_count = 0
+
     while True:
         try:
             consumer = KafkaConsumer(
@@ -153,6 +159,8 @@ def kafka_consumer_worker():
                 auto_offset_reset='latest',
                 value_deserializer=lambda m: json.loads(m.decode('utf-8'))
             )
+            backoff_s = 3.0
+            fail_count = 0
             print("Kafka Consumer started and polling...")
             for msg in consumer:
                 try:
@@ -184,20 +192,39 @@ def kafka_consumer_worker():
                 except Exception as e:
                     print(f"Error processing message: {e}")
         except Exception as e:
-            print(f"Kafka Consumer crashed (likely Windows socket issue): {e}. Reconnecting...")
-            time.sleep(3)
+            fail_count += 1
+            # 避免 Kafka 未啟動時每秒洗版；首次與每 10 次失敗各印一次
+            if fail_count == 1 or fail_count % 10 == 0:
+                print(
+                    f"Kafka Consumer unavailable ({e}). "
+                    f"Next retry in {backoff_s:.0f}s (fail #{fail_count}). "
+                    f"請確認 broker 已啟動（預設 {KAFKA_BROKER}，見 docker-compose）。"
+                )
+            time.sleep(backoff_s)
+            backoff_s = min(backoff_s * 1.5, max_backoff_s)
 
 def init_kafka_producer():
     global producer
-    while not producer:
-        try:
-            producer = KafkaProducer(
-                bootstrap_servers=[KAFKA_BROKER],
-                value_serializer=lambda v: json.dumps(v).encode('utf-8')
-            )
-            print("Kafka Producer connected...")
-        except Exception as e:
-            time.sleep(3)
+    # 僅允許單一初始化流程，避免連線不穩時重複建立 thread 與重試迴圈
+    with producer_init_lock:
+        while not producer:
+            try:
+                producer = KafkaProducer(
+                    bootstrap_servers=[KAFKA_BROKER],
+                    value_serializer=lambda v: json.dumps(v).encode('utf-8')
+                )
+                print("Kafka Producer connected...")
+            except Exception:
+                time.sleep(3)
+
+def ensure_kafka_producer_thread():
+    global producer_init_thread
+    if producer is not None:
+        return
+    if producer_init_thread is not None and producer_init_thread.is_alive():
+        return
+    producer_init_thread = threading.Thread(target=init_kafka_producer, daemon=True)
+    producer_init_thread.start()
 
 import random
 
@@ -305,14 +332,14 @@ def simulation_worker():
                     producer.close(timeout=1)
                 except: pass
                 producer = None
-                threading.Thread(target=init_kafka_producer, daemon=True).start()
+                ensure_kafka_producer_thread()
         time.sleep(5)
 
 @app.on_event("startup")
 async def startup_event():
     # 初始化 MongoDB
     threading.Thread(target=init_mongo, daemon=True).start()
-    threading.Thread(target=init_kafka_producer, daemon=True).start()
+    ensure_kafka_producer_thread()
     threading.Thread(target=kafka_consumer_worker, daemon=True).start()
     threading.Thread(target=simulation_worker, daemon=True).start() # 啟動內建模擬器
 

@@ -29,7 +29,8 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#010613] text-white flex flex-col h-screen overflow-hidden`}
       >
         <Navbar />
-        <div className="flex-1 overflow-y-auto">
+        {/* min-h-0：flex 子項預設 min-height:auto，會讓 overflow 區塊高度計算異常，導致捲動/點擊失效 */}
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
           {children}
         </div>
       </body>

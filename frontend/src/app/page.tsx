@@ -1,26 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer,
   BarChart, Bar, PieChart, Pie, Cell
 } from "recharts";
 import { Activity, Server, AlertTriangle, Cpu, Thermometer, Clock, Database, Power, LayoutGrid, Box, Link2 } from "lucide-react";
 import { useDcimStore } from "@/store/useDcimStore";
-
-// ==========================================
-// 隱藏 Recharts 惱人的 ResizeObserver 尺寸警告
-// 由於 React 18 / Next.js Hydration 之初次空算繪無法避免，直接過濾該特定字串
-// ==========================================
-if (typeof console !== 'undefined') {
-  const originalWarn = console.warn;
-  console.warn = (...args) => {
-    if (typeof args[0] === 'string' && args[0].includes('width(-1) and height(-1)')) {
-      return;
-    }
-    originalWarn(...args);
-  };
-}
+import { ClientOnlyChart } from "@/components/ClientOnlyChart";
 
 type ServerTelemetry = {
   server_id: string;
@@ -48,7 +35,8 @@ const TechPanel = ({ title, children, className = "" }: { title: string, childre
         {title}
       </h3>
     </div>
-    <div className="flex-1 p-4 relative overflow-hidden w-full h-full">
+    {/* min-h-0：flex 子項預設 min-height:auto 會卡住高度計算，Recharts 會量到 -1 */}
+    <div className="flex-1 min-h-0 p-4 relative overflow-hidden w-full">
       {children}
     </div>
   </div>
@@ -61,11 +49,31 @@ export default function Dashboard() {
   const [time, setTime] = useState("");
   const [simMode, setSimMode] = useState("simulation");
 
+  useEffect(() => {
+    const needle = "The width(-1) and height(-1) of chart should be greater than 0";
+    const originalWarn = console.warn;
+    const originalError = console.error;
+
+    console.warn = (...args) => {
+      if (typeof args[0] === "string" && args[0].includes(needle)) return;
+      originalWarn(...args);
+    };
+    console.error = (...args) => {
+      if (typeof args[0] === "string" && args[0].includes(needle)) return;
+      originalError(...args);
+    };
+
+    return () => {
+      console.warn = originalWarn;
+      console.error = originalError;
+    };
+  }, []);
+
   // 初始化模式
   useEffect(() => {
     const fetchMode = async () => {
       try {
-        const res = await fetch("http://localhost:8000/api/system/mode");
+        const res = await fetch("http://localhost:9000/api/system/mode");
         if (res.ok) {
           const json = await res.json();
           setSimMode(json.mode);
@@ -78,7 +86,7 @@ export default function Dashboard() {
   const toggleMode = async () => {
     const newMode = simMode === "simulation" ? "real" : "simulation";
     try {
-      await fetch("http://localhost:8000/api/system/mode", {
+      await fetch("http://localhost:9000/api/system/mode", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mode: newMode })
@@ -99,7 +107,7 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await fetch("http://localhost:8000/metrics");
+        const res = await fetch("http://localhost:9000/metrics");
         if (!res.ok) return;
         const json = await res.json();
 
@@ -156,14 +164,22 @@ export default function Dashboard() {
     }
   };
 
+  const telemetryById = useMemo(
+    () => new Map(data.map((d) => [d.server_id, d])),
+    [data]
+  );
+
   // Calculate stats based on store servers (Filtered by location)
-  const allGridItems = store.racks
-    .filter(r => r.locationId === store.currentLocationId)
-    .flatMap(r => r.servers.map(s => ({ ...s, rackName: r.name, rackType: r.type })));
+  const allGridItems = useMemo(() =>
+    store.racks
+      .filter(r => r.locationId === store.currentLocationId)
+      .flatMap(r => r.servers.map(s => ({ ...s, rackName: r.name, rackType: r.type }))),
+    [store.racks, store.currentLocationId]
+  );
   const totalServers = allGridItems.length;
 
   const healthData = allGridItems.reduce((acc, item) => {
-    const srv = data.find(d => d.server_id === item.name);
+    const srv = telemetryById.get(item.name);
     const status = getDeviceStatus(item, srv);
     if (status === 'critical') acc.critical++;
     else if (status === 'warning') acc.warning++;
@@ -177,7 +193,11 @@ export default function Dashboard() {
     { name: '異常 (Critical)', value: healthData.critical, color: '#ef4444' }
   ].filter(d => d.value > 0);
 
-  const activeStoreData = data.filter(d => allGridItems.some(i => i.name === d.server_id));
+  const itemNameSet = useMemo(() => new Set(allGridItems.map((i) => i.name)), [allGridItems]);
+  const activeStoreData = useMemo(
+    () => data.filter((d) => itemNameSet.has(d.server_id)),
+    [data, itemNameSet]
+  );
 
   return (
     <div className="w-full bg-[#010613] text-slate-300 font-sans flex flex-col overflow-x-hidden selection:bg-cyan-900">
@@ -222,6 +242,8 @@ export default function Dashboard() {
         {/* Left Column (Charts) */}
         <div className="col-span-3 flex flex-col gap-6">
           <TechPanel title="全區負載趨勢 (CPU Trend)" className="h-[280px]">
+            <ClientOnlyChart>
+            <div className="h-full w-full min-h-[180px]">
             <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
               <AreaChart data={history} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
                 <defs>
@@ -236,9 +258,13 @@ export default function Dashboard() {
                 <Area type="monotone" dataKey="avgCpu" stroke="#06b6d4" fillOpacity={1} fill="url(#colorCpu)" isAnimationActive={false} />
               </AreaChart>
             </ResponsiveContainer>
+            </div>
+            </ClientOnlyChart>
           </TechPanel>
 
           <TechPanel title="機房溫度趨勢 (Temp Trend)" className="h-[280px]">
+            <ClientOnlyChart>
+            <div className="h-full w-full min-h-[180px]">
             <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
               <AreaChart data={history} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
                 <defs>
@@ -253,10 +279,13 @@ export default function Dashboard() {
                 <Area type="monotone" dataKey="avgTemp" stroke="#ef4444" fillOpacity={1} fill="url(#colorTemp)" isAnimationActive={false} />
               </AreaChart>
             </ResponsiveContainer>
+            </div>
+            </ClientOnlyChart>
           </TechPanel>
 
           <TechPanel title="設備健康狀態分佈 (Health)" className="flex-1 min-h-[220px]">
             <div className="h-[180px] w-full relative flex items-center justify-center">
+              <ClientOnlyChart placeholderClassName="h-[180px] w-[200px]">
               <ResponsiveContainer width={200} height={180}>
                 <PieChart>
                   <Pie
@@ -276,6 +305,7 @@ export default function Dashboard() {
                   <RechartsTooltip contentStyle={{ backgroundColor: '#020b1a', borderColor: '#1e3a8a', color: '#fff' }} />
                 </PieChart>
               </ResponsiveContainer>
+              </ClientOnlyChart>
               {/* 中間文字 */}
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-1">
                 <span className="text-3xl font-black text-white leading-none">{totalServers}</span>
@@ -303,7 +333,7 @@ export default function Dashboard() {
                 }
 
                 return items.map(item => {
-                  const srv = data.find(d => d.server_id === item.name);
+                  const srv = telemetryById.get(item.name);
                   const liveStatus = getDeviceStatus(item, srv);
 
                   const borderColor = liveStatus === 'critical' ? 'border-red-500' : liveStatus === 'warning' ? 'border-yellow-500' : 'border-cyan-500';
@@ -422,6 +452,8 @@ export default function Dashboard() {
         {/* Right Column (Alarms & Details) */}
         <div className="col-span-3 flex flex-col gap-6">
           <TechPanel title="各節點 CPU 負載佔比" className="h-[300px]">
+            <ClientOnlyChart placeholderClassName="h-full w-full min-h-[200px]">
+            <div className="h-full w-full min-h-[200px]">
             <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
               <BarChart data={activeStoreData} layout="vertical" margin={{ top: 0, right: 20, left: 10, bottom: 0 }}>
                 <XAxis type="number" domain={[0, 100]} hide />
@@ -434,13 +466,15 @@ export default function Dashboard() {
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
+            </div>
+            </ClientOnlyChart>
           </TechPanel>
 
           <TechPanel title="即時系統警報 (Real-time Alarms)" className="flex-1">
             <div className="h-full overflow-y-auto pr-2 space-y-2 custom-scrollbar">
               {(() => {
                 const criticalDevices = allGridItems.filter(item => {
-                  const srv = data.find(d => d.server_id === item.name);
+                  const srv = telemetryById.get(item.name);
                   return getDeviceStatus(item, srv) === 'critical';
                 });
 
@@ -449,8 +483,13 @@ export default function Dashboard() {
                 }
 
                 return criticalDevices.map(item => {
-                  const srv = data.find(d => d.server_id === item.name);
+                  const srv = telemetryById.get(item.name);
                   if (!srv) return null;
+
+                  const traffic = srv.traffic_gbps || 0;
+                  const ports = srv.ports_active || 0;
+                  const cpu = srv.cpu_usage || 0;
+                  const temp = srv.temperature || 0;
 
                   return (
                     <div key={`alarm-${item.name}`} className="bg-red-950/40 border border-red-900 p-3 rounded-none flex gap-3 items-start relative overflow-hidden group">
@@ -461,15 +500,15 @@ export default function Dashboard() {
                         <div className="text-red-200/60 text-[10px] mt-1 space-y-1">
                           {item.type === 'switch' ? (
                             <>
-                              {srv.traffic_gbps > 35 && <div>- Network Congestion ({srv.traffic_gbps.toFixed(1)} Gbps)</div>}
-                              {srv.ports_active > 42 && <div>- Port Saturation ({srv.ports_active}/48)</div>}
-                              {srv.cpu_usage > 85 && <div>- Mgmt CPU Critical ({srv.cpu_usage.toFixed(0)}%)</div>}
-                              {srv.temperature > 55 && <div>- Chassis Overheat ({srv.temperature.toFixed(0)}°C)</div>}
+                              {traffic > 35 && <div>- Network Congestion ({traffic.toFixed(1)} Gbps)</div>}
+                              {ports > 42 && <div>- Port Saturation ({ports}/48)</div>}
+                              {cpu > 85 && <div>- Mgmt CPU Critical ({cpu.toFixed(0)}%)</div>}
+                              {temp > 55 && <div>- Chassis Overheat ({temp.toFixed(0)}°C)</div>}
                             </>
                           ) : (
                             <>
-                              {srv.cpu_usage > 85 && <div>- Processor Overload ({srv.cpu_usage.toFixed(1)}%)</div>}
-                              {srv.temperature > 55 && <div>- High Core Temperature ({srv.temperature.toFixed(1)}°C)</div>}
+                              {cpu > 85 && <div>- Processor Overload ({cpu.toFixed(1)}%)</div>}
+                              {temp > 55 && <div>- High Core Temperature ({temp.toFixed(1)}°C)</div>}
                             </>
                           )}
                         </div>
@@ -486,7 +525,7 @@ export default function Dashboard() {
       </main>
 
       {/* 科技感底邊界 */}
-      <footer className="h-1bg-gradient-to-r from-transparent via-[#1e3a8a] to-transparent opacity-50 mb-1"></footer>
+      <footer className="h-1 bg-gradient-to-r from-transparent via-[#1e3a8a] to-transparent opacity-50 mb-1"></footer>
     </div>
   );
 }

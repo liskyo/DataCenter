@@ -303,6 +303,44 @@ export const useDcimStore = create<DcimState>()(
                 equipments: state.equipments, 
                 locations: state.locations, 
                 currentLocationId: state.currentLocationId 
-            }), 
+            }),
+            merge: (persistedState, currentState) => {
+                const persisted = (persistedState ?? {}) as Partial<DcimState>;
+                const fallbackLocation = { id: 'default-loc', name: '1F Core DC', type: 'floor' as const };
+
+                const locations = Array.isArray(persisted.locations)
+                    ? persisted.locations.filter(
+                        (l): l is LocationData =>
+                            !!l &&
+                            typeof l.id === "string" &&
+                            typeof l.name === "string" &&
+                            (l.type === "floor" || l.type === "region")
+                    )
+                    : [];
+
+                const safeLocations = locations.length > 0
+                    ? locations
+                    : currentState.locations.length > 0
+                        ? currentState.locations
+                        : [fallbackLocation];
+
+                const locationIdSet = new Set(safeLocations.map((l) => l.id));
+                const currentLocationId = typeof persisted.currentLocationId === "string" && locationIdSet.has(persisted.currentLocationId)
+                    ? persisted.currentLocationId
+                    : safeLocations[0].id;
+
+                return {
+                    ...currentState,
+                    ...persisted,
+                    racks: Array.isArray(persisted.racks)
+                        ? persisted.racks.filter((r): r is RackData => !!r && typeof r.id === "string" && Array.isArray(r.servers))
+                        : currentState.racks,
+                    equipments: Array.isArray(persisted.equipments)
+                        ? persisted.equipments.filter((e): e is EquipmentData => !!e && typeof e.id === "string" && Array.isArray(e.position))
+                        : currentState.equipments,
+                    locations: safeLocations,
+                    currentLocationId,
+                };
+            },
         })
 );

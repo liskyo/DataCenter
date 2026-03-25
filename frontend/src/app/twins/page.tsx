@@ -63,7 +63,7 @@ export default function TwinsPage() {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const res = await fetch("http://localhost:8000/metrics", { cache: "no-store" });
+                const res = await fetch("http://localhost:9000/metrics", { cache: "no-store" });
                 if (!res.ok) return;
                 const json = await res.json();
                 const tMap: Record<string, any> = {};
@@ -78,15 +78,6 @@ export default function TwinsPage() {
         return () => clearInterval(interval);
     }, []);
 
-    if (typeof console !== 'undefined') {
-        const originalWarn = console.warn;
-        console.warn = (...args) => {
-            if (typeof args[0] === 'string') {
-                if (args[0].includes('THREE.Clock') || args[0].includes('THREE.WebGLRenderer')) return;
-            }
-            originalWarn(...args);
-        };
-    }
     const handleExport = () => {
         const json = store.exportState();
         const blob = new Blob([json], { type: "application/json" });
@@ -321,7 +312,7 @@ export default function TwinsPage() {
                         <div>
                             <h3 className="text-xs font-bold text-slate-500 mb-3 tracking-widest uppercase border-b border-slate-800 pb-1">Installed Equipment</h3>
                             <div className="flex flex-col gap-2">
-                                {selectedRack.servers.sort((a, b) => b.uPosition - a.uPosition).map(server => {
+                                {[...selectedRack.servers].sort((a, b) => b.uPosition - a.uPosition).map(server => {
                                     let liveStatus = server.status;
                                     const sTel = telemetry[server.name];
                                     const metricsText = sTel

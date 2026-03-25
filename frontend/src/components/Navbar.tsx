@@ -2,15 +2,28 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useShallow } from "zustand/react/shallow";
 import { useDcimStore } from "@/store/useDcimStore";
 import {
   BarChart3, SlidersHorizontal, LineChart, LifeBuoy,
-  CloudDownload, Globe, FileText, Wrench, Settings, Languages, MonitorIcon, Factory, Box, MapPin, Plus, Trash2
+  CloudDownload, Globe, FileText, Wrench, Settings, Languages, MonitorIcon, Factory, Box, MapPin, Plus
 } from "lucide-react";
 
 export default function Navbar() {
   const pathname = usePathname();
-  const store = useDcimStore();
+  const { locations, currentLocationId, setCurrentLocation, addLocation } = useDcimStore(
+    useShallow((s) => ({
+      locations: s.locations,
+      currentLocationId: s.currentLocationId,
+      setCurrentLocation: s.setCurrentLocation,
+      addLocation: s.addLocation,
+    }))
+  );
+
+  const validLocationId =
+    locations.some((l) => l.id === currentLocationId) && locations.length > 0
+      ? currentLocationId
+      : locations[0]?.id ?? "";
 
   const navItems = [
     { name: "狀態總覽", href: "/", icon: BarChart3 },
@@ -29,23 +42,12 @@ export default function Navbar() {
   const handleAddLocation = () => {
     const name = prompt("請輸入新地點名稱 (例如: 2F 機房):");
     if (name) {
-      store.addLocation(name, 'floor');
-    }
-  };
-
-  const handleRemoveLocation = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (store.locations.length <= 1) {
-      alert("至少必須保留一個地點。");
-      return;
-    }
-    if (confirm("確定要刪除此地點及其所有設備嗎？")) {
-      store.removeLocation(id);
+      addLocation(name, 'floor');
     }
   };
 
   return (
-    <nav className="flex items-center justify-between px-3 py-2 bg-[#0c1322] border-b border-[#1e293b] text-slate-300 select-none shadow-[0_4px_20px_rgba(0,0,0,0.5)] z-50">
+    <nav className="flex shrink-0 items-center justify-between px-3 py-2 bg-[#0c1322] border-b border-[#1e293b] text-slate-300 select-none shadow-[0_4px_20px_rgba(0,0,0,0.5)] z-50">
 
       {/* 導覽列主選單 */}
       <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide flex-1">
@@ -56,6 +58,7 @@ export default function Navbar() {
             <Link
               key={item.name}
               href={item.href}
+              prefetch={false}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-300 whitespace-nowrap text-[13px] tracking-widest font-bold ${isActive
                 ? "bg-[#18294a] text-[#4ea8de] shadow-[inset_0_0_10px_rgba(78,168,222,0.1)] border border-[#27406b]"
                 : "text-slate-400 hover:bg-[#152238] hover:text-slate-200 border border-transparent"
@@ -76,10 +79,10 @@ export default function Navbar() {
           <MapPin size={14} className="text-cyan-500" />
           <select
             className="bg-transparent border-none text-[12px] text-cyan-100 outline-none cursor-pointer font-bold pr-2 min-w-[80px]"
-            value={store.currentLocationId}
-            onChange={(e) => store.setCurrentLocation(e.target.value)}
+            value={validLocationId}
+            onChange={(e) => setCurrentLocation(e.target.value)}
           >
-            {store.locations.map(loc => (
+            {locations.map(loc => (
               <option key={loc.id} value={loc.id} className="bg-[#0c1322] text-white">
                 {loc.name}
               </option>
