@@ -23,7 +23,13 @@ git fetch origin
 git status
 ```
 
-### C. 合併 Leia 的進度 (`leia0` -> `main`)
+### C. 查看 Leia 的最新進度 (只看紀錄，不合併)
+這可以讓你在不改變目前程式碼的情況下，看到 Leia 最近推播了哪些更新：
+```bash
+git log origin/leia0 -n 5 --oneline
+```
+
+### D. 合併 Leia 的進度 (`leia0` -> `main`)
 當你要把 Leia 寫好的功能整合到你的 `main` 時，請執行：
 ```bash
 # 確保你在 main 分支
@@ -70,6 +76,20 @@ git reset --hard HEAD~1
 
 ---
 
-## 5. 開發建議
+## 5. 修改最後一次提交 (Amend)
+如果你剛發出一個 commit，但發現漏掉一個檔案或是想改訊息，可以使用：
+```bash
+# 加入漏掉的檔案
+git add <檔案名稱>
+
+# 修改最後一次 commit
+git commit --amend
+```
+> [!WARNING]
+> 如果 commit 已經推送到 GitHub (origin)，使用 amend 後必須執行 `git push --force` 才能同步。
+
+---
+
+## 6. 開發建議
 - **頻率**: 建議每天至少執行一次 `git fetch` 看看 Leia 是否有新進度。
 - **提交訊息**: Commit 訊息請盡量簡潔明瞭，例如：`fix: 修正 3D 閃爍問題` 或 `feat: 新增伺服器機架模型`。
