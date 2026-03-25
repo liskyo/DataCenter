@@ -20,7 +20,7 @@ cd /d %~dp0frontend
 call npm install --workspaces=false
 echo Starting Next.js Dev Server (in new window, port 9001)...
 REM NODE_OPTIONS 8192MB: avoid Turbopack dev OOM on large graphs
-start cmd /k "title Frontend && cd /d %~dp0frontend && set NODE_OPTIONS=--max-old-space-size=8192 && npm run dev -- -H 127.0.0.1 -p 9001"
+start cmd /k "title Frontend && cd /d %~dp0frontend && set NODE_OPTIONS=--max-old-space-size=2048 && npm run dev -- -H 127.0.0.1 -p 9001"
 cd ..
 
 echo.
@@ -29,7 +29,7 @@ echo All services started!
 echo.
 echo Backend API : http://127.0.0.1:9000/docs
 echo Frontend    : http://127.0.0.1:9001
-echo Grafana     : http://127.0.0.1:3000
+echo Grafana     : http://127.0.0.1:3002
 echo.
 echo IMPORTANT: Please use http://127.0.0.1:9001 in your browser.
 echo ==============================================

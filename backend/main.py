@@ -19,13 +19,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-KAFKA_BROKER = "localhost:29092"
+KAFKA_BROKER = "localhost:29093"
 TOPIC = "telemetry"
-INFLUX_URL = "http://localhost:8086"
+INFLUX_URL = "http://localhost:8087"
 INFLUX_TOKEN = "adminpassword"
 INFLUX_ORG = "datacenter"
 INFLUX_BUCKET = "telemetry"
-MONGO_URI = "mongodb://admin:adminpassword@localhost:27017/"
+MONGO_URI = "mongodb://admin:adminpassword@localhost:27018/"
 
 telemetry_service = TelemetryService(history_window=5)
 alert_storage = AlertStorageService(mongo_uri=MONGO_URI)
