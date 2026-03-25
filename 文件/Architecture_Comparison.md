@@ -7,6 +7,7 @@
 ## 1. 傳統架構：Pull-based (拉取式)
 代表技術：`SNMP`, `IPMI`, `Redfish`
 運作方式：監控中心（Zabbix / Cacti / PRTG）扮演「主管」的角色。
+
 * **流程**：主管手中必須有一份寫滿幾千名員工（伺服器）的「通訊錄 (IP 清單)」。每隔 5 分鐘，主管就要嚴格按照名單，一個一個打電話（打 API / SNMP Get）問員工：「你現在溫度多少？」。
 * **缺點**：
   - **維護地獄**：每買一台新伺服器，網管人員就必須到監管軟體裡手動新增一次 IP 與社群字串 (Community String)。如果機器換了 IP，監控立刻斷線。
@@ -15,7 +16,8 @@
 ## 2. 現代架構：Push-based (推播式 / 串流式) - **⭐ 本專案架構**
 代表技術：`Kafka即時串流`, `Influx Telegraf`, `Prometheus Pushgateway`, `OpenTelemetry`
 運作方式：監控中心（本專案 Dashboard）扮演「郵政信箱」或「廣播電台接收塔」。
-* **流程**：主管不需要任何人的電話號碼（不用設定 IP）。員工（伺服器）只要一開機，裡面的 Agent（如剛剛的 `client_agent.py`）就會主動把包含自己名字的明信片（JSON Payload）源源不絕地丟進郵政信箱（Kafka Broker）。
+
+* **流程**：主管不需要任何人的電話號碼（不用設定 IP）。員工（伺服器）只要一開機，裡面的 Agent（如 `client_agent.py`）就會主動把包含自己名字的 JSON Payload **POST** 到後端 API 的 `/ingest`；由後端接收後，再把資料寫入 Kafka Broker。
 * **優點**：
   - **隨插即用 (Plug & Play)**：網管人員把新伺服器上架、插上網路線開機。Dashboard 上瞬間就會自動長出這台機器的數據，**完全零配置 (Zero Configuration)**。
   - **超高吞吐量**：透過 Kafka 這種分散式事件串流平台，同時接收十萬台機器的即時推播也不會卡頓。這就是為何本專案能做到「每秒級別」的即時 3D 動態反饋，而以前的 SNMP 通常只能做到「每 5 分鐘」更新一次圖表。

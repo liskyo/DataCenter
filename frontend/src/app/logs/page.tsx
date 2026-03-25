@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { FileText } from "lucide-react";
 import { usePolling } from "@/shared/hooks/usePolling";
+import { apiUrl } from "@/shared/api";
 
 type AlertLog = {
   server_id: string;
@@ -16,7 +17,7 @@ export default function LogsPage() {
 
   usePolling(async () => {
     try {
-      const res = await fetch("http://localhost:9000/alerts");
+      const res = await fetch(apiUrl("/alerts"));
       if (res.ok) {
         const json = await res.json();
         setLogs(json.data);

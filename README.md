@@ -30,11 +30,11 @@
    - 雙擊專案目錄下的 `start.bat` 檔案。
    - 執行後會自動跳出額外的終端機視窗，分別處理：
      - `docker-compose up -d` (容器啟動)
-     - `Backend: 8000` (Python FastAPI 啟動)
-     - `Frontend: 8088` (Next.js 啟動)
+    - `Backend: 9000` (Python FastAPI 啟動)
+    - `Frontend: 9001` (Next.js 啟動)
 
 3. **進入系統**
-   - 啟動完成後，在瀏覽器打開：[http://localhost:8088](http://localhost:8088)
+  - 啟動完成後，在瀏覽器打開：[http://localhost:9001](http://localhost:9001)
 
 ---
 
@@ -53,7 +53,7 @@
 - **原因**：Python 環境並沒有將 `Scripts` 路徑加入系統環境變數中，導致找不到這個執行檔。
 - **解法**：`start.bat` 之中已改成使用 `python -m uvicorn` 繞過此限制，若仍出現這類模組找不到的報錯，請確認是否有安裝好 Python(`pip install -r requirements.txt`) 或手動啟用虛擬環境。
 
-### Q4: 瀏覽器 F12 控制台報錯 `ERR_CONNECTION_REFUSED http://localhost:8000...`
+### Q4: 瀏覽器 F12 控制台報錯 `ERR_CONNECTION_REFUSED http://localhost:9000...`
 - **原因**：前端 Next.js 啟動速度比 Python 後端快，提早去拿資料卻發現對方還沒準備好。
 - **解法**：這是正常的。只要等另一個命名為 `Backend` 的黑色小視窗載入完成不再報錯，前端的連線警告就會自己消失並出現資料。
 

@@ -5,6 +5,7 @@ import { LineChart as ChartIcon, Activity } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { ClientOnlyChart } from "@/components/ClientOnlyChart";
 import { usePolling } from "@/shared/hooks/usePolling";
+import { apiUrl } from "@/shared/api";
 
 type HistoryData = {
   [server_id: string]: [number, number][]; // [temperature, cpu][]
@@ -15,7 +16,7 @@ export default function AnalysisPage() {
 
   usePolling(async () => {
     try {
-      const res = await fetch("http://localhost:9000/history");
+      const res = await fetch(apiUrl("/history"));
       if (res.ok) {
         const json = await res.json();
         setHistory(json.data);

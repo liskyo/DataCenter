@@ -7,6 +7,7 @@ import RoomContext from "@/components/3d/RoomContext";
 import RackModel from "@/components/3d/RackModel";
 import EquipmentModel from "@/components/3d/EquipmentModel";
 import NetworkLines from "@/components/3d/NetworkLines";
+import { apiUrl } from "@/shared/api";
 import { Activity, Download, Upload, Server, Trash, Save, Edit, Lock, Thermometer, Zap, Box, MonitorIcon, Globe, Link2 } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
 
@@ -63,7 +64,7 @@ export default function TwinsPage() {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const res = await fetch("http://localhost:9000/metrics", { cache: "no-store" });
+                const res = await fetch(apiUrl("/metrics"), { cache: "no-store" });
                 if (!res.ok) return;
                 const json = await res.json();
                 const tMap: Record<string, any> = {};

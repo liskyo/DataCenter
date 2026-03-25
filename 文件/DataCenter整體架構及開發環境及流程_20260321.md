@@ -94,17 +94,17 @@ docker-compose up -d
 再次打開一個全新的 PowerShell 視窗：
 1. 切換目錄： `cd backend`
 2. 安裝裝備： `pip install -r requirements.txt` (這會安裝 FastAPI 等必備套件)
-3. 點火啟動： `uvicorn main:app --host 0.0.0.0 --port 8000 --reload`
+3. 點火啟動： `uvicorn main:app --host 0.0.0.0 --port 9000 --reload`
 > **發生什麼事？** 
-> 你會看到螢幕上印出 `Kafka Producer initialized successfully` 的綠字。此時，伺服器大腦已經在 `localhost:8000` 待命了。
+> 你會看到螢幕上印出 `Kafka Producer initialized successfully` 的綠字。此時，伺服器大腦已經在 `localhost:9000` 待命了。
 
 ### 步驟三：啟動高科技前端面板 (Next.js)
 再開第三個全新的 PowerShell 視窗：
 1. 切換目錄： `cd frontend`
 2. 安裝裝備： `npm install` (會自動把 Tailwind 等酷炫裝備下載回來)
-3. 點火啟動： `npm run dev -p 3001`
+3. 點火啟動： `npm run dev -p 9001`
 > **發生什麼事？** 
-> 網頁伺服器啟動成功。現在請打開你的瀏覽器，輸入網址：`http://localhost:3001`。
+> 網頁伺服器啟動成功。現在請打開你的瀏覽器，輸入網址：`http://localhost:9001`。
 > 你會看到全黑的科幻 UI，但目前數字全都是空的，因為機房還沒有資料進來！
 
 ### 步驟四：發送模擬數據 (Simulate Sensors)
@@ -113,7 +113,7 @@ docker-compose up -d
 2. 啟動模擬器： `python mock_sensor_data.py`
 > **發生什麼事？** 
 > 恭喜！這個腳本會假裝自己是 10 台伺服器，瘋狂向後端吐出溫度與 CPU 數值。
-> 現在切換回你的瀏覽器 `http://localhost:3001`，折線圖開始跳動，紅色告警開始閃爍，一切大功告成！
+> 現在切換回你的瀏覽器 `http://localhost:9001`，折線圖開始跳動，紅色告警開始閃爍，一切大功告成！
 
 ---
 
@@ -126,7 +126,7 @@ docker-compose up -d
 > **解答**：這通常代表 Docker 重啟太慢，Kafka 還在夢鄉，但 Python 程式已經醒來急著要連線了。系統內部有撰寫重試機制 (Retry Model)，你只要耐心等個 30 秒，通常它自己會重新連上。若真的不行，在終端機按下 `Ctrl+C` 再重開一次後端即可。
 
 **Q3：前端網頁呈現空白 404 或樣式跑版？**
-> **解答**：這通常是因為 Tailwind CSS v4 的緩存問題。請在 frontend 資料夾中，手動刪除隱藏的 `.next` 資料夾，接著重新執行 `npm run dev -p 3001`，保證煥然一新。
+> **解答**：這通常是因為 Tailwind CSS v4 的緩存問題。請在 frontend 資料夾中，手動刪除隱藏的 `.next` 資料夾，接著重新執行 `npm run dev -p 9001`，保證煥然一新。
 
 **Q4：我想關閉所有系統去追劇了，該怎麼做？**
 > **解答**：

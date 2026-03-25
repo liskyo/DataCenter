@@ -34,7 +34,7 @@ from pysnmp.hlapi import *
 
 SWITCH_IP = "192.168.1.100"
 COMMUNITY = "YOUR_SECRET_STRING"
-API_URL = "http://localhost:8000/ingest"
+API_URL = "http://localhost:9000/ingest"
 
 def get_switch_data():
     # 這裡填入抓取 SNMP OID 的代碼
