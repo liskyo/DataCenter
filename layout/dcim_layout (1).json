@@ -1,0 +1,308 @@
+{
+  "racks": [
+    {
+      "id": "084f0434-6b34-4180-95e4-8930b48db30e",
+      "name": "RACK-A01",
+      "type": "server",
+      "position": [
+        -2.4,
+        0,
+        2.4
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 42,
+      "maxPowerKw": 15,
+      "servers": [
+        {
+          "id": "1264c4a1-4805-4400-a7ee-4062fc1bea6e",
+          "name": "SERVER-003",
+          "uPosition": 6,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "3de2fdfd-3aa0-48ee-af63-f9115fa3e4c1",
+          "name": "SERVER-002",
+          "uPosition": 4,
+          "uHeight": 1,
+          "powerKw": 0.8,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "bf9ee3d4-9d86-4e64-a973-a5433b7d2eca",
+          "name": "SERVER-001",
+          "uPosition": 2,
+          "uHeight": 1,
+          "powerKw": 0.8,
+          "type": "server",
+          "status": "normal"
+        }
+      ],
+      "connectedNetworkRackId": "e94823e9-e035-4d32-a562-80779fc7537b",
+      "connectedSwitchId": "788279ac-10d9-4991-b7ea-99ae8583e1b7"
+    },
+    {
+      "id": "6d8f7ed1-1a92-4bd8-a77e-392206cded10",
+      "name": "RACK-A02",
+      "type": "server",
+      "position": [
+        -1.2,
+        0,
+        2.4
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 42,
+      "maxPowerKw": 15,
+      "servers": [
+        {
+          "id": "cfceace5-1ac8-41c8-b5ad-ba0fd048550c",
+          "name": "SERVER-005",
+          "uPosition": 6,
+          "uHeight": 2,
+          "powerKw": 2,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "12f58684-747f-44df-aa97-6409eb92fdaf",
+          "name": "SERVER-004",
+          "uPosition": 2,
+          "uHeight": 2,
+          "powerKw": 2,
+          "type": "server",
+          "status": "normal"
+        }
+      ],
+      "connectedNetworkRackId": "e94823e9-e035-4d32-a562-80779fc7537b",
+      "connectedSwitchId": "55b00f3c-a9bf-4718-95f7-461547a57269"
+    },
+    {
+      "id": "e94823e9-e035-4d32-a562-80779fc7537b",
+      "name": "NET-RACK-01",
+      "type": "network",
+      "position": [
+        -3.5999999999999996,
+        0,
+        -0.6
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 42,
+      "maxPowerKw": 10,
+      "servers": [
+        {
+          "name": "SW-009",
+          "uPosition": 24,
+          "uHeight": 3,
+          "powerKw": 1.5,
+          "type": "switch",
+          "status": "normal",
+          "id": "788279ac-10d9-4991-b7ea-99ae8583e1b7"
+        },
+        {
+          "name": "SW-002",
+          "uPosition": 5,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "switch",
+          "status": "normal",
+          "id": "55b00f3c-a9bf-4718-95f7-461547a57269"
+        },
+        {
+          "name": "SW-001",
+          "uPosition": 1,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "switch",
+          "status": "normal",
+          "id": "d73161e0-0307-4191-bab9-7d26dd907aea"
+        }
+      ]
+    },
+    {
+      "id": "76c69887-03be-458a-a79f-12e4bc90193d",
+      "name": "RACK-003",
+      "type": "server",
+      "position": [
+        0,
+        0,
+        2.4
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 42,
+      "maxPowerKw": 15,
+      "servers": [
+        {
+          "name": "SERVER-008",
+          "uPosition": 33,
+          "uHeight": 1,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal",
+          "id": "230df76c-8a7d-4e97-9218-4f655f3b6056"
+        },
+        {
+          "name": "SERVER-007",
+          "uPosition": 16,
+          "uHeight": 3,
+          "powerKw": 3,
+          "type": "server",
+          "status": "normal",
+          "id": "e42ac2d4-dd6f-41d2-a45f-0687d6ee76e0"
+        },
+        {
+          "name": "SERVER-006",
+          "uPosition": 6,
+          "uHeight": 2,
+          "powerKw": 3,
+          "type": "server",
+          "status": "normal",
+          "id": "b7db2886-63c3-4036-8576-4e0b565ef224"
+        }
+      ],
+      "connectedNetworkRackId": "e94823e9-e035-4d32-a562-80779fc7537b",
+      "connectedSwitchId": "d73161e0-0307-4191-bab9-7d26dd907aea"
+    }
+  ],
+  "equipments": [
+    {
+      "id": "6038eefe-e796-4ad1-9194-22d9be420b2d",
+      "name": "CRAC-01",
+      "type": "crac",
+      "position": [
+        -4,
+        0,
+        -5
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "id": "ea1e19ea-4b8b-46ba-b88a-edb584d8aa76",
+      "name": "CRAC-02",
+      "type": "crac",
+      "position": [
+        0,
+        0,
+        -5
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "id": "3c7b747b-fb58-45a8-a21b-be7dd2a5f3df",
+      "name": "CRAC-03",
+      "type": "crac",
+      "position": [
+        4,
+        0,
+        -5
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "id": "882eb653-9569-4769-81ff-b14022f26bcf",
+      "name": "PDU-A",
+      "type": "pdu",
+      "position": [
+        -9,
+        0,
+        -5.3999999999999995
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "id": "77b394c3-f8b2-44a3-b746-b563435218c8",
+      "name": "PDU-B",
+      "type": "pdu",
+      "position": [
+        -7.8,
+        0,
+        -5.3999999999999995
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "id": "be887dc9-4d84-4019-b531-4f8cfaf72df6",
+      "name": "CDU-980",
+      "type": "cdu",
+      "position": [
+        1.2,
+        0,
+        2.4
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "id": "cb22657b-089d-4a21-a20e-054c03ba0d60",
+      "name": "UPS-350",
+      "type": "ups",
+      "position": [
+        -6.6,
+        0,
+        -5.3999999999999995
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "id": "2489e972-0731-4e8a-8f8e-214cd8462707",
+      "name": "DASHBOARD-726",
+      "type": "dashboard",
+      "position": [
+        -4.2,
+        0,
+        2.4
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "ipAddress": "172.168.100.1"
+    }
+  ]
+}

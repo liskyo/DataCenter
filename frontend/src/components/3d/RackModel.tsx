@@ -1,0 +1,214 @@
+"use client";
+import React, { useRef, useState } from 'react';
+import { useFrame } from '@react-three/fiber';
+import { PivotControls, Text } from '@react-three/drei';
+import * as THREE from 'three';
+import { RackData, useDcimStore } from '@/store/useDcimStore';
+import ServerModel from './ServerModel';
+
+const U_HEIGHT = 0.04445;
+const RACK_WIDTH = 0.6;
+const RACK_DEPTH = 1.0;
+
+export default function RackModel({ data, isSelected, telemetry = {} }: { data: RackData, isSelected: boolean, telemetry?: Record<string, any> }) {
+    const rackHeight = data.uCapacity * U_HEIGHT + 0.1; // Add frame margin
+    const updateRackPosition = useDcimStore(state => state.updateRackPosition);
+    const updateRackRotation = useDcimStore(state => state.updateRackRotation);
+    const selectRack = useDcimStore(state => state.selectRack);
+
+    const groupRef = useRef<THREE.Group>(null);
+
+    // 計算加總負載
+    const currentKw = data.servers.reduce((sum, s) => sum + s.powerKw, 0);
+    const powerUsagePercent = (currentKw / data.maxPowerKw) * 100;
+
+    let hasCriticalServer = false;
+    let hasWarningServer = false;
+
+    data.servers.forEach(server => {
+        const sTel = telemetry[server.name];
+        if (sTel) {
+            // Updated to sync with dashboard thresholds
+            if (sTel.temperature > 55 || sTel.cpu_usage > 85) hasCriticalServer = true;
+            else if (sTel.temperature > 45 || sTel.cpu_usage > 60) hasWarningServer = true;
+        }
+    });
+
+    let frameColor = "#1e3a8a"; // normal blue frame
+    if (powerUsagePercent > 90) {
+        frameColor = "#ef4444"; // Red (Only for Power > 90%)
+    } else if (powerUsagePercent > 70) {
+        frameColor = "#f59e0b"; // Yellow (Only for Power > 70%)
+    }
+
+    if (data.type === 'network') {
+        frameColor = "#a855f7"; // Purple for Network Rack
+    }
+
+    if (isSelected) {
+        frameColor = "#06b6d4"; // Highlight when selected
+    }
+
+    // Heatmap data: average temp of servers in this rack
+    const temps = data.servers.map(s => telemetry[s.name]?.temperature).filter(t => t !== undefined);
+    const avgTemp = temps.length > 0 ? temps.reduce((a, b) => a + b, 0) / temps.length : 22;
+
+    const getHeatColor = (t: number) => {
+        if (t > 50) return "#ef4444";
+        if (t > 40) return "#f59e0b";
+        return "#3b82f6";
+    };
+
+    const heatmapColor = getHeatColor(avgTemp);
+
+    const handleDrag = (localMatrix: THREE.Matrix4) => {
+        const pos = new THREE.Vector3();
+        const quat = new THREE.Quaternion();
+        const scale = new THREE.Vector3();
+        localMatrix.decompose(pos, quat, scale);
+
+        const euler = new THREE.Euler().setFromQuaternion(quat);
+
+        // Snap to grid (0.6 meters)
+        const snappedX = Math.round(pos.x / 0.6) * 0.6;
+        const snappedZ = Math.round(pos.z / 0.6) * 0.6;
+
+        updateRackPosition(data.id, [snappedX, 0, snappedZ]);
+        updateRackRotation(data.id, [0, euler.y, 0]);
+    };
+
+    const matrix = React.useMemo(() => {
+        const m = new THREE.Matrix4();
+        const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(data.rotation[0], data.rotation[1], data.rotation[2]));
+        m.compose(new THREE.Vector3(data.position[0], 0, data.position[2]), q, new THREE.Vector3(1, 1, 1));
+        return m;
+    }, [data.position, data.rotation]);
+
+    const isEditMode = useDcimStore(state => state.isEditMode);
+
+    return (
+        <PivotControls
+            visible={isEditMode && isSelected}
+            disableAxes={!isEditMode}
+            disableSliders={!isEditMode}
+            disableRotations={!isEditMode}
+            activeAxes={[true, true, true]}
+            onDragEnd={() => { }}
+            onDrag={handleDrag}
+            matrix={matrix}
+        >
+            <group
+                ref={groupRef}
+                onClick={(e) => {
+                    e.stopPropagation();
+                    if (isEditMode) selectRack(data.id);
+                }}
+            >
+                {/* Rack Frame outer box (Translucent) */}
+                <mesh position={[0, rackHeight / 2, 0]} castShadow>
+                    <boxGeometry args={[RACK_WIDTH, rackHeight, RACK_DEPTH]} />
+                    <meshStandardMaterial
+                        color={frameColor}
+                        transparent
+                        opacity={isSelected ? (data.type === 'network' ? 0.4 : 0.3) : 0.15}
+                        wireframe={!isSelected && data.type !== 'network'}
+                        emissive={data.type === 'network' ? "#a855f7" : "#000"}
+                        emissiveIntensity={data.type === 'network' ? 0.2 : 0}
+                    />
+                </mesh>
+
+                {/* Industrial Corner Pillars for Network Rack */}
+                {data.type === 'network' && (
+                    <group>
+                        {[
+                            [-RACK_WIDTH / 2, 0, -RACK_DEPTH / 2],
+                            [RACK_WIDTH / 2, 0, -RACK_DEPTH / 2],
+                            [-RACK_WIDTH / 2, 0, RACK_DEPTH / 2],
+                            [RACK_WIDTH / 2, 0, RACK_DEPTH / 2]
+                        ].map((pos, i) => (
+                            <mesh key={i} position={[pos[0], rackHeight / 2, pos[2]]}>
+                                <boxGeometry args={[0.04, rackHeight, 0.04]} />
+                                <meshStandardMaterial color="#4c1d95" emissive="#a855f7" emissiveIntensity={0.5} />
+                            </mesh>
+                        ))}
+                    </group>
+                )}
+
+                {/* Rack Base / Roof for solid look */}
+                <mesh position={[0, 0.05, 0]}>
+                    <boxGeometry args={[RACK_WIDTH, 0.1, RACK_DEPTH]} />
+                    <meshStandardMaterial color={frameColor} />
+                </mesh>
+                <mesh position={[0, rackHeight - 0.05, 0]}>
+                    <boxGeometry args={[RACK_WIDTH, 0.1, RACK_DEPTH]} />
+                    <meshStandardMaterial color={frameColor} />
+                </mesh>
+
+                {/* Label */}
+                <Text
+                    position={[0, rackHeight + 0.1, 0]}
+                    fontSize={0.15}
+                    color="#1e293b"
+                    anchorX="center"
+                    anchorY="middle"
+                >
+                    {data.name}
+                </Text>
+
+                {/* Server Anomaly Floating Icon */}
+                {(hasCriticalServer || hasWarningServer) && (
+                    <Text
+                        position={[0, rackHeight + 0.35, 0]}
+                        fontSize={0.25}
+                        color={hasCriticalServer ? "#ef4444" : "#f59e0b"}
+                        anchorX="center"
+                        anchorY="middle"
+                    >
+                        {hasCriticalServer ? "🔥" : "⚠️"}
+                    </Text>
+                )}
+
+                {/* Power Usage Mini Bar */}
+                <mesh position={[0, rackHeight - 0.15, RACK_DEPTH / 2 + 0.01]}>
+                    <planeGeometry args={[RACK_WIDTH * 0.8, 0.05]} />
+                    <meshBasicMaterial color="#334155" />
+                </mesh>
+                <mesh position={[(-RACK_WIDTH * 0.8 / 2) + ((RACK_WIDTH * 0.8 * Math.min(100, powerUsagePercent) / 100) / 2), rackHeight - 0.15, RACK_DEPTH / 2 + 0.011]}>
+                    <planeGeometry args={[RACK_WIDTH * 0.8 * (Math.min(100, powerUsagePercent) / 100), 0.05]} />
+                    <meshBasicMaterial color={powerUsagePercent > 90 ? "#ef4444" : "#10b981"} />
+                </mesh>
+
+                {/* Render Servers inside */}
+                {data.servers.map(server => (
+                    <ServerModel key={server.id} data={server} telemetry={telemetry[server.name]} />
+                ))}
+
+                {/* Heatmap Environmental Sensor Nodes (Front) */}
+                <group position={[0, 0, RACK_DEPTH / 2 + 0.05]}>
+                    {/* Top Sensor */}
+                    <mesh position={[0, rackHeight - 0.2, 0]}>
+                        <sphereGeometry args={[0.04, 16, 16]} />
+                        <meshStandardMaterial color={heatmapColor} emissive={heatmapColor} emissiveIntensity={0.8} transparent opacity={0.6} />
+                    </mesh>
+                    {/* Mid Sensor */}
+                    <mesh position={[0, rackHeight / 2, 0]}>
+                        <sphereGeometry args={[0.04, 16, 16]} />
+                        <meshStandardMaterial color={heatmapColor} emissive={heatmapColor} emissiveIntensity={0.8} transparent opacity={0.6} />
+                    </mesh>
+                    {/* Bottom Sensor */}
+                    <mesh position={[0, 0.2, 0]}>
+                        <sphereGeometry args={[0.04, 16, 16]} />
+                        <meshStandardMaterial color={heatmapColor} emissive={heatmapColor} emissiveIntensity={0.8} transparent opacity={0.6} />
+                    </mesh>
+                </group>
+
+                {/* Network Rack Identifier */}
+                {data.type === 'network' && (
+                    <Text position={[0, rackHeight + 0.25, 0]} fontSize={0.12} color="#a855f7">
+                        [ NETWORK CORE ]
+                    </Text>
+                )}
+            </group>
+        </PivotControls>
+    );
+}
