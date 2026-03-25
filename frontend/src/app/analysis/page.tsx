@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { LineChart as ChartIcon, Activity } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { ClientOnlyChart } from "@/components/ClientOnlyChart";
+import { usePolling } from "@/shared/hooks/usePolling";
 
 type HistoryData = {
   [server_id: string]: [number, number][]; // [temperature, cpu][]
@@ -12,40 +13,15 @@ type HistoryData = {
 export default function AnalysisPage() {
   const [history, setHistory] = useState<HistoryData>({});
 
-  useEffect(() => {
-    const needle = "The width(-1) and height(-1) of chart should be greater than 0";
-    const originalWarn = console.warn;
-    const originalError = console.error;
-
-    console.warn = (...args) => {
-      if (typeof args[0] === "string" && args[0].includes(needle)) return;
-      originalWarn(...args);
-    };
-    console.error = (...args) => {
-      if (typeof args[0] === "string" && args[0].includes(needle)) return;
-      originalError(...args);
-    };
-
-    return () => {
-      console.warn = originalWarn;
-      console.error = originalError;
-    };
-  }, []);
-
-  useEffect(() => {
-    const fetchHistory = async () => {
-      try {
-        const res = await fetch("http://localhost:9000/history");
-        if (res.ok) {
-          const json = await res.json();
-          setHistory(json.data);
-        }
-      } catch (e) { }
-    };
-    fetchHistory();
-    const timer = setInterval(fetchHistory, 2000);
-    return () => clearInterval(timer);
-  }, []);
+  usePolling(async () => {
+    try {
+      const res = await fetch("http://localhost:9000/history");
+      if (res.ok) {
+        const json = await res.json();
+        setHistory(json.data);
+      }
+    } catch (e) { }
+  }, { intervalMs: 2000, immediate: true });
 
   // 轉換特定 Server 的資料為圖表格式
   const getChartData = (serverId: string) => {
@@ -80,7 +56,7 @@ export default function AnalysisPage() {
             <div className="flex-1 min-h-0 w-full">
               <ClientOnlyChart placeholderClassName="h-full w-full min-h-[200px]">
                 <div className="h-full w-full min-h-[200px]">
-                  <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+                  <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1} initialDimension={{ width: 100, height: 200 }}>
                     <LineChart data={getChartData(server)}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#1e3a8a" vertical={false} />
                       <XAxis dataKey="index" hide />

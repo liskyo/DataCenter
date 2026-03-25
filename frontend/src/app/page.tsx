@@ -5,9 +5,10 @@ import {
   AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer,
   BarChart, Bar, PieChart, Pie, Cell
 } from "recharts";
-import { Activity, Server, AlertTriangle, Cpu, Thermometer, Clock, Database, Power, LayoutGrid, Box, Link2 } from "lucide-react";
+import { Activity, AlertTriangle, Cpu, Thermometer, Clock, Database, Power, LayoutGrid, Box, Link2 } from "lucide-react";
 import { useDcimStore } from "@/store/useDcimStore";
 import { ClientOnlyChart } from "@/components/ClientOnlyChart";
+import { usePolling } from "@/shared/hooks/usePolling";
 
 type ServerTelemetry = {
   server_id: string;
@@ -18,8 +19,6 @@ type ServerTelemetry = {
   ports_active?: number;
   ports_total?: number;
 };
-
-const PIE_COLORS = ['#00f2fe', '#4facfe', '#00f2c3', '#f83600'];
 
 const TechPanel = ({ title, children, className = "" }: { title: string, children: React.ReactNode, className?: string }) => (
   <div className={`relative bg-[#020b1a] border border-[#1e3a8a] flex flex-col ${className}`}>
@@ -48,26 +47,6 @@ export default function Dashboard() {
   const [history, setHistory] = useState<any[]>([]);
   const [time, setTime] = useState("");
   const [simMode, setSimMode] = useState("simulation");
-
-  useEffect(() => {
-    const needle = "The width(-1) and height(-1) of chart should be greater than 0";
-    const originalWarn = console.warn;
-    const originalError = console.error;
-
-    console.warn = (...args) => {
-      if (typeof args[0] === "string" && args[0].includes(needle)) return;
-      originalWarn(...args);
-    };
-    console.error = (...args) => {
-      if (typeof args[0] === "string" && args[0].includes(needle)) return;
-      originalError(...args);
-    };
-
-    return () => {
-      console.warn = originalWarn;
-      console.error = originalError;
-    };
-  }, []);
 
   // 初始化模式
   useEffect(() => {
@@ -104,41 +83,34 @@ export default function Dashboard() {
     return () => clearInterval(timer);
   }, []);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const res = await fetch("http://localhost:9000/metrics");
-        if (!res.ok) return;
-        const json = await res.json();
+  usePolling(async () => {
+    try {
+      const res = await fetch("http://localhost:9000/metrics");
+      if (!res.ok) return;
+      const json = await res.json();
 
-        const sortedData = (json.data || []).sort((a: ServerTelemetry, b: ServerTelemetry) =>
-          a.server_id.localeCompare(b.server_id)
-        );
-        setData(sortedData);
+      const sortedData = (json.data || []).sort((a: ServerTelemetry, b: ServerTelemetry) =>
+        a.server_id.localeCompare(b.server_id)
+      );
+      setData(sortedData);
 
-        // 更新歷史紀錄供圖表使用
-        setHistory(prev => {
-          const avgCpu = sortedData.reduce((acc: number, cur: ServerTelemetry) => acc + cur.cpu_usage, 0) / (sortedData.length || 1);
-          const avgTemp = sortedData.reduce((acc: number, cur: ServerTelemetry) => acc + cur.temperature, 0) / (sortedData.length || 1);
-          const newPoint = {
-            time: new Date().toLocaleTimeString("zh-TW", { hour12: false, minute: '2-digit', second: '2-digit' }),
-            avgCpu: Number(avgCpu.toFixed(1)),
-            avgTemp: Number(avgTemp.toFixed(1))
-          };
-          const newHistory = [...prev, newPoint];
-          if (newHistory.length > 20) newHistory.shift(); // 保持最後 20 筆
-          return newHistory;
-        });
-
-      } catch (e) {
-        // 靜默處理錯誤以維持畫面
-      }
-    };
-
-    fetchData();
-    const interval = setInterval(fetchData, 5000);
-    return () => clearInterval(interval);
-  }, []);
+      // 更新歷史紀錄供圖表使用
+      setHistory(prev => {
+        const avgCpu = sortedData.reduce((acc: number, cur: ServerTelemetry) => acc + cur.cpu_usage, 0) / (sortedData.length || 1);
+        const avgTemp = sortedData.reduce((acc: number, cur: ServerTelemetry) => acc + cur.temperature, 0) / (sortedData.length || 1);
+        const newPoint = {
+          time: new Date().toLocaleTimeString("zh-TW", { hour12: false, minute: "2-digit", second: "2-digit" }),
+          avgCpu: Number(avgCpu.toFixed(1)),
+          avgTemp: Number(avgTemp.toFixed(1))
+        };
+        const newHistory = [...prev, newPoint];
+        if (newHistory.length > 20) newHistory.shift(); // 保持最後 20 筆
+        return newHistory;
+      });
+    } catch (e) {
+      // 靜默處理錯誤以維持畫面
+    }
+  }, { intervalMs: 5000, immediate: true });
 
   // --- Unified Health Scoring Logic ---
   const getDeviceStatus = (item: any, srv: ServerTelemetry | undefined) => {
@@ -244,7 +216,7 @@ export default function Dashboard() {
           <TechPanel title="全區負載趨勢 (CPU Trend)" className="h-[280px]">
             <ClientOnlyChart>
             <div className="h-full w-full min-h-[180px]">
-            <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+            <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1} initialDimension={{ width: 100, height: 180 }}>
               <AreaChart data={history} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorCpu" x1="0" y1="0" x2="0" y2="1">
@@ -265,7 +237,7 @@ export default function Dashboard() {
           <TechPanel title="機房溫度趨勢 (Temp Trend)" className="h-[280px]">
             <ClientOnlyChart>
             <div className="h-full w-full min-h-[180px]">
-            <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+            <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1} initialDimension={{ width: 100, height: 180 }}>
               <AreaChart data={history} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorTemp" x1="0" y1="0" x2="0" y2="1">
@@ -286,7 +258,7 @@ export default function Dashboard() {
           <TechPanel title="設備健康狀態分佈 (Health)" className="flex-1 min-h-[220px]">
             <div className="h-[180px] w-full relative flex items-center justify-center">
               <ClientOnlyChart placeholderClassName="h-[180px] w-[200px]">
-              <ResponsiveContainer width={200} height={180}>
+              <ResponsiveContainer width={200} height={180} initialDimension={{ width: 200, height: 180 }}>
                 <PieChart>
                   <Pie
                     data={pieData}
@@ -454,7 +426,7 @@ export default function Dashboard() {
           <TechPanel title="各節點 CPU 負載佔比" className="h-[300px]">
             <ClientOnlyChart placeholderClassName="h-full w-full min-h-[200px]">
             <div className="h-full w-full min-h-[200px]">
-            <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+            <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1} initialDimension={{ width: 100, height: 200 }}>
               <BarChart data={activeStoreData} layout="vertical" margin={{ top: 0, right: 20, left: 10, bottom: 0 }}>
                 <XAxis type="number" domain={[0, 100]} hide />
                 <YAxis dataKey="server_id" type="category" stroke="#1e3a8a" fontSize={10} width={70} tick={{ fill: '#06b6d4' }} />

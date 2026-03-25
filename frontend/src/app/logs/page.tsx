@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { FileText, AlertTriangle, ShieldCheck, Database } from "lucide-react";
+import { useState } from "react";
+import { FileText } from "lucide-react";
+import { usePolling } from "@/shared/hooks/usePolling";
 
 type AlertLog = {
   server_id: string;
@@ -13,20 +14,15 @@ type AlertLog = {
 export default function LogsPage() {
   const [logs, setLogs] = useState<AlertLog[]>([]);
 
-  useEffect(() => {
-    const fetchLogs = async () => {
-      try {
-        const res = await fetch("http://localhost:9000/alerts");
-        if (res.ok) {
-          const json = await res.json();
-          setLogs(json.data);
-        }
-      } catch (e) { }
-    };
-    fetchLogs();
-    const timer = setInterval(fetchLogs, 2000);
-    return () => clearInterval(timer);
-  }, []);
+  usePolling(async () => {
+    try {
+      const res = await fetch("http://localhost:9000/alerts");
+      if (res.ok) {
+        const json = await res.json();
+        setLogs(json.data);
+      }
+    } catch (e) { }
+  }, { intervalMs: 2000, immediate: true });
 
   return (
     <div className="p-8 pb-20 max-w-7xl mx-auto h-full flex flex-col">
