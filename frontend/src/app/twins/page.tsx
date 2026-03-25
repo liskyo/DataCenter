@@ -12,8 +12,8 @@ import { v4 as uuidv4 } from "uuid";
 
 export default function TwinsPage() {
     const store = useDcimStore();
-    const selectedRack = store.racks.find((r) => r.id === store.selectedRackId);
-    const selectedEquipment = store.equipments.find((e) => e.id === store.selectedEquipmentId);
+    const selectedRack = store.racks.find((r) => r.id === store.selectedRackId && r.locationId === store.currentLocationId);
+    const selectedEquipment = store.equipments.find((e) => e.id === store.selectedEquipmentId && e.locationId === store.currentLocationId);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Form State for new server
@@ -63,7 +63,7 @@ export default function TwinsPage() {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const res = await fetch("http://localhost:8000/metrics", { cache: "no-store" });
+                const res = await fetch("http://localhost:9000/metrics", { cache: "no-store" });
                 if (!res.ok) return;
                 const json = await res.json();
                 const tMap: Record<string, any> = {};
@@ -78,15 +78,6 @@ export default function TwinsPage() {
         return () => clearInterval(interval);
     }, []);
 
-    if (typeof console !== 'undefined') {
-        const originalWarn = console.warn;
-        console.warn = (...args) => {
-            if (typeof args[0] === 'string') {
-                if (args[0].includes('THREE.Clock') || args[0].includes('THREE.WebGLRenderer')) return;
-            }
-            originalWarn(...args);
-        };
-    }
     const handleExport = () => {
         const json = store.exportState();
         const blob = new Blob([json], { type: "application/json" });
@@ -190,8 +181,14 @@ export default function TwinsPage() {
                 <div className="absolute top-4 left-4 z-10 pointer-events-none">
                     <h1 className="text-2xl font-black italic tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 drop-shadow-[0_0_8px_rgba(6,182,212,0.8)] flex items-center gap-3">
                         <Server /> 3D 動態機房
+                        <span className="text-white/20 mx-2 text-sm">|</span>
+                        <span className="text-cyan-200 text-lg not-italic tracking-normal">
+                            {store.locations.find(l => l.id === store.currentLocationId)?.name || '未知地點'}
+                        </span>
                     </h1>
-                    <p className="text-xs text-cyan-700 font-mono mt-1">REAL-TIME DYNAMIC INFRASTRUCTURE</p>
+                    <p className="text-xs text-cyan-700 font-mono mt-1 uppercase">
+                        REAL-TIME DYNAMIC INFRASTRUCTURE • {store.locations.find(l => l.id === store.currentLocationId)?.type === 'region' ? 'REGION VIEW' : 'FLOOR VIEW'}
+                    </p>
                 </div>
 
                 {/* Edit Mode HUD */}
@@ -214,10 +211,10 @@ export default function TwinsPage() {
                     }}
                 >
                     <RoomContext />
-                    {store.racks.map((rack) => (
+                    {store.racks.filter(r => r.locationId === store.currentLocationId).map((rack) => (
                         <RackModel key={rack.id} data={rack} isSelected={rack.id === store.selectedRackId} telemetry={telemetry} />
                     ))}
-                    {store.equipments.map((eq) => (
+                    {store.equipments.filter(e => e.locationId === store.currentLocationId).map((eq) => (
                         <EquipmentModel key={eq.id} data={eq} telemetry={telemetry} />
                     ))}
                     <NetworkLines />
@@ -238,7 +235,7 @@ export default function TwinsPage() {
                     <div className="p-4 flex flex-col gap-6 overflow-y-auto flex-1">
                         {/* 基本資訊 */}
                         <div className="bg-[#03112b] p-4 rounded-lg border border-slate-800">
-                             <label className="text-[10px] text-slate-500 uppercase tracking-[0.2em] mb-2 block">Rack Name</label>
+                            <label className="text-[10px] text-slate-500 uppercase tracking-[0.2em] mb-2 block">Rack Name</label>
                             <input
                                 type="text"
                                 value={selectedRack.name}
@@ -279,7 +276,7 @@ export default function TwinsPage() {
                                     <Link2 size={14} className="text-purple-400" />
                                     <h3 className="text-xs font-bold text-purple-400 tracking-widest uppercase">Network Uplink</h3>
                                 </div>
-                                <select 
+                                <select
                                     className="w-full bg-[#0a1e3f] border border-purple-800 p-2 rounded text-white text-[11px] outline-none mb-3"
                                     value={selectedRack.connectedNetworkRackId || ""}
                                     onChange={(e) => store.updateRackConnection(selectedRack.id, e.target.value)}
@@ -315,11 +312,11 @@ export default function TwinsPage() {
                         <div>
                             <h3 className="text-xs font-bold text-slate-500 mb-3 tracking-widest uppercase border-b border-slate-800 pb-1">Installed Equipment</h3>
                             <div className="flex flex-col gap-2">
-                                {selectedRack.servers.sort((a, b) => b.uPosition - a.uPosition).map(server => {
+                                {[...selectedRack.servers].sort((a, b) => b.uPosition - a.uPosition).map(server => {
                                     let liveStatus = server.status;
                                     const sTel = telemetry[server.name];
-                                    const metricsText = sTel 
-                                        ? (server.type === 'switch' 
+                                    const metricsText = sTel
+                                        ? (server.type === 'switch'
                                             ? `Traffic: ${(sTel.traffic_gbps || (Math.random() * 10)).toFixed(1)} Gbps | Ports: ${Math.floor((sTel.port_usage || Math.random()) * 48)}/48`
                                             : `CPU: ${sTel.cpu_usage.toFixed(1)}% | TEMP: ${sTel.temperature.toFixed(1)}°C`)
                                         : "";
@@ -458,7 +455,7 @@ export default function TwinsPage() {
                                         className="w-full bg-[#010613] border border-cyan-900 p-2 rounded text-cyan-100 text-xs outline-none focus:border-cyan-400 transition-colors"
                                     />
                                 </div>
-                                
+
                                 <div className="bg-[#03112b] p-4 rounded-lg border border-purple-900/40">
                                     <div className="flex items-center gap-2 mb-3">
                                         <Globe size={14} className="text-purple-400" />

@@ -13,6 +13,7 @@ const RACK_DEPTH = 1.0;
 export default function RackModel({ data, isSelected, telemetry = {} }: { data: RackData, isSelected: boolean, telemetry?: Record<string, any> }) {
     const rackHeight = data.uCapacity * U_HEIGHT + 0.1; // Add frame margin
     const updateRackPosition = useDcimStore(state => state.updateRackPosition);
+    const updateRackRotation = useDcimStore(state => state.updateRackRotation);
     const selectRack = useDcimStore(state => state.selectRack);
 
     const groupRef = useRef<THREE.Group>(null);
@@ -62,12 +63,26 @@ export default function RackModel({ data, isSelected, telemetry = {} }: { data: 
 
     const handleDrag = (localMatrix: THREE.Matrix4) => {
         const pos = new THREE.Vector3();
-        pos.setFromMatrixPosition(localMatrix);
+        const quat = new THREE.Quaternion();
+        const scale = new THREE.Vector3();
+        localMatrix.decompose(pos, quat, scale);
+
+        const euler = new THREE.Euler().setFromQuaternion(quat);
+
         // Snap to grid (0.6 meters)
         const snappedX = Math.round(pos.x / 0.6) * 0.6;
         const snappedZ = Math.round(pos.z / 0.6) * 0.6;
+
         updateRackPosition(data.id, [snappedX, 0, snappedZ]);
+        updateRackRotation(data.id, [0, euler.y, 0]);
     };
+
+    const matrix = React.useMemo(() => {
+        const m = new THREE.Matrix4();
+        const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(data.rotation[0], data.rotation[1], data.rotation[2]));
+        m.compose(new THREE.Vector3(data.position[0], 0, data.position[2]), q, new THREE.Vector3(1, 1, 1));
+        return m;
+    }, [data.position, data.rotation]);
 
     const isEditMode = useDcimStore(state => state.isEditMode);
 
@@ -76,11 +91,11 @@ export default function RackModel({ data, isSelected, telemetry = {} }: { data: 
             visible={isEditMode && isSelected}
             disableAxes={!isEditMode}
             disableSliders={!isEditMode}
-            disableRotations={true}
-            activeAxes={[true, false, true]}
+            disableRotations={!isEditMode}
+            activeAxes={[true, true, true]}
             onDragEnd={() => { }}
             onDrag={handleDrag}
-            matrix={new THREE.Matrix4().setPosition(data.position[0], 0, data.position[2])}
+            matrix={matrix}
         >
             <group
                 ref={groupRef}

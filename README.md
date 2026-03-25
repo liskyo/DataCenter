@@ -31,10 +31,10 @@
    - 執行後會自動跳出額外的終端機視窗，分別處理：
      - `docker-compose up -d` (容器啟動)
      - `Backend: 8000` (Python FastAPI 啟動)
-     - `Frontend: 3001` (Next.js 啟動)
+     - `Frontend: 8088` (Next.js 啟動)
 
 3. **進入系統**
-   - 啟動完成後，在瀏覽器打開：[http://localhost:3001](http://localhost:3001)
+   - 啟動完成後，在瀏覽器打開：[http://localhost:8088](http://localhost:8088)
 
 ---
 

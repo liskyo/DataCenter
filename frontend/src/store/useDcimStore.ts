@@ -21,6 +21,13 @@ export type EquipmentData = {
     position: [number, number, number];
     rotation: [number, number, number];
     ipAddress?: string; // For Dashboard PC
+    locationId: string; // Associated location
+};
+
+export type LocationData = {
+    id: string;
+    name: string;
+    type: 'floor' | 'region';
 };
 
 export type RackData = {
@@ -34,6 +41,7 @@ export type RackData = {
     servers: ServerData[];
     connectedNetworkRackId?: string; // Link to a network rack
     connectedSwitchId?: string | null; // Targeted switch inside the network rack
+    locationId: string; // Associated location
 };
 
 type DcimState = {
@@ -45,8 +53,18 @@ type DcimState = {
 
     equipments: EquipmentData[];
     selectedEquipmentId: string | null;
+
+    locations: LocationData[];
+    currentLocationId: string;
+
+    addLocation: (name: string, type: 'floor' | 'region') => void;
+    setCurrentLocation: (id: string) => void;
+    removeLocation: (id: string) => void;
+    updateLocationName: (id: string, name: string) => void;
+
     addRack: (position: [number, number, number], type?: 'server' | 'network') => void;
     updateRackPosition: (id: string, position: [number, number, number]) => void;
+    updateRackRotation: (id: string, rotation: [number, number, number]) => void;
     updateRackConnection: (id: string, networkRackId: string | null, switchId?: string | null) => void;
     updateRackName: (id: string, name: string) => void;
     removeRack: (id: string) => void;
@@ -56,6 +74,7 @@ type DcimState = {
 
     addEquipment: (type: EquipmentType, position: [number, number, number]) => void;
     updateEquipmentPosition: (id: string, position: [number, number, number]) => void;
+    updateEquipmentRotation: (id: string, rotation: [number, number, number]) => void;
     removeEquipment: (id: string) => void;
     selectEquipment: (id: string | null) => void;
     updateEquipmentIp: (id: string, ip: string) => void;
@@ -71,18 +90,23 @@ export const useDcimStore = create<DcimState>()(
             isEditMode: false,
             setEditMode: (mode) => set({ isEditMode: mode, selectedRackId: null, selectedEquipmentId: null }),
 
+            locations: [
+                { id: 'default-loc', name: '1F Core DC', type: 'floor' }
+            ],
+            currentLocationId: 'default-loc',
+
             equipments: [
-                { id: uuidv4(), name: 'CRAC-01', type: 'crac', position: [-4, 0, -5], rotation: [0, 0, 0] },
-                { id: uuidv4(), name: 'CRAC-02', type: 'crac', position: [0, 0, -5], rotation: [0, 0, 0] },
-                { id: uuidv4(), name: 'CRAC-03', type: 'crac', position: [4, 0, -5], rotation: [0, 0, 0] },
-                { id: uuidv4(), name: 'PDU-A', type: 'pdu', position: [-8, 0, -2], rotation: [0, 0, 0] },
-                { id: uuidv4(), name: 'PDU-B', type: 'pdu', position: [-8, 0, 2], rotation: [0, 0, 0] }
+                { id: uuidv4(), name: 'CRAC-01', type: 'crac', position: [-4, 0, -5], rotation: [0, 0, 0], locationId: 'default-loc' },
+                { id: uuidv4(), name: 'CRAC-02', type: 'crac', position: [0, 0, -5], rotation: [0, 0, 0], locationId: 'default-loc' },
+                { id: uuidv4(), name: 'CRAC-03', type: 'crac', position: [4, 0, -5], rotation: [0, 0, 0], locationId: 'default-loc' },
+                { id: uuidv4(), name: 'PDU-A', type: 'pdu', position: [-8, 0, -2], rotation: [0, 0, 0], locationId: 'default-loc' },
+                { id: uuidv4(), name: 'PDU-B', type: 'pdu', position: [-8, 0, 2], rotation: [0, 0, 0], locationId: 'default-loc' }
             ],
             selectedEquipmentId: null,
 
             racks: [
                 {
-                    id: uuidv4(), name: 'RACK-A01', type: 'server', position: [-2.4, 0, -1.2], rotation: [0, 0, 0], uCapacity: 42, maxPowerKw: 15,
+                    id: uuidv4(), name: 'RACK-A01', type: 'server', position: [-2.4, 0, -1.2], rotation: [0, 0, 0], uCapacity: 42, maxPowerKw: 15, locationId: 'default-loc',
                     servers: [
                         { id: uuidv4(), name: 'SERVER-001', uPosition: 2, uHeight: 1, powerKw: 0.8, type: 'server', status: 'normal' },
                         { id: uuidv4(), name: 'SERVER-002', uPosition: 4, uHeight: 1, powerKw: 0.8, type: 'server', status: 'normal' },
@@ -90,14 +114,14 @@ export const useDcimStore = create<DcimState>()(
                     ]
                 },
                 {
-                    id: uuidv4(), name: 'RACK-A02', type: 'server', position: [-1.2, 0, -1.2], rotation: [0, 0, 0], uCapacity: 42, maxPowerKw: 15,
+                    id: uuidv4(), name: 'RACK-A02', type: 'server', position: [-1.2, 0, -1.2], rotation: [0, 0, 0], uCapacity: 42, maxPowerKw: 15, locationId: 'default-loc',
                     servers: [
                         { id: uuidv4(), name: 'SERVER-004', uPosition: 2, uHeight: 2, powerKw: 2.0, type: 'server', status: 'normal' },
                         { id: uuidv4(), name: 'SERVER-005', uPosition: 6, uHeight: 2, powerKw: 2.0, type: 'server', status: 'normal' }
                     ]
                 },
                 {
-                    id: uuidv4(), name: 'NET-RACK-01', type: 'network', position: [0, 0, -4.5], rotation: [0, 0, 0], uCapacity: 42, maxPowerKw: 10,
+                    id: uuidv4(), name: 'NET-RACK-01', type: 'network', position: [0, 0, -4.5], rotation: [0, 0, 0], uCapacity: 42, maxPowerKw: 10, locationId: 'default-loc',
                     servers: []
                 }
             ],
@@ -114,7 +138,8 @@ export const useDcimStore = create<DcimState>()(
                         rotation: [0, 0, 0],
                         uCapacity: 42,
                         maxPowerKw: type === 'server' ? 15 : 10,
-                        servers: []
+                        servers: [],
+                        locationId: state.currentLocationId // Assign to current location
                     }
                 ]
             })),
@@ -125,6 +150,10 @@ export const useDcimStore = create<DcimState>()(
 
             updateRackPosition: (id, position) => set((state) => ({
                 racks: state.racks.map(r => r.id === id ? { ...r, position } : r)
+            })),
+
+            updateRackRotation: (id, rotation) => set((state) => ({
+                racks: state.racks.map(r => r.id === id ? { ...r, rotation } : r)
             })),
 
             updateRackName: (id, name) => set((state) => ({
@@ -138,8 +167,8 @@ export const useDcimStore = create<DcimState>()(
 
             addServerToRack: (rackId, serverData) => {
                 let success = false;
-                set((state) => {
-                    const rack = state.racks.find(r => r.id === rackId);
+                set((state: any) => {
+                    const rack = state.racks.find((r: any) => r.id === rackId);
                     if (!rack) return state;
 
                     // Check overlap logically
@@ -150,7 +179,7 @@ export const useDcimStore = create<DcimState>()(
                         return state; // Out of bounds
                     }
 
-                    const hasOverlap = rack.servers.some(s => {
+                    const hasOverlap = rack.servers.some((s: any) => {
                         const sStart = s.uPosition;
                         const sEnd = s.uPosition + s.uHeight - 1;
                         return Math.max(targetStart, sStart) <= Math.min(targetEnd, sEnd);
@@ -160,7 +189,7 @@ export const useDcimStore = create<DcimState>()(
 
                     success = true;
                     return {
-                        racks: state.racks.map(r => r.id === rackId ? {
+                        racks: state.racks.map((r: any) => r.id === rackId ? {
                             ...r,
                             servers: [...r.servers, { ...serverData, id: uuidv4() }]
                         } : r)
@@ -169,10 +198,10 @@ export const useDcimStore = create<DcimState>()(
                 return success;
             },
 
-            removeServerFromRack: (rackId, serverId) => set((state) => ({
-                racks: state.racks.map(r => r.id === rackId ? {
+            removeServerFromRack: (rackId, serverId) => set((state: any) => ({
+                racks: state.racks.map((r: any) => r.id === rackId ? {
                     ...r,
-                    servers: r.servers.filter(s => s.id !== serverId)
+                    servers: r.servers.filter((s: any) => s.id !== serverId)
                 } : r)
             })),
 
@@ -186,33 +215,65 @@ export const useDcimStore = create<DcimState>()(
                         name: `${type.toUpperCase()}-${Math.floor(Math.random() * 1000)}`,
                         type,
                         position,
-                        rotation: [0, 0, 0]
+                        rotation: [0, 0, 0],
+                        locationId: state.currentLocationId // Assign to current location
                     }
                 ]
             })),
 
-            updateEquipmentPosition: (id, position) => set((state) => ({
-                equipments: state.equipments.map(e => e.id === id ? { ...e, position } : e)
+            updateEquipmentPosition: (id, position) => set((state: any) => ({
+                equipments: state.equipments.map((e: any) => e.id === id ? { ...e, position } : e)
             })),
 
-            removeEquipment: (id) => set((state) => ({
-                equipments: state.equipments.filter(e => e.id !== id),
+            updateEquipmentRotation: (id, rotation) => set((state: any) => ({
+                equipments: state.equipments.map((e: any) => e.id === id ? { ...e, rotation } : e)
+            })),
+
+            removeEquipment: (id) => set((state: any) => ({
+                equipments: state.equipments.filter((e: any) => e.id !== id),
                 selectedEquipmentId: state.selectedEquipmentId === id ? null : state.selectedEquipmentId
             })),
 
             selectEquipment: (id) => set({ selectedEquipmentId: id, selectedRackId: null }),
 
-            updateEquipmentIp: (id, ip) => set((state) => ({
-                equipments: state.equipments.map(e => e.id === id ? { ...e, ipAddress: ip } : e)
+            updateEquipmentIp: (id, ip) => set((state: any) => ({
+                equipments: state.equipments.map((e: any) => e.id === id ? { ...e, ipAddress: ip } : e)
             })),
 
-            updateEquipmentName: (id, name) => set((state) => ({
-                equipments: state.equipments.map(e => e.id === id ? { ...e, name } : e)
+            updateEquipmentName: (id, name) => set((state: any) => ({
+                equipments: state.equipments.map((e: any) => e.id === id ? { ...e, name } : e)
+            })),
+
+            addLocation: (name, type) => set((state: any) => ({
+                locations: [...state.locations, { id: uuidv4(), name, type }]
+            })),
+
+            setCurrentLocation: (id) => set({ currentLocationId: id, selectedRackId: null, selectedEquipmentId: null }),
+
+            removeLocation: (id) => set((state: any) => {
+                if (state.locations.length <= 1) return state; // Keep at least one
+                const newLocations = state.locations.filter((l: any) => l.id !== id);
+                const newCurrentId = state.currentLocationId === id ? newLocations[0].id : state.currentLocationId;
+                return {
+                    locations: newLocations,
+                    currentLocationId: newCurrentId,
+                    racks: state.racks.filter((r: any) => r.locationId !== id),
+                    equipments: state.equipments.filter((e: any) => e.locationId !== id)
+                };
+            }),
+
+            updateLocationName: (id, name) => set((state: any) => ({
+                locations: state.locations.map((l: any) => l.id === id ? { ...l, name } : l)
             })),
 
             exportState: () => {
                 const state = get();
-                return JSON.stringify({ racks: state.racks, equipments: state.equipments }, null, 2);
+                return JSON.stringify({ 
+                    racks: state.racks, 
+                    equipments: state.equipments, 
+                    locations: state.locations, 
+                    currentLocationId: state.currentLocationId 
+                }, null, 2);
             },
 
             importState: (jsonConfig) => {
@@ -222,6 +283,8 @@ export const useDcimStore = create<DcimState>()(
                         set({
                             racks: parsed.racks,
                             equipments: Array.isArray(parsed.equipments) ? parsed.equipments : get().equipments,
+                            locations: Array.isArray(parsed.locations) ? parsed.locations : get().locations,
+                            currentLocationId: parsed.currentLocationId || get().currentLocationId,
                             selectedRackId: null,
                             selectedEquipmentId: null
                         });
@@ -234,7 +297,50 @@ export const useDcimStore = create<DcimState>()(
             }
         }),
         {
-            name: 'datacenter-storage-v2', // key in localStorage - Updated to v2 to force reset defaults
-            partialize: (state) => ({ racks: state.racks, equipments: state.equipments }), // Only preserve these keys
+            name: 'datacenter-storage-v3', // key in localStorage - Updated to v3 for location support
+            partialize: (state) => ({ 
+                racks: state.racks, 
+                equipments: state.equipments, 
+                locations: state.locations, 
+                currentLocationId: state.currentLocationId 
+            }),
+            merge: (persistedState, currentState) => {
+                const persisted = (persistedState ?? {}) as Partial<DcimState>;
+                const fallbackLocation = { id: 'default-loc', name: '1F Core DC', type: 'floor' as const };
+
+                const locations = Array.isArray(persisted.locations)
+                    ? persisted.locations.filter(
+                        (l): l is LocationData =>
+                            !!l &&
+                            typeof l.id === "string" &&
+                            typeof l.name === "string" &&
+                            (l.type === "floor" || l.type === "region")
+                    )
+                    : [];
+
+                const safeLocations = locations.length > 0
+                    ? locations
+                    : currentState.locations.length > 0
+                        ? currentState.locations
+                        : [fallbackLocation];
+
+                const locationIdSet = new Set(safeLocations.map((l) => l.id));
+                const currentLocationId = typeof persisted.currentLocationId === "string" && locationIdSet.has(persisted.currentLocationId)
+                    ? persisted.currentLocationId
+                    : safeLocations[0].id;
+
+                return {
+                    ...currentState,
+                    ...persisted,
+                    racks: Array.isArray(persisted.racks)
+                        ? persisted.racks.filter((r): r is RackData => !!r && typeof r.id === "string" && Array.isArray(r.servers))
+                        : currentState.racks,
+                    equipments: Array.isArray(persisted.equipments)
+                        ? persisted.equipments.filter((e): e is EquipmentData => !!e && typeof e.id === "string" && Array.isArray(e.position))
+                        : currentState.equipments,
+                    locations: safeLocations,
+                    currentLocationId,
+                };
+            },
         })
 );

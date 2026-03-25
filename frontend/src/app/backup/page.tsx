@@ -1,6 +1,6 @@
 "use client";
 
-import { CloudDownload, DatabaseBackup, HardDrive, RefreshCw } from "lucide-react";
+import { CloudDownload, Database, HardDrive, RefreshCw } from "lucide-react";
 
 export default function BackupPage() {
   const backups = [
@@ -23,7 +23,7 @@ export default function BackupPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         {[
-          { icon: DatabaseBackup, label: "Cloud Sync Status", value: "ACTIVE", color: "text-emerald-400" },
+          { icon: Database, label: "Cloud Sync Status", value: "ACTIVE", color: "text-emerald-400" },
           { icon: HardDrive, label: "Local Free Space", value: "3.2 TB", color: "text-cyan-400" },
           { icon: RefreshCw, label: "Next Global Snapshot", value: "02:45:00", color: "text-amber-400" },
         ].map((stat, i) => {

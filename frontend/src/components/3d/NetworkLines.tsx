@@ -5,11 +5,15 @@ import { useDcimStore } from '@/store/useDcimStore';
 import * as THREE from 'three';
 
 export default function NetworkLines() {
-    const racks = useDcimStore(state => state.racks);
-    
-    // Find all network racks
+    const store = useDcimStore();
+    const racks = useMemo(() =>
+        store.racks.filter(r => r.locationId === store.currentLocationId),
+        [store.racks, store.currentLocationId]
+    );
+
+    // Find all network racks in the current location
     const networkRacks = useMemo(() => racks.filter(r => r.type === 'network'), [racks]);
-    
+
     if (networkRacks.length === 0) return null;
 
     return (
@@ -17,9 +21,9 @@ export default function NetworkLines() {
             {racks.filter(r => r.type === 'server').map((rack, idx) => {
                 // Determine target rack: specific connection or first available network rack (hub)
                 const targetRack = racks.find(r => r.id === rack.connectedNetworkRackId) || networkRacks[0];
-                
+
                 if (!targetRack) return null;
-                
+
                 // Palette for different server racks
                 const COLORS = ['#06b6d4', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#3b82f6'];
                 const cableColor = COLORS[idx % COLORS.length];
@@ -37,7 +41,7 @@ export default function NetworkLines() {
                 const RACK_DEPTH = 1.0;
                 const start: [number, number, number] = [rack.position[0], 2.2, rack.position[2] - RACK_DEPTH / 2];
                 const end: [number, number, number] = [targetRack.position[0], targetY, targetRack.position[2] - RACK_DEPTH / 2];
-                
+
                 // Control point for curve (elevate it to look like overhead cabling)
                 const mid: [number, number, number] = [
                     (start[0] + end[0]) / 2,
@@ -51,7 +55,7 @@ export default function NetworkLines() {
                         start={start}
                         end={end}
                         mid={mid}
-                        color={cableColor} 
+                        color={cableColor}
                         lineWidth={3}
                         transparent
                         opacity={0.6}

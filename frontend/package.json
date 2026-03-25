@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "node --max-old-space-size=8192 node_modules/next/dist/bin/next dev",
+    "build": "node --max-old-space-size=8192 node_modules/next/dist/bin/next build",
     "start": "next start",
     "lint": "eslint"
   },
@@ -14,10 +14,13 @@
     "@types/three": "^0.183.1",
     "@types/uuid": "^10.0.0",
     "lucide-react": "^0.577.0",
+    "nanoid": "^5.1.7",
     "next": "16.2.0",
+    "picocolors": "^1.1.1",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "recharts": "^3.8.0",
+    "source-map-js": "^1.2.1",
     "three": "^0.183.2",
     "uuid": "^13.0.0",
     "zustand": "^5.0.12"

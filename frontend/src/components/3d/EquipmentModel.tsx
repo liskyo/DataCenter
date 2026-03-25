@@ -7,6 +7,7 @@ import { EquipmentData, useDcimStore } from '@/store/useDcimStore';
 export default function EquipmentModel({ data, telemetry }: { data: EquipmentData, telemetry?: any }) {
     const isEditMode = useDcimStore(state => state.isEditMode);
     const updateEquipmentPosition = useDcimStore(state => state.updateEquipmentPosition);
+    const updateEquipmentRotation = useDcimStore(state => state.updateEquipmentRotation);
     const selectEquipment = useDcimStore(state => state.selectEquipment);
     const selectedEquipmentId = useDcimStore(state => state.selectedEquipmentId);
 
@@ -15,12 +16,26 @@ export default function EquipmentModel({ data, telemetry }: { data: EquipmentDat
 
     const handleDrag = (localMatrix: THREE.Matrix4) => {
         const pos = new THREE.Vector3();
-        pos.setFromMatrixPosition(localMatrix);
+        const quat = new THREE.Quaternion();
+        const scale = new THREE.Vector3();
+        localMatrix.decompose(pos, quat, scale);
+
+        const euler = new THREE.Euler().setFromQuaternion(quat);
+
         // Snap to grid (0.6 meters)
         const snappedX = Math.round(pos.x / 0.6) * 0.6;
         const snappedZ = Math.round(pos.z / 0.6) * 0.6;
+
         updateEquipmentPosition(data.id, [snappedX, 0, snappedZ]);
+        updateEquipmentRotation(data.id, [0, euler.y, 0]);
     };
+
+    const matrix = React.useMemo(() => {
+        const m = new THREE.Matrix4();
+        const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(data.rotation[0], data.rotation[1], data.rotation[2]));
+        m.compose(new THREE.Vector3(data.position[0], 0, data.position[2]), q, new THREE.Vector3(1, 1, 1));
+        return m;
+    }, [data.position, data.rotation]);
 
     const racks = useDcimStore(state => state.racks);
 
@@ -138,7 +153,7 @@ export default function EquipmentModel({ data, telemetry }: { data: EquipmentDat
         );
     } else if (data.type === 'dashboard') {
         const allServers = racks.flatMap(r => r.servers.map(s => ({ ...s, rackType: r.type })));
-        
+
         const stats = {
             traffic: Object.values(telemetry || {}).reduce((acc: number, s: any) => acc + (s.traffic_gbps || 0), 0) as number,
             alarms: allServers.filter(srvInStore => {
@@ -148,7 +163,7 @@ export default function EquipmentModel({ data, telemetry }: { data: EquipmentDat
                 const temp = s.temperature || 0;
                 const traffic = s.traffic_gbps || 0;
                 const ports = s.ports_active || 0;
-                
+
                 // Unified Critical Thresholds
                 if (srvInStore.type === 'switch' || srvInStore.rackType === 'network') {
                     return cpu > 85 || temp > 55 || traffic > 35 || ports > 42;
@@ -252,7 +267,7 @@ export default function EquipmentModel({ data, telemetry }: { data: EquipmentDat
                     <Text fontSize={0.12} color="#22d3ee" anchorX="center" anchorY="middle">
                         IP: {data.ipAddress || "172.168.100.1"}
                     </Text>
-                    <Text position={[0, 0.25, 0]} fontSize={0.18} color={isCriticalHub ? "#ef4444" : "#06b6d4"} anchorX="center" anchorY="middle" fontStyle="bold">
+                    <Text position={[0, 0.25, 0]} fontSize={0.18} color={isCriticalHub ? "#ef4444" : "#06b6d4"} anchorX="center" anchorY="middle">
                         {data.name} (HUB)
                     </Text>
                     {isCriticalHub && (
@@ -271,11 +286,11 @@ export default function EquipmentModel({ data, telemetry }: { data: EquipmentDat
             visible={isEditMode && isSelected}
             disableAxes={!isEditMode}
             disableSliders={!isEditMode}
-            disableRotations={true}
-            activeAxes={[true, false, true]}
+            disableRotations={!isEditMode}
+            activeAxes={[true, true, true]}
             onDragEnd={() => { }}
             onDrag={handleDrag}
-            matrix={new THREE.Matrix4().setPosition(data.position[0], 0, data.position[2])}
+            matrix={matrix}
         >
             <group
                 ref={groupRef}
