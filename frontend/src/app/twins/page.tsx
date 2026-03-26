@@ -36,6 +36,15 @@ export default function TwinsPage() {
 
     const [telemetry, setTelemetry] = useState<Record<string, any>>({});
 
+    const [editingServerId, setEditingServerId] = useState<string | null>(null);
+    const [editingDraft, setEditingDraft] = useState<{
+        uPosition: number;
+        uHeight: number;
+        powerKw: number;
+        type: 'server' | 'switch' | 'storage';
+        status: 'normal' | 'warning' | 'critical' | 'offline';
+    } | null>(null);
+
     // Helper to find the next sequential name for a prefix
     const getNextName = (type: 'server' | 'switch' | 'storage') => {
         const prefix = type === 'switch' ? 'SW-' : type === 'storage' ? 'ST-' : 'SERVER-';
@@ -323,18 +332,156 @@ export default function TwinsPage() {
                                         : "";
 
                                     return (
-                                        <div key={server.id} className="flex justify-between items-center text-xs bg-[#0a1e3f] p-2 rounded border border-slate-700">
-                                            <div>
-                                                <div className={`font-bold flex items-center gap-2 ${liveStatus === 'critical' ? 'text-red-400' : liveStatus === 'warning' ? 'text-yellow-400' : 'text-cyan-100'}`}>
-                                                    <div className={`w-2 h-2 rounded-full ${liveStatus === 'critical' ? 'bg-red-500 animate-pulse' : liveStatus === 'warning' ? 'bg-yellow-500' : 'bg-cyan-500'}`}></div>
-                                                    {server.name} {server.type === 'switch' && <span className="text-[9px] bg-purple-900 border border-purple-500 px-1 rounded text-purple-100 ml-1">SWITCH</span>}
+                                        <div key={server.id} className="flex flex-col gap-2 text-xs bg-[#0a1e3f] p-2 rounded border border-slate-700">
+                                            {editingServerId === server.id && editingDraft ? (
+                                                <div className="flex flex-col gap-2">
+                                                    <div className="text-slate-200 font-bold">
+                                                        {server.name}
+                                                        {server.type === 'switch' && (
+                                                            <span className="text-[9px] bg-purple-900 border border-purple-500 px-1 rounded text-purple-100 ml-1">
+                                                                SWITCH
+                                                            </span>
+                                                        )}
+                                                    </div>
+
+                                                    <div className="flex gap-2">
+                                                        <div className="flex-1">
+                                                            <div className="text-slate-500 text-[10px] mb-1">Start U</div>
+                                                            <input
+                                                                type="number"
+                                                                min={1}
+                                                                max={selectedRack.uCapacity}
+                                                                value={editingDraft.uPosition}
+                                                                onChange={(e) => setEditingDraft({ ...editingDraft, uPosition: Number(e.target.value) })}
+                                                                className="w-full bg-[#0a1e3f] border border-cyan-800 p-2 rounded text-white outline-none focus:border-cyan-400"
+                                                            />
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <div className="text-slate-500 text-[10px] mb-1">Height (U)</div>
+                                                            <input
+                                                                type="number"
+                                                                min={1}
+                                                                max={selectedRack.uCapacity}
+                                                                value={editingDraft.uHeight}
+                                                                onChange={(e) => setEditingDraft({ ...editingDraft, uHeight: Number(e.target.value) })}
+                                                                className="w-full bg-[#0a1e3f] border border-cyan-800 p-2 rounded text-white outline-none focus:border-cyan-400"
+                                                            />
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex gap-2">
+                                                        <div className="flex-1">
+                                                            <div className="text-slate-500 text-[10px] mb-1">Power (kW)</div>
+                                                            <input
+                                                                type="number"
+                                                                step="0.1"
+                                                                value={editingDraft.powerKw}
+                                                                onChange={(e) => setEditingDraft({ ...editingDraft, powerKw: Number(e.target.value) })}
+                                                                className="w-full bg-[#0a1e3f] border border-cyan-800 p-2 rounded text-white outline-none focus:border-cyan-400"
+                                                            />
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <div className="text-slate-500 text-[10px] mb-1">Type</div>
+                                                            <select
+                                                                value={editingDraft.type}
+                                                                onChange={(e) => setEditingDraft({ ...editingDraft, type: e.target.value as any })}
+                                                                className="w-full bg-[#0a1e3f] border border-cyan-800 p-2 rounded text-white outline-none focus:border-cyan-400"
+                                                            >
+                                                                <option value="server">Server</option>
+                                                                <option value="storage">Storage</option>
+                                                                <option value="switch">Switch</option>
+                                                            </select>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex gap-2">
+                                                        <div className="flex-1">
+                                                            <div className="text-slate-500 text-[10px] mb-1">Status</div>
+                                                            <select
+                                                                value={editingDraft.status}
+                                                                onChange={(e) => setEditingDraft({ ...editingDraft, status: e.target.value as any })}
+                                                                className="w-full bg-[#0a1e3f] border border-cyan-800 p-2 rounded text-white outline-none focus:border-cyan-400"
+                                                            >
+                                                                <option value="normal">normal</option>
+                                                                <option value="warning">warning</option>
+                                                                <option value="critical">critical</option>
+                                                                <option value="offline">offline</option>
+                                                            </select>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex gap-2 justify-end pt-1">
+                                                        <button
+                                                            onClick={() => {
+                                                                const ok = store.updateServerInRack(selectedRack.id, server.id, editingDraft);
+                                                                if (!ok) {
+                                                                    alert("更新失敗：請確認 U 區間是否越界/重疊。");
+                                                                    return;
+                                                                }
+                                                                setEditingServerId(null);
+                                                                setEditingDraft(null);
+                                                            }}
+                                                            className="bg-cyan-700 hover:bg-cyan-500 text-white font-bold tracking-widest py-1.5 px-3 rounded transition flex items-center gap-2"
+                                                        >
+                                                            <Save size={14} /> Save
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                setEditingServerId(null);
+                                                                setEditingDraft(null);
+                                                            }}
+                                                            className="bg-[#0a1e3f] border border-cyan-800 text-cyan-300 hover:bg-[#152e5c] font-bold tracking-widest py-1.5 px-3 rounded transition"
+                                                        >
+                                                            Cancel
+                                                        </button>
+                                                    </div>
                                                 </div>
-                                                <div className="text-slate-400 mt-1">U{server.uPosition} - U{server.uPosition + server.uHeight - 1} ({server.uHeight}U) | {server.powerKw}kW</div>
-                                                {metricsText && <div className={`mt-1 font-mono text-[10px] ${liveStatus === 'critical' ? 'text-red-300' : liveStatus === 'warning' ? 'text-yellow-300' : (server.type === 'switch' ? 'text-purple-400' : 'text-cyan-700')}`}>{metricsText}</div>}
-                                            </div>
-                                            <button onClick={() => store.removeServerFromRack(selectedRack.id, server.id)} className="text-red-400 hover:bg-red-900/30 p-1 rounded transition">
-                                                <Trash size={14} />
-                                            </button>
+                                            ) : (
+                                                <div className="flex justify-between items-center gap-2">
+                                                    <div>
+                                                        <div className={`font-bold flex items-center gap-2 ${liveStatus === 'critical' ? 'text-red-400' : liveStatus === 'warning' ? 'text-yellow-400' : 'text-cyan-100'}`}>
+                                                            <div className={`w-2 h-2 rounded-full ${liveStatus === 'critical' ? 'bg-red-500 animate-pulse' : liveStatus === 'warning' ? 'bg-yellow-500' : 'bg-cyan-500'}`}></div>
+                                                            {server.name} {server.type === 'switch' && <span className="text-[9px] bg-purple-900 border border-purple-500 px-1 rounded text-purple-100 ml-1">SWITCH</span>}
+                                                        </div>
+                                                        <div className="text-slate-400 mt-1">
+                                                            U{server.uPosition} - U{server.uPosition + server.uHeight - 1} ({server.uHeight}U) | {server.powerKw}kW
+                                                        </div>
+                                                        {metricsText && (
+                                                            <div className={`mt-1 font-mono text-[10px] ${liveStatus === 'critical' ? 'text-red-300' : liveStatus === 'warning' ? 'text-yellow-300' : (server.type === 'switch' ? 'text-purple-400' : 'text-cyan-700')}`}>
+                                                                {metricsText}
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    <div className="flex items-center gap-2">
+                                                        {store.isEditMode && (
+                                                            <button
+                                                                onClick={() => {
+                                                                    setEditingServerId(server.id);
+                                                                    setEditingDraft({
+                                                                        uPosition: server.uPosition,
+                                                                        uHeight: server.uHeight,
+                                                                        powerKw: server.powerKw,
+                                                                        type: server.type,
+                                                                        status: server.status,
+                                                                    });
+                                                                }}
+                                                                className="text-cyan-400 hover:bg-cyan-900/30 p-1 rounded transition"
+                                                                title="Edit Server"
+                                                            >
+                                                                <Edit size={14} />
+                                                            </button>
+                                                        )}
+                                                        <button
+                                                            onClick={() => store.removeServerFromRack(selectedRack.id, server.id)}
+                                                            className="text-red-400 hover:bg-red-900/30 p-1 rounded transition"
+                                                            title="Remove Server"
+                                                        >
+                                                            <Trash size={14} />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     );
                                 })}
