@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from services.kafka_service import KafkaRuntimeService
 from services.storage_service import AlertStorageService, InfluxService
 from services.telemetry_service import TelemetryService
+from services.notification_service import NotificationService
 
 
 @dataclass
@@ -17,6 +18,7 @@ class AppSettings:
     influx_org: str = "datacenter"
     influx_bucket: str = "telemetry"
     mongo_uri: str = "mongodb://admin:adminpassword@localhost:27018/"
+    line_notify_token: str = ""
 
 
 class AppContainer:
@@ -31,6 +33,7 @@ class AppContainer:
             bucket=self.settings.influx_bucket,
         )
         self.kafka = KafkaRuntimeService(broker=self.settings.kafka_broker, topic=self.settings.topic)
+        self.notifier = NotificationService(token=self.settings.line_notify_token)
         self.system_mode = "simulation"
 
     def trigger_alert(self, server_id: str, msg_type: str, message: str) -> None:
@@ -41,6 +44,7 @@ class AppContainer:
             "timestamp": int(time.time() * 1000),
         }
         self.alert_storage.insert_alert(alert_doc)
+        self.notifier.send_alert(server_id, msg_type, message)
         print(f"[Webhook] {msg_type} FOR {server_id}: {message}")
 
     def process_message(self, data: dict) -> None:
