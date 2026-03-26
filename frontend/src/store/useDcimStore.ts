@@ -70,6 +70,7 @@ type DcimState = {
     removeRack: (id: string) => void;
     addServerToRack: (rackId: string, server: Omit<ServerData, 'id'>) => boolean; // Returns false if no space
     removeServerFromRack: (rackId: string, serverId: string) => void;
+    updateServerInRack: (rackId: string, serverId: string, patch: Partial<Omit<ServerData, 'id'>>) => boolean;
     selectRack: (id: string | null) => void;
 
     addEquipment: (type: EquipmentType, position: [number, number, number]) => void;
@@ -204,6 +205,65 @@ export const useDcimStore = create<DcimState>()(
                     servers: r.servers.filter((s: any) => s.id !== serverId)
                 } : r)
             })),
+
+            updateServerInRack: (rackId, serverId, patch) => {
+                let success = false;
+                set((state: any) => {
+                    const rack = state.racks.find((r: any) => r.id === rackId);
+                    if (!rack) return state;
+
+                    const existing = rack.servers.find((s: any) => s.id === serverId);
+                    if (!existing) return state;
+
+                    const next = { ...existing, ...patch } as ServerData;
+
+                    const nextUPosition = Math.floor(next.uPosition);
+                    const nextUHeight = Math.floor(next.uHeight);
+
+                    if (!Number.isFinite(nextUPosition) || !Number.isFinite(nextUHeight)) return state;
+                    if (nextUPosition < 1) return state;
+                    if (nextUHeight < 1) return state;
+
+                    const targetStart = nextUPosition;
+                    const targetEnd = nextUPosition + nextUHeight - 1;
+                    if (targetStart < 1 || targetEnd > rack.uCapacity) return state;
+
+                    // Ensure global uniqueness if name is being updated.
+                    if (typeof patch.name === "string" && patch.name !== existing.name) {
+                        const allOtherServers = state.racks.flatMap((r2: any) => r2.servers).filter((s2: any) => s2.id !== serverId);
+                        if (allOtherServers.some((s2: any) => s2.name === patch.name)) return state;
+                    }
+
+                    const hasOverlap = rack.servers.some((s: any) => {
+                        if (s.id === serverId) return false;
+                        const sStart = s.uPosition;
+                        const sEnd = s.uPosition + s.uHeight - 1;
+                        return Math.max(targetStart, sStart) <= Math.min(targetEnd, sEnd);
+                    });
+                    if (hasOverlap) return state;
+
+                    success = true;
+                    return {
+                        ...state,
+                        racks: state.racks.map((r: any) => {
+                            if (r.id !== rackId) return r;
+                            return {
+                                ...r,
+                                servers: r.servers.map((s: any) => {
+                                    if (s.id !== serverId) return s;
+                                    return {
+                                        ...s,
+                                        ...next,
+                                        uPosition: nextUPosition,
+                                        uHeight: nextUHeight,
+                                    };
+                                }),
+                            };
+                        }),
+                    };
+                });
+                return success;
+            },
 
             selectRack: (id) => set({ selectedRackId: id, selectedEquipmentId: null }),
 

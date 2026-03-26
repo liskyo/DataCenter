@@ -9,6 +9,7 @@ import { Activity, AlertTriangle, Cpu, Thermometer, Clock, Database, Power, Layo
 import { useDcimStore } from "@/store/useDcimStore";
 import { ClientOnlyChart } from "@/components/ClientOnlyChart";
 import { usePolling } from "@/shared/hooks/usePolling";
+import { apiUrl } from "@/shared/api";
 
 type ServerTelemetry = {
   server_id: string;
@@ -52,7 +53,7 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchMode = async () => {
       try {
-        const res = await fetch("http://localhost:9000/api/system/mode");
+        const res = await fetch(apiUrl("/api/system/mode"));
         if (res.ok) {
           const json = await res.json();
           setSimMode(json.mode);
@@ -65,7 +66,7 @@ export default function Dashboard() {
   const toggleMode = async () => {
     const newMode = simMode === "simulation" ? "real" : "simulation";
     try {
-      await fetch("http://localhost:9000/api/system/mode", {
+      await fetch(apiUrl("/api/system/mode"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mode: newMode })
@@ -85,7 +86,7 @@ export default function Dashboard() {
 
   usePolling(async () => {
     try {
-      const res = await fetch("http://localhost:9000/metrics");
+      const res = await fetch(apiUrl("/metrics"));
       if (!res.ok) return;
       const json = await res.json();
 

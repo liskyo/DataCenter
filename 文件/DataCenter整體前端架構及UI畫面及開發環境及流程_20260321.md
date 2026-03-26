@@ -1,6 +1,6 @@
 # DataCenter 整體前端架構及 UI 畫面與開發環境流程指南
 
-這份文件將作為前端開發者的終極指南，詳細記錄我們為何選擇 **Next.js 15** 作為框架，以及如何利用 **Tailwind CSS v4** 打造出那套讓人一見鍾情的 **Cyberpunk SCADA (工業監控)** 介面。
+這份文件將作為前端開發者的終極指南，詳細記錄我們為何選擇 **Next.js 16.2.0** 作為框架，以及如何利用 **Tailwind CSS v4** 打造出那套讓人一見鍾情的 **Cyberpunk SCADA (工業監控)** 介面。
 
 ---
 
@@ -28,7 +28,7 @@ background-image:
 
 ## 🛠️ 第二部分：前端技術堆疊 (Frontend Tech Stack)
 
-### 1. Next.js 15 (App Router 架構)
+### 1. Next.js 16.2.0 (App Router 架構)
 - **為什麼不用純 React？** 傳統 React 在設定多頁面路由 (`react-router-dom`) 時非常繁瑣。Next.js 的 `App Router` 讓我們只需要建立資料夾 (例：`app/control/page.tsx`)，路由就自動生出來了！這大幅加速了開發速度。
 - **"use client" 是什麼？** 這是 Next.js 告訴伺服器「這段程式碼要給瀏覽器自己跑」的指令。因為我們大量依賴 React `useEffect` (例如每秒去後端拉一次資料)，所以所有的監控頁面都在頂端加上了 `"use client"`。
 
@@ -75,13 +75,13 @@ background-image:
 ### 啟動流程與安裝
 1. 打開 PowerShell，進入 `frontend` 資料夾 (`cd frontend`)
 2. 安裝裝備：`npm install`
-3. 啟動並閃避 Grafana：`npm run dev -p 3001` (指定 3001 Port)
-4. 前往 `http://localhost:3001`
+3. 啟動並閃避 Grafana：`npm run dev -p 9001` (指定 9001 Port)
+4. 前往 `http://localhost:9001`
 
 ### 常見問題與除錯手冊
 **Q1：為什麼我的畫布背景變成全白，或者是排版全部擠成一團？**
 > **解答**：這是由於 TailwindCSS 的快取常常卡死，或是你在修改 `globals.css` 後沒有讓編譯器意識到。
-> 解法：在 PowerShell 視窗按下 `Ctrl+C` 中止，然後刪除隱藏的 `.next` 資料夾，接著再次執行 `npm run dev -p 3001`，保證煥然一新。
+> 解法：在 PowerShell 視窗按下 `Ctrl+C` 中止，然後刪除隱藏的 `.next` 資料夾，接著再次執行 `npm run dev -p 9001`，保證煥然一新。
 
 **Q2：為什麼一直跳出 `Hydration Error` 的紅字錯誤？**
 > **解答**：當你使用 SSR (伺服器渲染) 加載隨機數字或是時區格式不同的時間時，容易發生。不用擔心，只需確保使用 `useEffect` 在客戶端完成掛載後才渲染會跳動的數字即可。

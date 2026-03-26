@@ -7,7 +7,6 @@
 以下針對你閒置伺服器的兩種常見作業系統，提供讓 Agent **開機自動無腦執行**的最佳做法。
 
 ---
-
 ## 🐧 情況一：如果你的閒置伺服器是 Linux (Ubuntu / CentOS)
 Linux 的世界裡，管理背景服務的老大叫做 `systemd`。我們只要寫一封信交給它即可。
 
@@ -53,7 +52,6 @@ sudo systemctl enable datacenter-agent
 完成！你隨時可以用 `sudo systemctl status datacenter-agent` 查看它有沒有在默默為你工作。
 
 ---
-
 ## 🪟 情況二：如果你的閒置伺服器是 Windows Server / Windows 10
 在 Windows 下，最簡單免安裝套件的做法是使用內建的 **工作排程器 (Task Scheduler)**。
 

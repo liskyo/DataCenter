@@ -88,7 +88,7 @@
 ### 啟動與自動重啟機制
 開發階段，我們最怕改一行程式碼就要重新啟動伺服器。因此我們使用 `--reload` 參數：
 ```bash
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+uvicorn main:app --host 0.0.0.0 --port 9000 --reload
 ```
 只要加上 `--reload`，當你在 VSCode 裡面編輯 `main.py` 並按下 `Ctrl+S` 存檔時，Uvicorn 監視器會瞬間發現變動，並在不到 0.01 秒的時間內自動重新啟動後端，大幅提昇開發體驗。
 
@@ -100,7 +100,7 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
 **Q2：我要怎麼手動測試接單台 (API) 有沒有活著？**
 > **解答**：FastAPI 最棒的特點就是內建 Swagger UI！
-> 只要在瀏覽器打開網址 `http://localhost:8000/docs`。你會看到一個精美的圖形化介面。
+> 只要在瀏覽器打開網址 `http://localhost:9000/docs`。你會看到一個精美的圖形化介面。
 > 找到 `/metrics` 點擊 **Try it out** -> **Execute**。你就能馬上看到後端傳回來的最純粹的 JSON 資料，這是釐清「到底是後端沒給資料，還是前端 Next.js 寫錯撈不到」的最快分辨方法！
 
 **Q3：AI 異常預警的 1.5 倍標準覺得太敏感，我想調整？**
