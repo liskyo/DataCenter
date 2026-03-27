@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Power, Fan, Settings2, SlidersHorizontal, RefreshCcw, X, Cpu, Network, ShieldCheck, DatabaseZap } from "lucide-react";
+import { useLanguage } from "@/shared/i18n/language";
 
 const TechPanel = ({ title, children, className = "" }: { title: string, children: React.ReactNode, className?: string }) => (
   <div className={`relative bg-[#020b1a] border border-[#1e3a8a] flex flex-col ${className}`}>
@@ -22,6 +23,24 @@ const TechPanel = ({ title, children, className = "" }: { title: string, childre
 );
 
 export default function ControlPage() {
+  const { language } = useLanguage();
+  const t = language === "en"
+    ? {
+      title: "Device Control Interface",
+      subtitle: "Remote Terminal Unit Override",
+      mainPower: "Main Power",
+      reboot: "REBOOT",
+      rebooting: "REBOOTING...",
+      configure: "CONFIGURE",
+    }
+    : {
+      title: "設備控制介面",
+      subtitle: "遠端終端管理模組",
+      mainPower: "主電源",
+      reboot: "重新啟動",
+      rebooting: "重啟中...",
+      configure: "設定",
+    };
   const [machines, setMachines] = useState(
     Array.from({ length: 6 }).map((_, i) => ({
       id: `SERVER-${String(i+1).padStart(3, '0')}`,
@@ -57,10 +76,10 @@ export default function ControlPage() {
       <header className="mb-10 flex flex-col md:flex-row justify-between items-center bg-[#0a1e3f]/30 p-4 rounded-xl border border-[#1e3a8a]">
         <div>
           <h1 className="text-2xl font-black text-[#4ea8de] tracking-widest uppercase shadow-sm">
-             Device Control Interface
+             {t.title}
           </h1>
           <p className="text-slate-400 mt-1 text-xs font-mono tracking-widest">
-            遠端終端管理模組 (Remote Terminal Unit Override)
+            {t.subtitle}
           </p>
         </div>
       </header>
@@ -74,7 +93,7 @@ export default function ControlPage() {
               <div className="flex justify-between items-center bg-[#0a1e3f]/50 p-4 rounded-lg border border-[#1e3a8a]">
                  <div className="flex items-center gap-3">
                    <Power size={20} className={machine.powerOn ? "text-emerald-400" : "text-rose-500"} />
-                   <span className="text-slate-200 font-bold uppercase tracking-widest text-sm">Main Power</span>
+                   <span className="text-slate-200 font-bold uppercase tracking-widest text-sm">{t.mainPower}</span>
                  </div>
                  <button 
                    onClick={() => togglePower(machine.id)}
@@ -113,13 +132,13 @@ export default function ControlPage() {
                    className={`flex-1 flex items-center justify-center gap-2 bg-[#0a1e3f] border border-cyan-800 text-cyan-400 py-2 rounded font-mono text-[10px] tracking-widest transition-colors ${machine.isRebooting ? 'opacity-50 cursor-not-allowed text-amber-500' : 'hover:bg-[#152e5c]'}`}
                  >
                     <RefreshCcw size={12} className={machine.isRebooting ? "animate-spin" : ""} /> 
-                    {machine.isRebooting ? "REBOOTING..." : "REBOOT"}
+                   {machine.isRebooting ? t.rebooting : t.reboot}
                  </button>
                  <button 
                    onClick={() => setConfiguringMachine(machine.id)}
                    className="flex-1 flex items-center justify-center gap-2 bg-[#0a1e3f] hover:bg-[#152e5c] border border-cyan-800 text-cyan-400 py-2 rounded font-mono text-[10px] tracking-widest transition-colors"
                  >
-                    <Settings2 size={12}/> CONFIGURE
+                    <Settings2 size={12}/> {t.configure}
                  </button>
               </div>
 

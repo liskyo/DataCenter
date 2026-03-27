@@ -10,8 +10,37 @@ import NetworkLines from "@/components/3d/NetworkLines";
 import { apiUrl } from "@/shared/api";
 import { Activity, Download, Upload, Server, Trash, Save, Edit, Lock, Thermometer, Zap, Box, MonitorIcon, Globe, Link2 } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
+import { useLanguage } from "@/shared/i18n/language";
 
 export default function TwinsPage() {
+    const { language } = useLanguage();
+    const t = language === "en"
+        ? {
+            title: "3D Dynamic Data Center",
+            unknownSite: "Unknown Site",
+            realtime: "REAL-TIME DYNAMIC INFRASTRUCTURE",
+            regionView: "REGION VIEW",
+            floorView: "FLOOR VIEW",
+            editMode: "EDIT MODE",
+            viewOnly: "VIEW ONLY",
+            rackSettings: "Rack Settings",
+            equipmentSettings: "Equipment Settings",
+            installedEquipment: "Installed Equipment",
+            emptyRack: "EMPTY RACK",
+        }
+        : {
+            title: "3D 動態機房",
+            unknownSite: "未知地點",
+            realtime: "即時動態基礎設施",
+            regionView: "區域視圖",
+            floorView: "樓層視圖",
+            editMode: "編輯模式",
+            viewOnly: "僅檢視",
+            rackSettings: "機櫃設定",
+            equipmentSettings: "設備設定",
+            installedEquipment: "已安裝設備",
+            emptyRack: "空機櫃",
+        };
     const store = useDcimStore();
     const selectedRack = store.racks.find((r) => r.id === store.selectedRackId && r.locationId === store.currentLocationId);
     const selectedEquipment = store.equipments.find((e) => e.id === store.selectedEquipmentId && e.locationId === store.currentLocationId);
@@ -190,14 +219,14 @@ export default function TwinsPage() {
                 {/* HUD Overlay */}
                 <div className="absolute top-4 left-4 z-10 pointer-events-none">
                     <h1 className="text-2xl font-black italic tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 drop-shadow-[0_0_8px_rgba(6,182,212,0.8)] flex items-center gap-3">
-                        <Server /> 3D 動態機房
+                        <Server /> {t.title}
                         <span className="text-white/20 mx-2 text-sm">|</span>
                         <span className="text-cyan-200 text-lg not-italic tracking-normal">
-                            {store.locations.find(l => l.id === store.currentLocationId)?.name || '未知地點'}
+                            {store.locations.find(l => l.id === store.currentLocationId)?.name || t.unknownSite}
                         </span>
                     </h1>
                     <p className="text-xs text-cyan-700 font-mono mt-1 uppercase">
-                        REAL-TIME DYNAMIC INFRASTRUCTURE • {store.locations.find(l => l.id === store.currentLocationId)?.type === 'region' ? 'REGION VIEW' : 'FLOOR VIEW'}
+                        {t.realtime} • {store.locations.find(l => l.id === store.currentLocationId)?.type === 'region' ? t.regionView : t.floorView}
                     </p>
                 </div>
 
@@ -208,7 +237,7 @@ export default function TwinsPage() {
                         className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold tracking-widest transition-all border ${store.isEditMode ? 'bg-cyan-600 border-cyan-400 text-white shadow-[0_0_15px_rgba(6,182,212,0.5)]' : 'bg-[#0a1e3f]/80 border-[#1e3a8a] text-slate-400 hover:text-white'}`}
                     >
                         {store.isEditMode ? <Edit size={16} /> : <Lock size={16} />}
-                        {store.isEditMode ? 'EDIT MODE' : 'VIEW ONLY'}
+                        {store.isEditMode ? t.editMode : t.viewOnly}
                     </button>
                 </div>
 
@@ -236,7 +265,7 @@ export default function TwinsPage() {
             {selectedRack && (
                 <div className="w-80 bg-[#020b1a] border-l border-[#1e3a8a] flex flex-col z-10 shadow-[-2px_0_15px_rgba(6,182,212,0.1)]">
                     <div className="p-4 border-b border-[#1e3a8a] flex justify-between items-center bg-gradient-to-r from-transparent to-[#0a1e3f]">
-                        <h2 className="text-cyan-400 font-bold tracking-widest uppercase text-xs">Rack Settings</h2>
+                        <h2 className="text-cyan-400 font-bold tracking-widest uppercase text-xs">{t.rackSettings}</h2>
                         <button onClick={() => store.removeRack(selectedRack.id)} className="text-red-500 hover:text-red-400 transition" title="Delete Rack">
                             <Trash size={16} />
                         </button>
@@ -320,7 +349,7 @@ export default function TwinsPage() {
 
                         {/* 現有設備清單 */}
                         <div>
-                            <h3 className="text-xs font-bold text-slate-500 mb-3 tracking-widest uppercase border-b border-slate-800 pb-1">Installed Equipment</h3>
+                            <h3 className="text-xs font-bold text-slate-500 mb-3 tracking-widest uppercase border-b border-slate-800 pb-1">{t.installedEquipment}</h3>
                             <div className="flex flex-col gap-2">
                                 {[...selectedRack.servers].sort((a, b) => b.uPosition - a.uPosition).map(server => {
                                     let liveStatus = server.status;
@@ -486,7 +515,7 @@ export default function TwinsPage() {
                                     );
                                 })}
                                 {selectedRack.servers.length === 0 && (
-                                    <div className="text-xs text-slate-600 text-center py-4 border border-dashed border-slate-800 rounded">EMPTY RACK</div>
+                                    <div className="text-xs text-slate-600 text-center py-4 border border-dashed border-slate-800 rounded">{t.emptyRack}</div>
                                 )}
                             </div>
                         </div>
@@ -564,7 +593,7 @@ export default function TwinsPage() {
             {selectedEquipment && (
                 <div className="w-80 bg-[#020b1a] border-l border-[#1e3a8a] flex flex-col z-10 shadow-[-2px_0_15px_rgba(6,182,212,0.1)]">
                     <div className="p-4 border-b border-[#1e3a8a] flex justify-between items-center bg-gradient-to-r from-transparent to-[#0a1e3f]">
-                        <h2 className="text-cyan-400 font-bold tracking-widest uppercase text-xs">Equipment Settings</h2>
+                        <h2 className="text-cyan-400 font-bold tracking-widest uppercase text-xs">{t.equipmentSettings}</h2>
                         {store.isEditMode && (
                             <button onClick={() => store.removeEquipment(selectedEquipment.id)} className="text-red-500 hover:text-red-400 transition" title="Delete Equipment">
                                 <Trash size={16} />

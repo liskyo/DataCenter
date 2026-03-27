@@ -4,6 +4,7 @@ import { useState } from "react";
 import { FileText } from "lucide-react";
 import { usePolling } from "@/shared/hooks/usePolling";
 import { apiUrl } from "@/shared/api";
+import { useLanguage } from "@/shared/i18n/language";
 
 type AlertLog = {
   server_id: string;
@@ -13,7 +14,19 @@ type AlertLog = {
 };
 
 export default function LogsPage() {
+  const { language } = useLanguage();
   const [logs, setLogs] = useState<AlertLog[]>([]);
+  const t = language === "en"
+    ? {
+      title: "SYSTEM LOGS & ALERTS",
+      subtitle: "Data persistence layer powered by MongoDB",
+      waiting: "Waiting for incoming logs... System healthy.",
+    }
+    : {
+      title: "系統日誌與告警",
+      subtitle: "MongoDB 持久化告警紀錄層",
+      waiting: "等待告警資料中... 目前系統健康。",
+    };
 
   usePolling(async () => {
     try {
@@ -31,9 +44,9 @@ export default function LogsPage() {
         <FileText size={32} className="text-[#4ea8de]" />
         <div>
           <h1 className="text-2xl font-black text-[#4ea8de] tracking-widest uppercase shadow-sm">
-            SYSTEM LOGS & ALERTS
+            {t.title}
           </h1>
-          <p className="text-slate-400 text-xs font-mono tracking-widest mt-1">Data persistence layer powered by MongoDB</p>
+          <p className="text-slate-400 text-xs font-mono tracking-widest mt-1">{t.subtitle}</p>
         </div>
       </header>
 
@@ -51,7 +64,7 @@ export default function LogsPage() {
         {/* Console Body */}
         <div className="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar text-[13px]">
           {logs.length === 0 ? (
-            <div className="text-emerald-500 animate-pulse">Waiting for incoming logs... System healthy.</div>
+            <div className="text-emerald-500 animate-pulse">{t.waiting}</div>
           ) : (
             logs.map((log, i) => {
               const isAnomaly = log.type === "AI_ANOMALY";

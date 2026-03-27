@@ -1,8 +1,27 @@
 "use client";
 
 import { LifeBuoy, Wrench, ShieldCheck, Clock } from "lucide-react";
+import { useLanguage } from "@/shared/i18n/language";
 
 export default function MaintenancePage() {
+  const { language } = useLanguage();
+  const t = language === "en"
+    ? {
+      title: "MAINTENANCE SCHEDULE",
+      subtitle: "Preventative Maintenance & Work Orders",
+      task: "Task",
+      schedule: "Schedule",
+      assigned: "Assigned To",
+      ack: "Acknowledge / Approve",
+    }
+    : {
+      title: "維護排程",
+      subtitle: "預防性維護與工單",
+      task: "項目",
+      schedule: "排程",
+      assigned: "指派給",
+      ack: "確認 / 核准",
+    };
   const schedules = [
     { target: "CRAC Unit A", type: "濾網更換", date: "2026-03-25", status: "PENDING", by: "Tech-Ops 2" },
     { target: "UPS Bank B", type: "電池深度放電測試", date: "2026-04-02", status: "SCHEDULED", by: "Vendor (APC)" },
@@ -16,9 +35,9 @@ export default function MaintenancePage() {
         <LifeBuoy size={32} className="text-[#4ea8de]" />
         <div>
           <h1 className="text-2xl font-black text-[#4ea8de] tracking-widest uppercase shadow-sm">
-             MAINTENANCE SCHEDULE
+             {t.title}
           </h1>
-          <p className="text-slate-400 text-xs font-mono tracking-widest mt-1">Preventative Maintenance & Work Orders</p>
+          <p className="text-slate-400 text-xs font-mono tracking-widest mt-1">{t.subtitle}</p>
         </div>
       </header>
 
@@ -38,14 +57,14 @@ export default function MaintenancePage() {
                  </span>
               </div>
               <div className="space-y-2 mt-4 text-slate-300 text-sm">
-                <div className="flex items-center gap-2"><Wrench size={14} className="text-slate-500"/> Task: {task.type}</div>
-                <div className="flex items-center gap-2"><Clock size={14} className="text-slate-500"/> Schedule: {task.date}</div>
-                <div className="flex items-center gap-2"><ShieldCheck size={14} className="text-slate-500"/> Assigned To: {task.by}</div>
+                <div className="flex items-center gap-2"><Wrench size={14} className="text-slate-500"/> {t.task}: {task.type}</div>
+                <div className="flex items-center gap-2"><Clock size={14} className="text-slate-500"/> {t.schedule}: {task.date}</div>
+                <div className="flex items-center gap-2"><ShieldCheck size={14} className="text-slate-500"/> {t.assigned}: {task.by}</div>
               </div>
               
               <div className="mt-6 flex justify-end">
                 <button className="px-4 py-2 border border-cyan-800 text-cyan-400 text-xs font-bold hover:bg-cyan-950 transition-colors uppercase tracking-widest">
-                  Acknowledge / Approve
+                  {t.ack}
                 </button>
               </div>
            </div>

@@ -5,6 +5,7 @@ import {
   ThermometerSun, Droplets, Wind, Zap, Activity, ShieldAlert, DoorOpen, 
   Video, BatteryWarning, Factory, Leaf, Waves, Power, Settings2
 } from "lucide-react";
+import { useLanguage } from "@/shared/i18n/language";
 
 const KPIWidget = ({ label, value, unit, trend, icon: Icon, colorClass }: any) => (
   <div className={`border border-[#1e3a8a] bg-[#020b1a] relative overflow-hidden p-6 shadow-[0_0_15px_rgba(0,0,0,0.5)]`}>
@@ -32,6 +33,16 @@ const SectionTitle = ({ title, icon: Icon }: any) => (
 );
 
 export default function FacilityPage() {
+  const { language } = useLanguage();
+  const t = language === "en"
+    ? {
+      title: "Gray Space Facility",
+      subtitle: "DCIM Power & Environmental Context",
+    }
+    : {
+      title: "廠務監控中心",
+      subtitle: "廠務端基礎設施管理",
+    };
   const [data, setData] = useState({
     pue: 1.18,
     wue: 0.45,
@@ -63,10 +74,10 @@ export default function FacilityPage() {
         <div>
           <h1 className="text-3xl font-black text-[#4ea8de] tracking-widest uppercase drop-shadow-[0_0_8px_rgba(78,168,222,0.8)] flex items-center gap-4">
              <Factory size={36} className="text-emerald-400" />
-             Gray Space Facility
+             {t.title}
           </h1>
           <p className="text-slate-400 mt-2 text-xs font-mono tracking-widest">
-            廠務端基礎設施管理 (DCIM Power & Environmental Context)
+            {t.subtitle}
           </p>
         </div>
       </header>
