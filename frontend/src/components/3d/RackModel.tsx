@@ -11,7 +11,7 @@ const RACK_WIDTH = 0.6;
 const RACK_DEPTH = 1.0;
 
 export default function RackModel({ data, isSelected, telemetry = {} }: { data: RackData, isSelected: boolean, telemetry?: Record<string, any> }) {
-    const rackHeight = data.uCapacity * U_HEIGHT + 0.1; // Add frame margin
+    const rackHeight = data.uCapacity * U_HEIGHT + 0.2; // Add 0.1 bottom + 0.1 top margins
     const updateRackPosition = useDcimStore(state => state.updateRackPosition);
     const updateRackRotation = useDcimStore(state => state.updateRackRotation);
     const selectRack = useDcimStore(state => state.selectRack);
@@ -91,7 +91,7 @@ export default function RackModel({ data, isSelected, telemetry = {} }: { data: 
             visible={isEditMode && isSelected}
             disableAxes={!isEditMode}
             disableSliders={!isEditMode}
-            disableRotations={!isEditMode}
+            disableRotations={true}
             activeAxes={[true, true, true]}
             onDragEnd={() => { }}
             onDrag={handleDrag}

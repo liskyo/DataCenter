@@ -28,6 +28,9 @@ export type LocationData = {
     id: string;
     name: string;
     type: 'floor' | 'region';
+    width?: number;
+    depth?: number;
+    doorPosition?: 'front' | 'back' | 'left' | 'right';
 };
 
 export type RackData = {
@@ -61,6 +64,7 @@ type DcimState = {
     setCurrentLocation: (id: string) => void;
     removeLocation: (id: string) => void;
     updateLocationName: (id: string, name: string) => void;
+    updateLocationProps: (id: string, props: Partial<LocationData>) => void;
 
     addRack: (position: [number, number, number], type?: 'server' | 'network') => void;
     updateRackPosition: (id: string, position: [number, number, number]) => void;
@@ -305,7 +309,7 @@ export const useDcimStore = create<DcimState>()(
             })),
 
             addLocation: (name, type) => set((state: any) => ({
-                locations: [...state.locations, { id: uuidv4(), name, type }]
+                locations: [...state.locations, { id: uuidv4(), name, type, width: 20, depth: 15, doorPosition: 'right' }]
             })),
 
             setCurrentLocation: (id) => set({ currentLocationId: id, selectedRackId: null, selectedEquipmentId: null }),
@@ -324,6 +328,10 @@ export const useDcimStore = create<DcimState>()(
 
             updateLocationName: (id, name) => set((state: any) => ({
                 locations: state.locations.map((l: any) => l.id === id ? { ...l, name } : l)
+            })),
+
+            updateLocationProps: (id, props) => set((state: any) => ({
+                locations: state.locations.map((l: any) => l.id === id ? { ...l, ...props } : l)
             })),
 
             exportState: () => {

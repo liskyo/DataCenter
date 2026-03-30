@@ -286,7 +286,7 @@ export default function EquipmentModel({ data, telemetry }: { data: EquipmentDat
             visible={isEditMode && isSelected}
             disableAxes={!isEditMode}
             disableSliders={!isEditMode}
-            disableRotations={!isEditMode}
+            disableRotations={true}
             activeAxes={[true, true, true]}
             onDragEnd={() => { }}
             onDrag={handleDrag}

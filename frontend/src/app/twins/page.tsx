@@ -174,38 +174,38 @@ export default function TwinsPage() {
 
                 {store.isEditMode && (
                     <div className="flex flex-col gap-3 mt-2 pt-4 border-t border-cyan-900/50 w-full items-center">
-                        <button onClick={() => store.addRack([Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)])} className="p-3 bg-[#020b1a] rounded-xl text-slate-400 hover:text-cyan-400 hover:bg-[#0a1e3f] transition" title="Add RACK">
+                        <button onClick={() => store.addRack([Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)])} className="p-3 bg-[#020b1a] rounded-xl text-indigo-400 hover:text-indigo-300 hover:bg-[#0a1e3f] transition" title="Add RACK">
                             <Server size={24} />
                         </button>
-                        <button onClick={() => store.addEquipment('crac', [Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)])} className="p-3 bg-[#020b1a] rounded-xl text-slate-400 hover:text-cyan-400 hover:bg-[#0a1e3f] transition" title="Add CRAC (Cooling)">
+                        <button onClick={() => store.addEquipment('crac', [Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)])} className="p-3 bg-[#020b1a] rounded-xl text-teal-400 hover:text-teal-300 hover:bg-[#0a1e3f] transition" title="Add CRAC (Cooling)">
                             <Thermometer size={24} />
                         </button>
-                        <button onClick={() => store.addEquipment('pdu', [Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)])} className="p-3 bg-[#020b1a] rounded-xl text-slate-400 hover:text-cyan-400 hover:bg-[#0a1e3f] transition" title="Add PDU (Power)">
+                        <button onClick={() => store.addEquipment('pdu', [Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)])} className="p-3 bg-[#020b1a] rounded-xl text-orange-400 hover:text-orange-300 hover:bg-[#0a1e3f] transition" title="Add PDU (Power)">
                             <Zap size={24} />
                         </button>
-                        <button onClick={() => store.addEquipment('cdu', [Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)])} className="p-3 bg-[#020b1a] rounded-xl text-slate-400 hover:text-cyan-400 hover:bg-[#0a1e3f] transition" title="Add CDU (Liquid Cooling)">
+                        <button onClick={() => store.addEquipment('cdu', [Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)])} className="p-3 bg-[#020b1a] rounded-xl text-cyan-300 hover:text-cyan-200 hover:bg-[#0a1e3f] transition" title="Add CDU (Liquid Cooling)">
                             <Box size={24} />
                         </button>
-                        <button onClick={() => store.addEquipment('ups', [Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)])} className="p-3 bg-[#020b1a] rounded-xl text-slate-400 hover:text-cyan-400 hover:bg-[#0a1e3f] transition" title="Add UPS (Power Backup)">
-                            <Zap size={24} className="text-yellow-500" />
+                        <button onClick={() => store.addEquipment('ups', [Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)])} className="p-3 bg-[#020b1a] rounded-xl text-yellow-500 hover:text-yellow-400 hover:bg-[#0a1e3f] transition" title="Add UPS (Power Backup)">
+                            <Zap size={24} />
                         </button>
-                        <button onClick={() => store.addEquipment('chiller', [Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)])} className="p-3 bg-[#020b1a] rounded-xl text-slate-400 hover:text-cyan-400 hover:bg-[#0a1e3f] transition" title="Add Chiller (Water Cooling)">
-                            <Activity size={24} className="text-blue-500" />
+                        <button onClick={() => store.addEquipment('chiller', [Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)])} className="p-3 bg-[#020b1a] rounded-xl text-blue-500 hover:text-blue-400 hover:bg-[#0a1e3f] transition" title="Add Chiller (Water Cooling)">
+                            <Activity size={24} />
                         </button>
-                        <button onClick={() => store.addEquipment('dashboard', [Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)])} className="p-3 bg-[#020b1a] rounded-xl text-slate-400 hover:text-cyan-400 hover:bg-[#0a1e3f] transition" title="Add Dashboard PC">
-                            <MonitorIcon size={24} className="text-emerald-500" />
+                        <button onClick={() => store.addEquipment('dashboard', [Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)])} className="p-3 bg-[#020b1a] rounded-xl text-emerald-500 hover:text-emerald-400 hover:bg-[#0a1e3f] transition" title="Add Dashboard PC">
+                            <MonitorIcon size={24} />
                         </button>
-                        <button onClick={() => store.addRack([Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)], 'network')} className="p-3 bg-[#020b1a] rounded-xl text-slate-400 hover:text-cyan-400 hover:bg-[#0a1e3f] transition" title="Add Network Rack (Switch)">
-                            <Globe size={24} className="text-purple-500" />
+                        <button onClick={() => store.addRack([Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)], 'network')} className="p-3 bg-[#020b1a] rounded-xl text-purple-500 hover:text-purple-400 hover:bg-[#0a1e3f] transition" title="Add Network Rack (Switch)">
+                            <Globe size={24} />
                         </button>
                     </div>
                 )}
 
-                <div className="flex-1"></div>
-                <button onClick={handleExport} className="p-3 text-slate-400 hover:text-cyan-400 transition" title="Export Layout">
+                <div className="w-full border-t border-cyan-900/50 my-2"></div>
+                <button onClick={handleExport} className="p-3 text-emerald-400 hover:text-emerald-300 hover:bg-[#0a1e3f] rounded-xl transition" title="Export Layout">
                     <Download size={24} />
                 </button>
-                <button onClick={() => fileInputRef.current?.click()} className="p-3 text-slate-400 hover:text-cyan-400 transition" title="Import Layout">
+                <button onClick={() => fileInputRef.current?.click()} className="p-3 text-pink-400 hover:text-pink-300 hover:bg-[#0a1e3f] rounded-xl transition" title="Import Layout">
                     <Upload size={24} />
                 </button>
             </div>
@@ -257,6 +257,79 @@ export default function TwinsPage() {
                 </Canvas>
             </div>
 
+            {/* 右側屬性面板 (Room) */}
+            {store.isEditMode && !selectedRack && !selectedEquipment && (
+                <div className="w-80 bg-[#020b1a] border-l border-[#1e3a8a] flex flex-col z-10 shadow-[-2px_0_15px_rgba(6,182,212,0.1)]">
+                    <div className="p-4 border-b border-[#1e3a8a] flex justify-between items-center bg-gradient-to-r from-transparent to-[#0a1e3f]">
+                        <h2 className="text-cyan-400 font-bold tracking-widest uppercase text-xs">Room Settings</h2>
+                    </div>
+                    <div className="p-4 flex flex-col gap-6 overflow-y-auto flex-1">
+                        <div className="bg-[#03112b] p-4 rounded-lg border border-slate-800">
+                            <label className="text-[10px] text-slate-500 uppercase tracking-[0.2em] mb-2 block">Room Name</label>
+                            <input
+                                type="text"
+                                value={store.locations.find(l => l.id === store.currentLocationId)?.name || ''}
+                                onChange={(e) => store.updateLocationName(store.currentLocationId, e.target.value)}
+                                className="w-full bg-[#010613] border border-cyan-900/30 p-2 rounded text-cyan-100 text-sm outline-none focus:border-cyan-400 transition-colors mb-4"
+                            />
+                            
+                            <div className="flex gap-2 mb-4">
+                                <div className="flex-1">
+                                    <label className="text-[10px] text-slate-500 uppercase tracking-[0.2em] mb-2 block">Width (m)</label>
+                                    <input
+                                        type="number" min="5" max="100"
+                                        value={store.locations.find(l => l.id === store.currentLocationId)?.width || 20}
+                                        onChange={(e) => store.updateLocationProps(store.currentLocationId, { width: Number(e.target.value) })}
+                                        className="w-full bg-[#010613] border border-cyan-900/30 p-2 rounded text-cyan-100 text-sm outline-none focus:border-cyan-400 transition-colors"
+                                    />
+                                </div>
+                                <div className="flex-1">
+                                    <label className="text-[10px] text-slate-500 uppercase tracking-[0.2em] mb-2 block">Depth (m)</label>
+                                    <input
+                                        type="number" min="5" max="100"
+                                        value={store.locations.find(l => l.id === store.currentLocationId)?.depth || 15}
+                                        onChange={(e) => store.updateLocationProps(store.currentLocationId, { depth: Number(e.target.value) })}
+                                        className="w-full bg-[#010613] border border-cyan-900/30 p-2 rounded text-cyan-100 text-sm outline-none focus:border-cyan-400 transition-colors"
+                                    />
+                                </div>
+                            </div>
+
+                            <label className="text-[10px] text-slate-500 uppercase tracking-[0.2em] mb-2 block">Door Position</label>
+                            <select
+                                value={store.locations.find(l => l.id === store.currentLocationId)?.doorPosition || 'right'}
+                                onChange={(e) => store.updateLocationProps(store.currentLocationId, { doorPosition: e.target.value as any })}
+                                className="w-full bg-[#010613] border border-cyan-900/30 p-2 rounded text-cyan-100 text-sm outline-none focus:border-cyan-400 transition-colors"
+                            >
+                                <option value="front">Front Wall (+Z)</option>
+                                <option value="back">Back Wall (-Z)</option>
+                                <option value="left">Left Wall (-X)</option>
+                                <option value="right">Right Wall (+X)</option>
+                            </select>
+                        </div>
+                        
+                        <div className="mt-8 pt-4">
+                            <button
+                                onClick={() => {
+                                    if (store.locations.length <= 1) {
+                                        alert("❌ 無法刪除！必須至少保留一個機房！");
+                                        return;
+                                    }
+                                    const pwd = window.prompt("⚠️ 警告：這將會永久刪除此機房與內含的所有設備！\\n請輸入管理員密碼(admin)以確認：");
+                                    if (pwd === "admin") {
+                                        store.removeLocation(store.currentLocationId);
+                                    } else if (pwd !== null) {
+                                        alert("❌ 密碼錯誤！刪除已取消。");
+                                    }
+                                }}
+                                className="w-full bg-red-950/30 hover:bg-red-900 border border-red-900/50 text-red-500 hover:text-white font-bold tracking-widest p-3 rounded-lg transition-colors flex items-center justify-center gap-2"
+                            >
+                                <Trash size={16} /> Delete Room
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* 右側屬性面板 (Rack) */}
             {selectedRack && (
                 <div className="w-80 bg-[#020b1a] border-l border-[#1e3a8a] flex flex-col z-10 shadow-[-2px_0_15px_rgba(6,182,212,0.1)]">
@@ -277,6 +350,21 @@ export default function TwinsPage() {
                                 onChange={(e) => store.updateRackName(selectedRack.id, e.target.value)}
                                 className="w-full bg-[#010613] border border-cyan-900/30 p-2 rounded text-cyan-100 text-sm outline-none focus:border-cyan-400 transition-colors"
                             />
+
+                            {/* 旋轉控制 */}
+                            {store.isEditMode && (
+                                <div className="mt-4 border-t border-slate-800/50 pt-3">
+                                    <label className="text-[10px] text-slate-500 uppercase tracking-[0.2em] mb-2 block">Direction Control</label>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => store.updateRackRotation(selectedRack.id, [0, selectedRack.rotation[1] + Math.PI / 2, 0])} className="flex-1 bg-[#0a1e3f] hover:bg-cyan-900 border border-cyan-800 text-cyan-400 p-2 rounded transition text-xs font-bold tracking-widest flex items-center justify-center gap-1">
+                                            ↺ 左轉 90°
+                                        </button>
+                                        <button onClick={() => store.updateRackRotation(selectedRack.id, [0, selectedRack.rotation[1] - Math.PI / 2, 0])} className="flex-1 bg-[#0a1e3f] hover:bg-cyan-900 border border-cyan-800 text-cyan-400 p-2 rounded transition text-xs font-bold tracking-widest flex items-center justify-center gap-1">
+                                            ↻ 右轉 90°
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         {/* 機櫃容量與電力 */}
@@ -614,6 +702,21 @@ export default function TwinsPage() {
                                 {selectedEquipment.type === 'chiller' && 'Chiller (Ice Water)'}
                                 {selectedEquipment.type === 'dashboard' && 'Dashboard Center'}
                             </div>
+
+                            {/* 旋轉控制 */}
+                            {store.isEditMode && (
+                                <div className="mt-4 border-t border-slate-800/50 pt-3">
+                                    <label className="text-[10px] text-slate-500 uppercase tracking-[0.2em] mb-2 block">Direction Control</label>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => store.updateEquipmentRotation(selectedEquipment.id, [0, selectedEquipment.rotation[1] + Math.PI / 2, 0])} className="flex-1 bg-[#0a1e3f] hover:bg-cyan-900 border border-cyan-800 text-cyan-400 p-2 rounded transition text-xs font-bold tracking-widest flex items-center justify-center gap-1">
+                                            ↺ 左轉 90°
+                                        </button>
+                                        <button onClick={() => store.updateEquipmentRotation(selectedEquipment.id, [0, selectedEquipment.rotation[1] - Math.PI / 2, 0])} className="flex-1 bg-[#0a1e3f] hover:bg-cyan-900 border border-cyan-800 text-cyan-400 p-2 rounded transition text-xs font-bold tracking-widest flex items-center justify-center gap-1">
+                                            ↻ 右轉 90°
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         {selectedEquipment.type === 'dashboard' && (
