@@ -11,6 +11,7 @@ import { apiUrl } from "@/shared/api";
 import { Activity, Download, Upload, Server, Trash, Save, Edit, Lock, Thermometer, Zap, Box, MonitorIcon, Globe, Link2 } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
 import { useLanguage } from "@/shared/i18n/language";
+import { usePolling } from "@/shared/hooks/usePolling";
 
 export default function TwinsPage() {
     const { language } = useLanguage();
@@ -99,23 +100,18 @@ export default function TwinsPage() {
         }
     }, [store.selectedRackId]);
 
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const res = await fetch(apiUrl("/metrics"), { cache: "no-store" });
-                if (!res.ok) return;
-                const json = await res.json();
-                const tMap: Record<string, any> = {};
-                (json.data || []).forEach((d: any) => {
-                    tMap[d.server_id] = d;
-                });
-                setTelemetry(tMap);
-            } catch (e) { }
-        };
-        fetchData();
-        const interval = setInterval(fetchData, 5000);
-        return () => clearInterval(interval);
-    }, []);
+    usePolling(async () => {
+        try {
+            const res = await fetch(apiUrl("/metrics"), { cache: "no-store" });
+            if (!res.ok) return;
+            const json = await res.json();
+            const tMap: Record<string, any> = {};
+            (json.data || []).forEach((d: any) => {
+                tMap[d.server_id] = d;
+            });
+            setTelemetry(tMap);
+        } catch (e) { }
+    }, { intervalMs: 5000, immediate: true });
 
     const handleExport = () => {
         const json = store.exportState();

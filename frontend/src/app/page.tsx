@@ -185,20 +185,24 @@ export default function Dashboard() {
   );
   const totalServers = allGridItems.length;
 
-  const healthData = allGridItems.reduce((acc, item) => {
-    const srv = telemetryById.get(item.name);
-    const status = getDeviceStatus(item, srv);
-    if (status === 'critical') acc.critical++;
-    else if (status === 'warning') acc.warning++;
-    else acc.normal++;
-    return acc;
-  }, { normal: 0, warning: 0, critical: 0 });
+  const { healthData, pieData } = useMemo(() => {
+    const health = allGridItems.reduce((acc, item) => {
+      const srv = telemetryById.get(item.name);
+      const status = getDeviceStatus(item, srv);
+      if (status === 'critical') acc.critical++;
+      else if (status === 'warning') acc.warning++;
+      else acc.normal++;
+      return acc;
+    }, { normal: 0, warning: 0, critical: 0 });
 
-  const pieData = [
-    { name: '正常 (Normal)', value: healthData.normal, color: '#06b6d4' },
-    { name: '警告 (Warning)', value: healthData.warning, color: '#fbbf24' },
-    { name: '異常 (Critical)', value: healthData.critical, color: '#ef4444' }
-  ].filter(d => d.value > 0);
+    const pie = [
+      { name: '正常 (Normal)', value: health.normal, color: '#06b6d4' },
+      { name: '警告 (Warning)', value: health.warning, color: '#fbbf24' },
+      { name: '異常 (Critical)', value: health.critical, color: '#ef4444' }
+    ].filter(d => d.value > 0);
+
+    return { healthData: health, pieData: pie };
+  }, [allGridItems, telemetryById]);
 
   const itemNameSet = useMemo(() => new Set(allGridItems.map((i) => i.name)), [allGridItems]);
   const activeStoreData = useMemo(
