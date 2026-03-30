@@ -1,17 +1,22 @@
 "use client";
 
 import { Globe, Server, Activity, ShieldAlert } from "lucide-react";
+import { useLanguage } from "@/shared/i18n/language";
 
 export default function NetworkPage() {
+  const { language } = useLanguage();
+  const t = language === "en"
+    ? { title: "NETWORK TOPOLOGY", subtitle: "Data routing and interconnect latency" }
+    : { title: "網路拓撲", subtitle: "資料路由與互連延遲監控" };
   return (
     <div className="p-8 pb-20 max-w-7xl mx-auto">
       <header className="mb-6 flex items-center gap-4 bg-[#0a1e3f]/30 p-4 rounded-xl border border-[#1e3a8a]">
         <Globe size={32} className="text-[#4ea8de]" />
         <div>
           <h1 className="text-2xl font-black text-[#4ea8de] tracking-widest uppercase shadow-sm">
-             NETWORK TOPOLOGY
+             {t.title}
           </h1>
-          <p className="text-slate-400 text-xs font-mono tracking-widest mt-1">Data routing and interconnect latency</p>
+          <p className="text-slate-400 text-xs font-mono tracking-widest mt-1">{t.subtitle}</p>
         </div>
       </header>
 

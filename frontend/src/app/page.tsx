@@ -10,6 +10,7 @@ import { useDcimStore } from "@/store/useDcimStore";
 import { ClientOnlyChart } from "@/components/ClientOnlyChart";
 import { usePolling } from "@/shared/hooks/usePolling";
 import { apiUrl } from "@/shared/api";
+import { useLanguage } from "@/shared/i18n/language";
 
 type ServerTelemetry = {
   server_id: string;
@@ -43,7 +44,40 @@ const TechPanel = ({ title, children, className = "" }: { title: string, childre
 );
 
 export default function Dashboard() {
+  const { language } = useLanguage();
   const store = useDcimStore();
+  const t = useMemo(() => {
+    if (language === "en") {
+      return {
+        title: "DATACENTER COMMAND CENTER",
+        sim: "SIMULATION MODE",
+        live: "LIVE DATA MODE",
+        online: "SYSTEM ONLINE",
+        cpuTrend: "CPU Trend",
+        tempTrend: "Temperature Trend",
+        health: "Health Distribution",
+        matrix: "Server Matrix",
+        awaiting: "AWAITING VITAL SIGNALS...",
+        cpuByNode: "CPU Usage by Node",
+        alarms: "Real-time Alarms",
+        noAlarms: "No Active Alarms",
+      };
+    }
+    return {
+      title: "DATACENTER COMMAND CENTER",
+      sim: "模擬模式",
+      live: "真實資料模式",
+      online: "系統運行中",
+      cpuTrend: "全區負載趨勢 (CPU Trend)",
+      tempTrend: "機房溫度趨勢 (Temp Trend)",
+      health: "設備健康狀態分佈 (Health)",
+      matrix: "機房伺服器陣列監控矩陣 (Server Matrix)",
+      awaiting: "等待即時訊號中...",
+      cpuByNode: "各節點 CPU 負載佔比",
+      alarms: "即時系統警報 (Real-time Alarms)",
+      noAlarms: "目前無告警",
+    };
+  }, [language]);
   const [data, setData] = useState<ServerTelemetry[]>([]);
   const [history, setHistory] = useState<any[]>([]);
   const [time, setTime] = useState("");
@@ -182,7 +216,7 @@ export default function Dashboard() {
         <div className="flex items-center gap-4">
           <Database className="text-cyan-400 animate-pulse" size={32} />
           <h1 className="text-3xl font-black italic tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 uppercase drop-shadow-[0_0_8px_rgba(6,182,212,0.8)]">
-            DATACENTER COMMAND CENTER
+            {t.title}
           </h1>
         </div>
 
@@ -192,7 +226,7 @@ export default function Dashboard() {
             className={`flex items-center gap-2 px-4 py-1.5 rounded-full border transition-all duration-300 ${simMode === 'simulation' ? 'bg-cyan-950/80 border-cyan-400 text-cyan-300 shadow-[0_0_10px_rgba(6,182,212,0.5)] hover:bg-cyan-900' : 'bg-[#0a1e3f] border-slate-600 text-slate-400 hover:border-slate-400'} text-[10px] uppercase tracking-widest`}
           >
             <div className={`w-2 h-2 rounded-full ${simMode === 'simulation' ? 'bg-cyan-400 animate-pulse' : 'bg-rose-500'}`}></div>
-            {simMode === 'simulation' ? 'SIMULATION MODE' : 'LIVE DATA MODE'}
+            {simMode === 'simulation' ? t.sim : t.live}
           </button>
 
           <div className="flex items-center gap-2">
@@ -200,7 +234,7 @@ export default function Dashboard() {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-3 w-3 bg-cyan-500 shadow-[0_0_8px_#06b6d4]"></span>
             </span>
-            SYSTEM ONLINE
+            {t.online}
           </div>
           <div className="flex items-center gap-2 bg-[#0a1e3f] border border-cyan-800 px-4 py-1 rounded-bl-xl rounded-tr-xl">
             <Clock size={16} />
@@ -214,7 +248,7 @@ export default function Dashboard() {
 
         {/* Left Column (Charts) */}
         <div className="col-span-3 flex flex-col gap-6">
-          <TechPanel title="全區負載趨勢 (CPU Trend)" className="h-[280px]">
+          <TechPanel title={t.cpuTrend} className="h-[280px]">
             <ClientOnlyChart>
             <div className="h-full w-full min-h-[180px]">
             <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1} initialDimension={{ width: 100, height: 180 }}>
@@ -235,7 +269,7 @@ export default function Dashboard() {
             </ClientOnlyChart>
           </TechPanel>
 
-          <TechPanel title="機房溫度趨勢 (Temp Trend)" className="h-[280px]">
+          <TechPanel title={t.tempTrend} className="h-[280px]">
             <ClientOnlyChart>
             <div className="h-full w-full min-h-[180px]">
             <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1} initialDimension={{ width: 100, height: 180 }}>
@@ -256,7 +290,7 @@ export default function Dashboard() {
             </ClientOnlyChart>
           </TechPanel>
 
-          <TechPanel title="設備健康狀態分佈 (Health)" className="flex-1 min-h-[220px]">
+          <TechPanel title={t.health} className="flex-1 min-h-[220px]">
             <div className="h-[180px] w-full relative flex items-center justify-center">
               <ClientOnlyChart placeholderClassName="h-[180px] w-[200px]">
               <ResponsiveContainer width={200} height={180} initialDimension={{ width: 200, height: 180 }}>
@@ -290,7 +324,7 @@ export default function Dashboard() {
 
         {/* Center Column (Server Grid Matrix) */}
         <div className="col-span-6 flex flex-col gap-6">
-          <TechPanel title="機房伺服器陣列監控矩陣 (Server Matrix)" className="flex-1">
+          <TechPanel title={t.matrix} className="flex-1">
             <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mt-2">
               {(() => {
                 const filteredRacks = store.racks.filter(r => r.locationId === store.currentLocationId);
@@ -300,7 +334,7 @@ export default function Dashboard() {
                 if (items.length === 0) {
                   return (
                     <div className="col-span-full h-full flex items-center justify-center text-cyan-800 animate-pulse font-mono tracking-widest mt-20">
-                      AWAITING VITAL SIGNALS...
+                      {t.awaiting}
                     </div>
                   );
                 }
@@ -424,7 +458,7 @@ export default function Dashboard() {
 
         {/* Right Column (Alarms & Details) */}
         <div className="col-span-3 flex flex-col gap-6">
-          <TechPanel title="各節點 CPU 負載佔比" className="h-[300px]">
+          <TechPanel title={t.cpuByNode} className="h-[300px]">
             <ClientOnlyChart placeholderClassName="h-full w-full min-h-[200px]">
             <div className="h-full w-full min-h-[200px]">
             <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1} initialDimension={{ width: 100, height: 200 }}>
@@ -443,7 +477,7 @@ export default function Dashboard() {
             </ClientOnlyChart>
           </TechPanel>
 
-          <TechPanel title="即時系統警報 (Real-time Alarms)" className="flex-1">
+          <TechPanel title={t.alarms} className="flex-1">
             <div className="h-full overflow-y-auto pr-2 space-y-2 custom-scrollbar">
               {(() => {
                 const criticalDevices = allGridItems.filter(item => {
@@ -452,7 +486,7 @@ export default function Dashboard() {
                 });
 
                 if (criticalDevices.length === 0) {
-                  return <div className="text-xs text-cyan-800 font-mono text-center mt-10 uppercase tracking-widest">No Active Alarms</div>;
+                  return <div className="text-xs text-cyan-800 font-mono text-center mt-10 uppercase tracking-widest">{t.noAlarms}</div>;
                 }
 
                 return criticalDevices.map(item => {

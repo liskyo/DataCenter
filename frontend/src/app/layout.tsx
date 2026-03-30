@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
+import { LanguageProvider } from "@/shared/i18n/language";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,11 +29,13 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#010613] text-white flex flex-col h-screen overflow-hidden`}
       >
-        <Navbar />
-        {/* min-h-0：flex 子項預設 min-height:auto，會讓 overflow 區塊高度計算異常，導致捲動/點擊失效 */}
-        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
-          {children}
-        </div>
+        <LanguageProvider>
+          <Navbar />
+          {/* min-h-0：flex 子項預設 min-height:auto，會讓 overflow 區塊高度計算異常，導致捲動/點擊失效 */}
+          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+            {children}
+          </div>
+        </LanguageProvider>
       </body>
     </html>
   );

@@ -1,9 +1,11 @@
 "use client";
 
+import { useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useShallow } from "zustand/react/shallow";
 import { useDcimStore } from "@/store/useDcimStore";
+import { useLanguage } from "@/shared/i18n/language";
 import {
   BarChart3, SlidersHorizontal, LineChart, LifeBuoy,
   CloudDownload, Globe, FileText, Wrench, Settings, Languages, MonitorIcon, Factory, Box, MapPin, Plus
@@ -11,6 +13,7 @@ import {
 
 export default function Navbar() {
   const pathname = usePathname();
+  const { language, toggleLanguage } = useLanguage();
   const { locations, currentLocationId, setCurrentLocation, addLocation } = useDcimStore(
     useShallow((s) => ({
       locations: s.locations,
@@ -20,27 +23,64 @@ export default function Navbar() {
     }))
   );
 
+  const t = useMemo(() => {
+    if (language === "en") {
+      return {
+        status: "Overview",
+        twins: "3D Twin",
+        facility: "Facility",
+        control: "Control",
+        analysis: "Analysis",
+        maintenance: "Maintenance",
+        backup: "Backup",
+        network: "Network",
+        logs: "Logs",
+        engineering: "Engineering",
+        settings: "Settings",
+        addLocationPrompt: "Enter location name (e.g. 2F DC):",
+        addLocationTitle: "Add location",
+        languageButton: "EN",
+      };
+    }
+    return {
+      status: "狀態總覽",
+      twins: "3D動態機房",
+      facility: "廠務監控",
+      control: "設備控制",
+      analysis: "趨勢分析",
+      maintenance: "維護保養",
+      backup: "系統備份",
+      network: "網路通訊",
+      logs: "系統日誌",
+      engineering: "工程模式",
+      settings: "系統設定",
+      addLocationPrompt: "請輸入新地點名稱 (例如: 2F 機房):",
+      addLocationTitle: "新增地點",
+      languageButton: "中(繁)",
+    };
+  }, [language]);
+
   const validLocationId =
     locations.some((l) => l.id === currentLocationId) && locations.length > 0
       ? currentLocationId
       : locations[0]?.id ?? "";
 
   const navItems = [
-    { name: "狀態總覽", href: "/", icon: BarChart3 },
-    { name: "3D動態機房", href: "/twins", icon: Box },
-    { name: "廠務監控", href: "/facility", icon: Factory },
-    { name: "設備控制", href: "/control", icon: SlidersHorizontal },
-    { name: "趨勢分析", href: "/analysis", icon: LineChart },
-    { name: "維護保養", href: "/maintenance", icon: LifeBuoy },
-    { name: "系統備份", href: "/backup", icon: CloudDownload },
-    { name: "網路通訊", href: "/network", icon: Globe },
-    { name: "系統日誌", href: "/logs", icon: FileText },
-    { name: "工程模式", href: "/engineering", icon: Wrench },
-    { name: "系統設定", href: "/settings", icon: Settings }
+    { name: t.status, href: "/", icon: BarChart3 },
+    { name: t.twins, href: "/twins", icon: Box },
+    { name: t.facility, href: "/facility", icon: Factory },
+    { name: t.control, href: "/control", icon: SlidersHorizontal },
+    { name: t.analysis, href: "/analysis", icon: LineChart },
+    { name: t.maintenance, href: "/maintenance", icon: LifeBuoy },
+    { name: t.backup, href: "/backup", icon: CloudDownload },
+    { name: t.network, href: "/network", icon: Globe },
+    { name: t.logs, href: "/logs", icon: FileText },
+    { name: t.engineering, href: "/engineering", icon: Wrench },
+    { name: t.settings, href: "/settings", icon: Settings }
   ];
 
   const handleAddLocation = () => {
-    const name = prompt("請輸入新地點名稱 (例如: 2F 機房):");
+    const name = prompt(t.addLocationPrompt);
     if (name) {
       addLocation(name, 'floor');
     }
@@ -91,7 +131,7 @@ export default function Navbar() {
           <button
             onClick={handleAddLocation}
             className="p-1 hover:bg-cyan-900 rounded text-cyan-400 transition-colors"
-            title="新增地點"
+            title={t.addLocationTitle}
           >
             <Plus size={14} />
           </button>
@@ -100,8 +140,11 @@ export default function Navbar() {
         <button className="flex items-center justify-center p-2 text-slate-400 hover:text-white transition-colors">
           <MonitorIcon size={18} />
         </button>
-        <button className="flex items-center gap-2 px-3 py-1.5 rounded-md border border-slate-700 hover:bg-slate-800 hover:border-slate-500 transition-colors text-[13px] tracking-wider text-slate-300">
-          <Languages size={14} /> 中(繁)
+        <button
+          onClick={toggleLanguage}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-md border border-slate-700 hover:bg-slate-800 hover:border-slate-500 transition-colors text-[13px] tracking-wider text-slate-300"
+        >
+          <Languages size={14} /> {t.languageButton}
         </button>
       </div>
     </nav>
