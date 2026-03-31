@@ -18,6 +18,7 @@ class KafkaRuntimeService:
         self.producer_init_thread: threading.Thread | None = None
         self.consumer_ready = False
         self.stop_event = threading.Event()
+        self.simulation_targets: list[str] = []
 
     def init_kafka_producer(self) -> None:
         with self.producer_init_lock:
@@ -86,13 +87,7 @@ class KafkaRuntimeService:
                 backoff_s = min(backoff_s * 1.5, max_backoff_s)
 
     def simulation_worker(self, system_mode_getter: Callable[[], str]) -> None:
-        servers = [f"SERVER-{str(i).zfill(3)}" for i in range(1, 13)]
-        switches = [f"SW-{str(i).zfill(3)}" for i in range(1, 13)]
-        all_ids = servers + switches
-        base_metrics: Dict[str, Dict[str, float]] = {
-            s_id: {"temp": random.uniform(20, 25), "cpu": random.uniform(10, 30), "traffic": random.uniform(2, 10)}
-            for s_id in all_ids
-        }
+        base_metrics: Dict[str, Dict[str, float]] = {}
         active_critical = None
         active_warning = None
         loops = 0
@@ -100,7 +95,17 @@ class KafkaRuntimeService:
         while not self.stop_event.is_set():
             if system_mode_getter() == "simulation" and self.producer:
                 try:
-                    if loops % 12 == 0:
+                    all_ids = self.simulation_targets
+                    if not all_ids:
+                        servers = [f"SERVER-{str(i).zfill(3)}" for i in range(1, 13)]
+                        switches = [f"SW-{str(i).zfill(3)}" for i in range(1, 13)]
+                        all_ids = servers + switches
+                        
+                    for s_id in all_ids:
+                        if s_id not in base_metrics:
+                            base_metrics[s_id] = {"temp": random.uniform(20, 25), "cpu": random.uniform(10, 30), "traffic": random.uniform(2, 10)}
+
+                    if loops % 12 == 0 and len(all_ids) >= 2:
                         sampled = random.sample(all_ids, 2)
                         active_critical = sampled[0]
                         active_warning = sampled[1]

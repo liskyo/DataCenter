@@ -210,6 +210,17 @@ export default function Dashboard() {
     [data, itemNameSet]
   );
 
+  useEffect(() => {
+    if (simMode !== "simulation") return;
+    const targets = Array.from(itemNameSet);
+    if (targets.length === 0) return;
+    fetch(apiUrl("/api/system/simulate_targets"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ targets })
+    }).catch(() => {});
+  }, [itemNameSet, simMode]);
+
   return (
     <div className="w-full bg-[#010613] text-slate-300 font-sans flex flex-col overflow-x-hidden selection:bg-cyan-900">
       {/* HUD Header */}
@@ -468,7 +479,7 @@ export default function Dashboard() {
             <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1} initialDimension={{ width: 100, height: 200 }}>
               <BarChart data={activeStoreData} layout="vertical" margin={{ top: 0, right: 20, left: 10, bottom: 0 }}>
                 <XAxis type="number" domain={[0, 100]} hide />
-                <YAxis dataKey="server_id" type="category" stroke="#1e3a8a" fontSize={10} width={70} tick={{ fill: '#06b6d4' }} />
+                <YAxis dataKey="server_id" type="category" stroke="#1e3a8a" fontSize={10} width={70} tick={{ fill: '#06b6d4' }} interval={0} />
                 <RechartsTooltip cursor={{ fill: '#1e3a8a' }} contentStyle={{ backgroundColor: '#020b1a', borderColor: '#06b6d4', color: '#fff' }} />
                 <Bar dataKey="cpu_usage" isAnimationActive={false}>
                   {activeStoreData.map((entry, index) => (
@@ -484,46 +495,57 @@ export default function Dashboard() {
           <TechPanel title={t.alarms} className="flex-1">
             <div className="h-full overflow-y-auto pr-2 space-y-2 custom-scrollbar">
               {(() => {
-                const criticalDevices = allGridItems.filter(item => {
+                const alertDevices = allGridItems.filter(item => {
                   const srv = telemetryById.get(item.name);
-                  return getDeviceStatus(item, srv) === 'critical';
+                  const status = getDeviceStatus(item, srv);
+                  return status === 'critical' || status === 'warning';
                 });
 
-                if (criticalDevices.length === 0) {
+                if (alertDevices.length === 0) {
                   return <div className="text-xs text-cyan-800 font-mono text-center mt-10 uppercase tracking-widest">{t.noAlarms}</div>;
                 }
 
-                return criticalDevices.map(item => {
+                return alertDevices.map(item => {
                   const srv = telemetryById.get(item.name);
                   if (!srv) return null;
 
+                  const status = getDeviceStatus(item, srv);
                   const traffic = srv.traffic_gbps || 0;
                   const ports = srv.ports_active || 0;
                   const cpu = srv.cpu_usage || 0;
                   const temp = srv.temperature || 0;
 
+                  const isWarn = status === 'warning';
+                  const bgClass = isWarn ? "bg-yellow-950/40 border-yellow-900" : "bg-red-950/40 border-red-900";
+                  const barClass = isWarn ? "bg-yellow-500" : "bg-red-500";
+                  const iconClass = isWarn ? "text-yellow-500" : "text-red-500";
+                  const titleClass = isWarn ? "text-yellow-400" : "text-red-400";
+                  const textClass = isWarn ? "text-yellow-200/60" : "text-red-200/60";
+                  const timeClass = isWarn ? "text-yellow-900" : "text-red-900";
+                  const stateTitle = isWarn ? "WARNING STATE" : "CRITICAL STATE";
+
                   return (
-                    <div key={`alarm-${item.name}`} className="bg-red-950/40 border border-red-900 p-3 rounded-none flex gap-3 items-start relative overflow-hidden group">
-                      <div className="absolute left-0 top-0 bottom-0 w-1 bg-red-500"></div>
-                      <AlertTriangle className="text-red-500 shrink-0" size={16} />
+                    <div key={`alarm-${item.name}`} className={`${bgClass} border p-3 rounded-none flex gap-3 items-start relative overflow-hidden group`}>
+                      <div className={`absolute left-0 top-0 bottom-0 w-1 ${barClass}`}></div>
+                      <AlertTriangle className={`${iconClass} shrink-0`} size={16} />
                       <div className="flex-1">
-                        <div className="text-red-400 text-xs font-bold font-mono">[{item.name}] CRITICAL STATE</div>
-                        <div className="text-red-200/60 text-[10px] mt-1 space-y-1">
+                        <div className={`${titleClass} text-xs font-bold font-mono`}>[{item.name}] {stateTitle}</div>
+                        <div className={`${textClass} text-[10px] mt-1 space-y-1`}>
                           {item.type === 'switch' ? (
                             <>
-                              {traffic > 35 && <div>- Network Congestion ({traffic.toFixed(1)} Gbps)</div>}
-                              {ports > 42 && <div>- Port Saturation ({ports}/48)</div>}
-                              {cpu > 85 && <div>- Mgmt CPU Critical ({cpu.toFixed(0)}%)</div>}
-                              {temp > 55 && <div>- Chassis Overheat ({temp.toFixed(0)}°C)</div>}
+                              {traffic > 25 && <div>- Network Congestion ({traffic.toFixed(1)} Gbps)</div>}
+                              {ports > 35 && <div>- Port Saturation ({ports}/48)</div>}
+                              {cpu > 60 && <div>- Mgmt CPU Output ({cpu.toFixed(0)}%)</div>}
+                              {temp > 45 && <div>- Chassis Heat ({temp.toFixed(0)}°C)</div>}
                             </>
                           ) : (
                             <>
-                              {cpu > 85 && <div>- Processor Overload ({cpu.toFixed(1)}%)</div>}
-                              {temp > 55 && <div>- High Core Temperature ({temp.toFixed(1)}°C)</div>}
+                              {cpu > 60 && <div>- Processor Load ({cpu.toFixed(1)}%)</div>}
+                              {temp > 45 && <div>- Core Temperature ({temp.toFixed(1)}°C)</div>}
                             </>
                           )}
                         </div>
-                        <div className="text-red-900 text-[9px] mt-2 text-right">{new Date(srv.timestamp).toLocaleTimeString()}</div>
+                        <div className={`${timeClass} text-[9px] mt-2 text-right`}>{new Date(srv.timestamp).toLocaleTimeString()}</div>
                       </div>
                     </div>
                   );

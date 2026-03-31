@@ -29,6 +29,15 @@ def toggle_system_mode(payload: dict, request: Request):
     return {"status": "success", "mode": container.system_mode}
 
 
+@router.post("/simulate_targets")
+def set_simulate_targets(payload: dict, request: Request):
+    container = _container(request)
+    targets = payload.get("targets", [])
+    if isinstance(targets, list) and targets:
+        container.kafka.simulation_targets = targets
+    return {"status": "success", "targets_count": len(container.kafka.simulation_targets)}
+
+
 @ops_router.get("/health")
 def health_check(request: Request):
     container = _container(request)
