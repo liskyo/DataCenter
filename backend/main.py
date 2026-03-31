@@ -7,6 +7,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from core.container import AppContainer
 from routers.system import ops_router, router as system_router
 from routers.telemetry import router as telemetry_router
+from routers.control import router as control_router
 
 app = FastAPI(title="DataCenter Monitoring API")
 
@@ -23,6 +24,7 @@ app.state.container = AppContainer()
 app.include_router(telemetry_router)
 app.include_router(system_router)
 app.include_router(ops_router)
+app.include_router(control_router)
 
 
 @app.on_event("startup")

@@ -1,9 +1,8 @@
-"use client";
-
 import { useState, useEffect, useMemo } from "react";
 import { Power, Fan, Settings2, SlidersHorizontal, RefreshCcw, X, Cpu, Network, ShieldCheck, DatabaseZap } from "lucide-react";
 import { useLanguage } from "@/shared/i18n/language";
 import { useDcimStore } from "@/store/useDcimStore";
+import { apiUrl } from "@/shared/api";
 
 const TechPanel = ({ title, children, className = "" }: { title: string, children: React.ReactNode, className?: string }) => (
   <div className={`relative bg-[#020b1a] border border-[#1e3a8a] flex flex-col ${className}`}>
@@ -79,22 +78,48 @@ export default function ControlPage() {
 
   const [configuringMachine, setConfiguringMachine] = useState<string | null>(null);
 
-  const togglePower = (id: string) => {
-    setMachines(prev => prev.map(m => m.id === id ? { ...m, powerOn: !m.powerOn } : m));
+  const togglePower = async (id: string) => {
+    const machine = machines.find((m) => m.id === id);
+    if (!machine) return;
+    const currentPower = machine.powerOn;
+
+    setMachines((prev) => prev.map((m) => (m.id === id ? { ...m, isRebooting: true } : m)));
+
+    try {
+      const targetAction = currentPower ? "off" : "on";
+      await fetch(apiUrl(`/api/control/${id}/power`), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: targetAction }),
+      });
+      setMachines((prev) =>
+        prev.map((m) => (m.id === id ? { ...m, powerOn: !currentPower, isRebooting: false } : m))
+      );
+    } catch (err) {
+      alert("Hardware control error: Server unreachable");
+      setMachines((prev) => prev.map((m) => (m.id === id ? { ...m, isRebooting: false } : m)));
+    }
   };
 
   const changeFanSpeed = (id: string, val: number) => {
-    setMachines(prev => prev.map(m => m.id === id ? { ...m, fanSpeed: val } : m));
+    setMachines((prev) => prev.map((m) => (m.id === id ? { ...m, fanSpeed: val } : m)));
   };
 
-  const rebootMachine = (id: string) => {
-    setMachines(prev => prev.map(m => m.id === id ? { ...m, isRebooting: true, powerOn: false } : m));
-    setTimeout(() => {
-      setMachines(prev => prev.map(m => m.id === id ? { ...m, powerOn: true } : m));
-      setTimeout(() => {
-        setMachines(prev => prev.map(m => m.id === id ? { ...m, isRebooting: false } : m));
-      }, 500);
-    }, 2500);
+  const rebootMachine = async (id: string) => {
+    setMachines((prev) => prev.map((m) => (m.id === id ? { ...m, isRebooting: true } : m)));
+    try {
+      await fetch(apiUrl(`/api/control/${id}/power`), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reboot" }),
+      });
+      setMachines((prev) =>
+        prev.map((m) => (m.id === id ? { ...m, powerOn: true, isRebooting: false } : m))
+      );
+    } catch (err) {
+      alert("Hardware reboot error: Server unreachable");
+      setMachines((prev) => prev.map((m) => (m.id === id ? { ...m, isRebooting: false } : m)));
+    }
   };
 
   return (
