@@ -16,6 +16,7 @@ interface CDUTelemetry {
   leak_detected?: boolean;
   facility_supply_temp?: number;
   facility_return_temp?: number;
+  power_state?: 'on' | 'off';
 }
 
 interface CDUModelProps {
@@ -25,7 +26,8 @@ interface CDUModelProps {
 }
 
 /** Get CDU status based on telemetry data */
-function getCDUStatus(t?: CDUTelemetry): "normal" | "warning" | "critical" | "leak" {
+function getCDUStatus(t?: CDUTelemetry): "normal" | "warning" | "critical" | "leak" | "off" {
+  if (t?.power_state === 'off') return "off";
   if (!t) return "normal";
   if (t.leak_detected === true) return "leak";
   if (
@@ -48,6 +50,7 @@ const STATUS_COLORS = {
   warning: { body: "#3d2e0a", emissive: "#f59e0b", intensity: 0.9, speed: 2.5 },
   critical: { body: "#3d0a0a", emissive: "#ef4444", intensity: 1.6, speed: 5.0 },
   leak: { body: "#3d0a0a", emissive: "#ef4444", intensity: 2.0, speed: 8.0 },
+  off: { body: "#0a0a0a", emissive: "#000000", intensity: 0, speed: 0 },
 };
 
 /** Build a CanvasTexture with live CDU metrics */
@@ -96,14 +99,25 @@ function useCDUCanvasTexture(t?: CDUTelemetry, status?: string): THREE.CanvasTex
       ctx.font = "12px monospace";
       ctx.textAlign = "left";
       ctx.fillText(row.label, 18, y);
-      ctx.fillStyle = row.color;
+      ctx.fillStyle = status === "off" ? "#334155" : row.color;
       ctx.font = "bold 13px monospace";
       ctx.textAlign = "right";
       ctx.fillText(row.value, 238, y);
     });
 
-    // Leak alert
-    if (t?.leak_detected) {
+    if (status === "off") {
+      ctx.fillStyle = "rgba(10, 10, 10, 0.7)";
+      ctx.fillRect(10, 60, 236, 270);
+      ctx.fillStyle = "#475569";
+      ctx.font = "bold 20px monospace";
+      ctx.textAlign = "center";
+      ctx.fillText("POWERED OFF", 128, 180);
+      
+      ctx.fillStyle = "#334155";
+      ctx.font = "bold 13px monospace";
+      ctx.textAlign = "center";
+      ctx.fillText("● OFFLINE", 128, 370);
+    } else if (t?.leak_detected) {
       ctx.fillStyle = "#ef4444";
       ctx.font = "bold 16px monospace";
       ctx.textAlign = "center";

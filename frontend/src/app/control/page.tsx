@@ -5,6 +5,13 @@ import { Power, Fan, Settings2, SlidersHorizontal, RefreshCcw, X, Cpu, Network, 
 import { useLanguage } from "@/shared/i18n/language";
 import { useDcimStore } from "@/store/useDcimStore";
 import { apiUrl } from "@/shared/api";
+import { useSSE } from "@/shared/hooks/useSSE";
+
+type ServerTelemetry = {
+  server_id: string;
+  power_state?: "on" | "off";
+  fan_speed?: number;
+};
 
 const TechPanel = ({ title, children, className = "" }: { title: string, children: React.ReactNode, className?: string }) => (
   <div className={`relative bg-[#020b1a] border border-[#1e3a8a] flex flex-col ${className}`}>
@@ -53,6 +60,19 @@ export default function ControlPage() {
     };
 
   const [machines, setMachines] = useState<{id: string, powerOn: boolean, fanSpeed: number, targetTemp: number, isRebooting: boolean}[]>([]);
+
+  // Listen to real-time power state changes from the telemetry stream
+  useSSE({
+    onUpdate: (metricsMap: Record<string, any>) => {
+      setMachines(prev => prev.map(m => {
+        const telemetry = metricsMap[m.id];
+        if (telemetry && telemetry.power_state) {
+          return { ...m, powerOn: telemetry.power_state === "on" };
+        }
+        return m;
+      }));
+    }
+  });
 
   useEffect(() => {
     setMachines(prev => {

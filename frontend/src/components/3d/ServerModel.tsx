@@ -12,7 +12,11 @@ export default function ServerModel({ data, telemetry }: { data: ServerData, tel
     const meshRef = useRef<THREE.Mesh>(null);
 
     let liveStatus = data.status;
-    if (telemetry) {
+    const isPoweredOff = telemetry?.power_state === 'off';
+
+    if (isPoweredOff) {
+        liveStatus = 'offline';
+    } else if (telemetry) {
         // Sync with dashboard thresholds
         if (telemetry.temperature > 55 || telemetry.cpu_usage > 85) liveStatus = 'critical';
         else if (telemetry.temperature > 45 || telemetry.cpu_usage > 60) liveStatus = 'warning';
@@ -28,6 +32,10 @@ export default function ServerModel({ data, telemetry }: { data: ServerData, tel
 
     useFrame((state) => {
         if (materialRef.current) {
+            if (isPoweredOff) {
+                materialRef.current.emissiveIntensity = 0.05;
+                return;
+            }
             if (liveStatus === 'critical') {
                 const t = Math.sin(state.clock.elapsedTime * 10);
                 materialRef.current.emissiveIntensity = t > 0 ? 0.8 : 0.2;
@@ -41,6 +49,7 @@ export default function ServerModel({ data, telemetry }: { data: ServerData, tel
     });
 
     const getStatusColor = () => {
+        if (isPoweredOff) return '#111111';
         switch (liveStatus) {
             case 'critical': return '#ef4444';
             case 'warning': return '#f59e0b';
@@ -51,6 +60,7 @@ export default function ServerModel({ data, telemetry }: { data: ServerData, tel
     };
 
     const getBodyColor = () => {
+        if (isPoweredOff) return '#1a1a1a'; // Power Off Color
         if (liveStatus === 'critical') return '#ef4444'; // Overheat -> Solid Red
         if (liveStatus === 'warning') return '#f59e0b'; // Near limit -> Yellow
         if (data.type === 'storage') return '#1e293b';

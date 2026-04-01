@@ -37,6 +37,7 @@ class AppContainer:
         self.notifier = NotificationService(token=self.settings.line_notify_token)
         self.sse = SSEManager()
         self.system_mode = "simulation"
+        self.power_states: dict[str, str] = {} # { "SERVER-001": "on", "CDU-001": "off" }
 
     def trigger_alert(self, server_id: str, msg_type: str, message: str) -> None:
         alert_doc = {
@@ -51,6 +52,22 @@ class AppContainer:
 
     def process_message(self, data: dict) -> None:
         server_id = data.get("server_id", "unknown")
+
+        # 注入電源狀態 (預設為 "on")
+        data["power_state"] = self.power_states.get(server_id, "on")
+
+        # 邏輯保護: 如果電源為 "off"，強制數據為零/環境值 (防止舊數據殘留)
+        if data["power_state"] == "off":
+            data["cpu_usage"] = 0.0
+            data["temperature"] = 25.0  # 假設環境溫度
+            if "traffic_gbps" in data: data["traffic_gbps"] = 0.0
+            if "ports_active" in data: data["ports_active"] = 0
+            # DLC 相關
+            if "flow_rate_lpm" in data: data["flow_rate_lpm"] = 0.0
+            if "pump_a_rpm" in data: data["pump_a_rpm"] = 0.0
+            if "pump_b_rpm" in data: data["pump_b_rpm"] = 0.0
+
+        # 閾值檢查與告警觸發
         temp = float(data.get("temperature", 0))
         cpu = float(data.get("cpu_usage", 0))
 

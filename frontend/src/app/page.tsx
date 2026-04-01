@@ -20,6 +20,7 @@ type ServerTelemetry = {
   traffic_gbps?: number;
   ports_active?: number;
   ports_total?: number;
+  power_state?: 'on' | 'off';
 };
 
 const TechPanel = ({ title, children, className = "" }: { title: string, children: React.ReactNode, className?: string }) => (
@@ -192,17 +193,26 @@ export default function Dashboard() {
     ) as ServerTelemetry[];
     setData(sortedData);
 
-    // 更新歷史紀錄供圖表使用
+    // 更新歷史紀錄供圖表使用 (節流：至少間隔 5 秒才更新一次歷史點)
     setHistory(prev => {
+      const lastPoint = prev[prev.length - 1];
+      const now = new Date();
+      if (lastPoint) {
+        const lastTime = new Date();
+        const [h, m, s] = lastPoint.time.split(':');
+        lastTime.setHours(parseInt(h), parseInt(m), parseInt(s));
+        if (now.getTime() - lastTime.getTime() < 5000) return prev; // 小於 5 秒不更新
+      }
+
       const avgCpu = sortedData.reduce((acc, cur) => acc + cur.cpu_usage, 0) / (sortedData.length || 1);
       const avgTemp = sortedData.reduce((acc, cur) => acc + cur.temperature, 0) / (sortedData.length || 1);
       const newPoint = {
-        time: new Date().toLocaleTimeString("zh-TW", { hour12: false, minute: "2-digit", second: "2-digit" }),
+        time: now.toLocaleTimeString("zh-TW", { hour12: false, minute: "2-digit", second: "2-digit" }),
         avgCpu: Number(avgCpu.toFixed(1)),
         avgTemp: Number(avgTemp.toFixed(1))
       };
       const newHistory = [...prev, newPoint];
-      if (newHistory.length > 20) newHistory.shift();
+      if (newHistory.length > 30) newHistory.shift();
       return newHistory;
     });
   }, []);
@@ -212,6 +222,7 @@ export default function Dashboard() {
   // --- Unified Health Scoring Logic ---
   const getDeviceStatus = (item: any, srv: ServerTelemetry | undefined) => {
     if (!srv) return 'offline';
+    if (srv.power_state === 'off') return 'powered_off';
 
     // CDU specific thresholds
     if (item.type === 'cdu') {
@@ -455,25 +466,28 @@ export default function Dashboard() {
                 return items.map(item => {
                   const srv = telemetryById.get(item.name);
                   const liveStatus = getDeviceStatus(item, srv);
+                  const isOff = liveStatus === 'powered_off';
 
-                  const borderColor = liveStatus === 'critical' ? 'border-red-500' : liveStatus === 'warning' ? 'border-yellow-500' : 'border-cyan-500';
-                  const titleColor = liveStatus === 'critical' ? 'text-red-400' : liveStatus === 'warning' ? 'text-yellow-400' : 'text-cyan-100';
-                  const shadowCss = liveStatus === 'critical' ? 'shadow-[inset_0_0_15px_rgba(239,68,68,0.2)]' : liveStatus === 'warning' ? 'shadow-[inset_0_0_15px_rgba(245,158,11,0.2)]' : 'hover:bg-[#06183a]';
+                  const borderColor = isOff ? 'border-slate-700' : liveStatus === 'critical' ? 'border-red-500' : liveStatus === 'warning' ? 'border-yellow-500' : 'border-cyan-500';
+                  const titleColor = isOff ? 'text-slate-500' : liveStatus === 'critical' ? 'text-red-400' : liveStatus === 'warning' ? 'text-yellow-400' : 'text-cyan-100';
+                  const shadowCss = isOff ? 'opacity-50 grayscale' : liveStatus === 'critical' ? 'shadow-[inset_0_0_15px_rgba(239,68,68,0.2)]' : liveStatus === 'warning' ? 'shadow-[inset_0_0_15px_rgba(245,158,11,0.2)]' : 'hover:bg-[#06183a]';
 
-                  if (!srv) {
+                  if (!srv || isOff) {
                     return (
-                      <div key={item.id} className="p-4 border-l-4 bg-gradient-to-r from-[#03112b] to-transparent border-slate-700 opacity-60 hover:opacity-100 transition-all">
+                      <div key={item.id} className={`p-4 border-l-4 bg-gradient-to-r from-[#03112b] to-transparent ${borderColor} ${isOff ? 'opacity-50 grayscale' : 'opacity-60'} hover:opacity-100 transition-all`}>
                         <div className="flex justify-between items-start mb-2">
                           <div className="flex flex-col">
-                            <div className="font-mono font-bold text-slate-500 text-lg">{item.name}</div>
+                            <div className={`font-mono font-bold ${titleColor} text-lg`}>{item.name}</div>
                             <div className="text-[10px] text-slate-600 bg-[#0a1e3f] border border-slate-800 px-1.5 py-0.5 rounded w-fit flex items-center gap-1 mt-1">
                               <LayoutGrid size={10} /> {item.rackName}
                             </div>
                           </div>
-                          <Power size={16} className="text-slate-700 mt-1" />
+                          <Power size={16} className={`${isOff ? 'text-slate-600' : 'text-slate-700'} mt-1`} />
                         </div>
                         <div className="mt-4 flex items-center justify-center py-5 bg-slate-900/30 rounded border border-slate-800/50">
-                          <span className="text-[10px] text-slate-500 tracking-widest font-mono">OFFLINE / NO SIGNAL</span>
+                          <span className={`text-[10px] ${isOff ? 'text-slate-400' : 'text-slate-500'} tracking-widest font-mono`}>
+                            {isOff ? "POWERED OFF" : "OFFLINE / NO SIGNAL"}
+                          </span>
                         </div>
                       </div>
                     );
@@ -571,21 +585,37 @@ export default function Dashboard() {
 
         {/* Right Column (Alarms & Details) */}
         <div className="col-span-3 flex flex-col gap-6">
-          <TechPanel title={t.cpuByNode} className="h-[300px]">
+          <TechPanel title={t.cpuByNode} className="h-[400px]">
             <ClientOnlyChart placeholderClassName="h-full w-full min-h-[200px]">
-            <div className="h-full w-full min-h-[200px]">
-            <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1} initialDimension={{ width: 100, height: 200 }}>
-              <BarChart data={activeStoreData} layout="vertical" margin={{ top: 0, right: 20, left: 10, bottom: 0 }}>
-                <XAxis type="number" domain={[0, 100]} hide />
-                <YAxis dataKey="server_id" type="category" stroke="#1e3a8a" fontSize={10} width={70} tick={{ fill: '#06b6d4' }} interval={0} />
-                <RechartsTooltip cursor={{ fill: '#1e3a8a' }} contentStyle={{ backgroundColor: '#020b1a', borderColor: '#06b6d4', color: '#fff' }} />
-                <Bar dataKey="cpu_usage" isAnimationActive={false}>
-                  {activeStoreData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.cpu_usage > 85 ? '#ef4444' : '#06b6d4'} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            <div className="h-full w-full overflow-y-auto pr-1 overflow-x-hidden custom-scrollbar">
+              <div style={{ height: `${Math.max(200, activeStoreData.length * 20)}px` }} className="w-full">
+                <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1} initialDimension={{ width: 100, height: 200 }}>
+                  <BarChart data={activeStoreData} layout="vertical" margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                    <XAxis type="number" domain={[0, 100]} hide />
+                    <YAxis 
+                      dataKey="server_id" 
+                      type="category" 
+                      stroke="#1e3a8a" 
+                      fontSize={9} 
+                      width={75} 
+                      tick={{ fill: '#06b6d4' }} 
+                      interval={0}
+                    />
+                    <RechartsTooltip cursor={{ fill: '#1e3a8a' }} contentStyle={{ backgroundColor: '#020b1a', borderColor: '#06b6d4', color: '#fff' }} />
+                    <Bar dataKey="cpu_usage" isAnimationActive={false} barSize={12}>
+                      {activeStoreData.map((entry, index) => {
+                        const isOff = entry.power_state === 'off';
+                        return (
+                          <Cell 
+                            key={`cell-${index}`} 
+                            fill={isOff ? '#64748b' : (entry.cpu_usage > 85 ? '#ef4444' : '#06b6d4')} 
+                          />
+                        );
+                      })}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </div>
             </ClientOnlyChart>
           </TechPanel>

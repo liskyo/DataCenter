@@ -42,13 +42,16 @@ export default function EquipmentModel({ data, telemetry }: { data: EquipmentDat
 
     let innerContent;
 
+    const isPoweredOff = telemetry?.power_state === 'off';
+
     if (data.type === 'crac') {
+        const bodyColor = isPoweredOff ? "#1a1a1a" : (isSelected ? "#38bdf8" : "#94a3b8");
         innerContent = (
             <group>
                 {/* Main Body */}
                 <mesh position={[0, 1.5, 0]} castShadow receiveShadow>
                     <boxGeometry args={[1.5, 3, 1.2]} />
-                    <meshStandardMaterial color={isSelected ? "#38bdf8" : "#94a3b8"} roughness={0.6} metalness={0.2} />
+                    <meshStandardMaterial color={bodyColor} roughness={0.6} metalness={0.2} />
                 </mesh>
                 {/* Vent grille (bottom) */}
                 <mesh position={[0, 0.5, 0.61]}>
@@ -58,30 +61,31 @@ export default function EquipmentModel({ data, telemetry }: { data: EquipmentDat
                 {/* Brand / Logo LED */}
                 <mesh position={[0, 2.6, 0.61]}>
                     <boxGeometry args={[0.3, 0.05, 0.05]} />
-                    <meshBasicMaterial color="#06b6d4" />
+                    <meshBasicMaterial color={isPoweredOff ? "#111" : "#06b6d4"} />
                 </mesh>
-                <Text position={[0, 3.2, 0]} fontSize={0.2} color="#334155" anchorX="center" anchorY="middle">
-                    {data.name}
+                <Text position={[0, 3.2, 0]} fontSize={0.2} color={isPoweredOff ? "#334" : "#334155"} anchorX="center" anchorY="middle">
+                    {data.name} {isPoweredOff && "(OFF)"}
                 </Text>
             </group>
         );
     } else if (data.type === 'pdu') {
+        const bodyColor = isPoweredOff ? "#0a0a0a" : (isSelected ? "#1e40af" : "#020617");
         innerContent = (
             <group>
                 {/* Cabinet */}
                 <mesh position={[0, 1.2, 0]} castShadow receiveShadow>
                     <boxGeometry args={[0.8, 2.4, 0.8]} />
-                    <meshStandardMaterial color={isSelected ? "#1e40af" : "#020617"} roughness={0.4} metalness={0.7} />
+                    <meshStandardMaterial color={bodyColor} roughness={0.4} metalness={0.7} />
                 </mesh>
                 {/* Display Screen */}
                 <mesh position={[0, 1.8, 0.41]}>
                     <boxGeometry args={[0.4, 0.25, 0.05]} />
-                    <meshBasicMaterial color="#10b981" />
+                    <meshBasicMaterial color={isPoweredOff ? "#111" : "#10b981"} />
                 </mesh>
                 {/* Indicator light top */}
                 <mesh position={[0, 2.45, 0]}>
                     <cylinderGeometry args={[0.06, 0.06, 0.1]} />
-                    <meshBasicMaterial color="#f59e0b" />
+                    <meshBasicMaterial color={isPoweredOff ? "#222" : "#f59e0b"} />
                 </mesh>
                 <Text position={[0, 2.7, 0]} fontSize={0.15} color="#334155" anchorX="center" anchorY="middle">
                     {data.name}
@@ -97,17 +101,18 @@ export default function EquipmentModel({ data, telemetry }: { data: EquipmentDat
             />
         );
     } else if (data.type === 'ups') {
+        const bodyColor = isPoweredOff ? "#0f172a" : (isSelected ? "#b45309" : "#1c1917");
         innerContent = (
             <group>
                 {/* Main Battery Cabinet */}
                 <mesh position={[0, 1.2, 0]} castShadow receiveShadow>
                     <boxGeometry args={[0.8, 2.4, 0.8]} />
-                    <meshStandardMaterial color={isSelected ? "#b45309" : "#1c1917"} roughness={0.5} metalness={0.5} />
+                    <meshStandardMaterial color={bodyColor} roughness={0.5} metalness={0.5} />
                 </mesh>
                 {/* Battery Status Indicator Bar */}
                 <mesh position={[0, 1.2, 0.41]}>
                     <boxGeometry args={[0.1, 1.8, 0.05]} />
-                    <meshStandardMaterial color="#166534" emissive="#22c55e" emissiveIntensity={0.5} />
+                    <meshStandardMaterial color={isPoweredOff ? "#111" : "#166534"} emissive={isPoweredOff ? "#000" : "#22c55e"} emissiveIntensity={isPoweredOff ? 0 : 0.5} />
                 </mesh>
                 <mesh position={[0, 2.7, 0]}>
                     <Text fontSize={0.15} color="#475569" anchorX="center" anchorY="middle">
@@ -117,18 +122,25 @@ export default function EquipmentModel({ data, telemetry }: { data: EquipmentDat
             </group>
         );
     } else if (data.type === 'chiller') {
+        const bodyColor = isPoweredOff ? "#0a0a0a" : (isSelected ? "#0284c7" : "#0f172a");
         innerContent = (
             <group>
                 {/* Slim High-Tech Body */}
                 <mesh position={[0, 1.2, 0]} castShadow receiveShadow>
                     <boxGeometry args={[1.2, 2.4, 1.2]} />
-                    <meshStandardMaterial color={isSelected ? "#0284c7" : "#0f172a"} roughness={0.2} metalness={0.8} />
+                    <meshStandardMaterial color={bodyColor} roughness={0.2} metalness={0.8} />
                 </mesh>
                 
                 {/* Glowing Core Tube / Coolant Pipe */}
                 <mesh position={[0, 1.2, 0]}>
                     <cylinderGeometry args={[0.4, 0.4, 2.45, 16]} />
-                    <meshStandardMaterial color="#0ea5e9" emissive="#0284c7" emissiveIntensity={isSelected ? 2 : 1.2} transparent opacity={0.6} />
+                    <meshStandardMaterial 
+                        color={isPoweredOff ? "#111" : "#0ea5e9"} 
+                        emissive={isPoweredOff ? "#000" : "#0284c7"} 
+                        emissiveIntensity={isPoweredOff ? 0 : (isSelected ? 2 : 1.2)} 
+                        transparent 
+                        opacity={isPoweredOff ? 0.3 : 0.6} 
+                    />
                 </mesh>
 
                 {/* Digital HUD Panel */}
@@ -136,18 +148,20 @@ export default function EquipmentModel({ data, telemetry }: { data: EquipmentDat
                     <boxGeometry args={[0.8, 0.4, 0.02]} />
                     <meshBasicMaterial color="#000" />
                 </mesh>
-                <Text position={[0, 1.8, 0.63]} fontSize={0.08} color="#22d3ee" anchorX="center" anchorY="middle">
-                    COOLANT: OPTIMAL
+                <Text position={[0, 1.8, 0.63]} fontSize={0.08} color={isPoweredOff ? "#334" : "#22d3ee"} anchorX="center" anchorY="middle">
+                    {isPoweredOff ? "SYSTEM: OFF" : "COOLANT: OPTIMAL"}
                 </Text>
 
                 {/* Top Holographic Halo */}
-                <mesh position={[0, 2.45, 0]} rotation={[Math.PI / 2, 0, 0]}>
-                    <torusGeometry args={[0.45, 0.02, 16, 32]} />
-                    <meshBasicMaterial color="#38bdf8" />
-                </mesh>
+                {!isPoweredOff && (
+                    <mesh position={[0, 2.45, 0]} rotation={[Math.PI / 2, 0, 0]}>
+                        <torusGeometry args={[0.45, 0.02, 16, 32]} />
+                        <meshBasicMaterial color="#38bdf8" />
+                    </mesh>
+                )}
 
                 <mesh position={[0, 2.8, 0]}>
-                    <Text fontSize={0.15} color="#7dd3fc" anchorX="center" anchorY="middle">
+                    <Text fontSize={0.15} color={isPoweredOff ? "#334" : "#7dd3fc"} anchorX="center" anchorY="middle">
                         {data.name} (CHILLER)
                     </Text>
                 </mesh>

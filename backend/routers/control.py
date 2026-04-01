@@ -93,6 +93,12 @@ def control_power(request: Request, server_id: str, payload: dict):
     # 模擬與實體伺服器 (BMC) 溝通需要的時間
     time.sleep(1.5)
 
+    # 更新全域電源狀態 (持久化於記憶體)
+    if action in ["on", "off"]:
+        container.power_states[server_id] = action
+    elif action == "reboot":
+        container.power_states[server_id] = "on"
+
     """
     ===================================================================
     未來真實環境 (Real Hardware Integration)
