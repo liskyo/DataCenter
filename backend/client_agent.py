@@ -1,6 +1,7 @@
 import time
 import json
 import logging
+import random
 import psutil
 import requests
 import socket
@@ -11,7 +12,41 @@ API_URL = "http://localhost:9000/ingest"
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
-def get_system_metrics(server_id: str) -> dict:
+
+def get_dlc_metrics() -> dict:
+    """Simulate DLC/CDU liquid cooling metrics.
+    
+    In production, replace this with Modbus TCP reads from PLC:
+    -------------------------------------------------------
+    # from pymodbus.client import ModbusTcpClient
+    # client = ModbusTcpClient('192.168.1.200', port=502)
+    # client.connect()
+    # result = client.read_holding_registers(0, 6, slave=1)
+    # inlet_temp  = result.registers[0] / 10.0
+    # outlet_temp = result.registers[1] / 10.0
+    # flow_rate   = result.registers[2] / 10.0
+    # pressure    = result.registers[3] / 100.0
+    # pump_rpm    = result.registers[4]
+    # valve_pos   = result.registers[5]
+    # client.close()
+    -------------------------------------------------------
+    """
+    base_inlet = 22.0
+    base_outlet = 38.0
+    base_flow = 8.5
+    base_pressure = 1.8
+
+    return {
+        "inlet_temp": round(base_inlet + random.uniform(-1.5, 3.0), 1),
+        "outlet_temp": round(base_outlet + random.uniform(-2.0, 8.0), 1),
+        "flow_rate_lpm": round(base_flow + random.uniform(-1.0, 1.0), 1),
+        "pressure_bar": round(base_pressure + random.uniform(-0.3, 0.5), 2),
+        "pump_rpm": random.randint(2800, 3200),
+        "valve_position": random.randint(60, 100),
+    }
+
+
+def get_system_metrics(server_id: str, mode: str = "standard") -> dict:
     # 讀取真實 CPU 負載 (1秒內的平均)
     cpu_usage = psutil.cpu_percent(interval=1.0)
     
@@ -26,12 +61,18 @@ def get_system_metrics(server_id: str) -> dict:
     except Exception:
         temperature = 35.0 + (cpu_usage * 0.4)
 
-    return {
+    payload = {
         "server_id": server_id,
         "cpu_usage": round(cpu_usage, 2),
         "temperature": round(temperature, 2),
         "timestamp": int(time.time() * 1000)
     }
+
+    # DLC 液冷模式: 附加冷卻系統遙測數據
+    if mode == "dlc":
+        payload.update(get_dlc_metrics())
+
+    return payload
 
 def install_autostart(server_id: str):
     import os
@@ -59,6 +100,8 @@ def install_autostart(server_id: str):
 def main():
     parser = argparse.ArgumentParser(description="DataCenter In-Band Telemetry Agent")
     parser.add_argument("--server-id", type=str, default=None, help="The ID of this server (e.g. SERVER-015)")
+    parser.add_argument("--mode", type=str, default="standard", choices=["standard", "dlc"], help="Telemetry mode: standard (CPU only) or dlc (+ liquid cooling)")
+    parser.add_argument("--api-key", type=str, default="dc-agent-key-2026", help="API key for authentication")
     parser.add_argument("--install", action="store_true", help="Register script to auto-start on boot (Windows)")
     args = parser.parse_args()
 
@@ -70,13 +113,18 @@ def main():
         return
 
     logging.info(f"Starting DataCenter Agent for Node: {server_id}")
-    logging.info(f"Targeting API Endpoint: {API_URL}")
+    logging.info(f"Mode: {args.mode.upper()} | Targeting API Endpoint: {API_URL}")
+    if args.mode == "dlc":
+        logging.info("DLC Mode: Liquid cooling metrics (inlet/outlet temp, flow, pressure) enabled.")
     logging.info("Press Ctrl+C to stop.")
 
     while True:
         try:
-            payload = get_system_metrics(server_id)
-            res = requests.post(API_URL, json=payload, timeout=3)
+            payload = get_system_metrics(server_id, mode=args.mode)
+            headers = {"Content-Type": "application/json"}
+            if args.api_key:
+                headers["X-API-Key"] = args.api_key
+            res = requests.post(API_URL, json=payload, headers=headers, timeout=3)
             res.raise_for_status()
             logging.info(f"Pushed Metrics -> CPU: {payload['cpu_usage']}% | Temp: {payload['temperature']}°C")
         except requests.exceptions.RequestException as e:

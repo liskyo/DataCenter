@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer,
   BarChart, Bar, PieChart, Pie, Cell
 } from "recharts";
-import { Activity, AlertTriangle, Cpu, Thermometer, Clock, Database, Power, LayoutGrid, Box, Link2 } from "lucide-react";
+import { Activity, AlertTriangle, Cpu, Thermometer, Clock, Database, Power, LayoutGrid, Box, Link2, Wifi, WifiOff } from "lucide-react";
 import { useDcimStore } from "@/store/useDcimStore";
 import { ClientOnlyChart } from "@/components/ClientOnlyChart";
-import { usePolling } from "@/shared/hooks/usePolling";
+import { useSSE } from "@/shared/hooks/useSSE";
 import { apiUrl } from "@/shared/api";
 import { useLanguage } from "@/shared/i18n/language";
 
@@ -118,34 +118,28 @@ export default function Dashboard() {
     return () => clearInterval(timer);
   }, []);
 
-  usePolling(async () => {
-    try {
-      const res = await fetch(apiUrl("/metrics"));
-      if (!res.ok) return;
-      const json = await res.json();
+  const handleSSEUpdate = useCallback((metricsMap: Record<string, any>) => {
+    const sortedData = Object.values(metricsMap).sort((a: any, b: any) =>
+      (a.server_id || "").localeCompare(b.server_id || "")
+    ) as ServerTelemetry[];
+    setData(sortedData);
 
-      const sortedData = (json.data || []).sort((a: ServerTelemetry, b: ServerTelemetry) =>
-        a.server_id.localeCompare(b.server_id)
-      );
-      setData(sortedData);
+    // 更新歷史紀錄供圖表使用
+    setHistory(prev => {
+      const avgCpu = sortedData.reduce((acc, cur) => acc + cur.cpu_usage, 0) / (sortedData.length || 1);
+      const avgTemp = sortedData.reduce((acc, cur) => acc + cur.temperature, 0) / (sortedData.length || 1);
+      const newPoint = {
+        time: new Date().toLocaleTimeString("zh-TW", { hour12: false, minute: "2-digit", second: "2-digit" }),
+        avgCpu: Number(avgCpu.toFixed(1)),
+        avgTemp: Number(avgTemp.toFixed(1))
+      };
+      const newHistory = [...prev, newPoint];
+      if (newHistory.length > 20) newHistory.shift();
+      return newHistory;
+    });
+  }, []);
 
-      // 更新歷史紀錄供圖表使用
-      setHistory(prev => {
-        const avgCpu = sortedData.reduce((acc: number, cur: ServerTelemetry) => acc + cur.cpu_usage, 0) / (sortedData.length || 1);
-        const avgTemp = sortedData.reduce((acc: number, cur: ServerTelemetry) => acc + cur.temperature, 0) / (sortedData.length || 1);
-        const newPoint = {
-          time: new Date().toLocaleTimeString("zh-TW", { hour12: false, minute: "2-digit", second: "2-digit" }),
-          avgCpu: Number(avgCpu.toFixed(1)),
-          avgTemp: Number(avgTemp.toFixed(1))
-        };
-        const newHistory = [...prev, newPoint];
-        if (newHistory.length > 20) newHistory.shift(); // 保持最後 20 筆
-        return newHistory;
-      });
-    } catch (e) {
-      // 靜默處理錯誤以維持畫面
-    }
-  }, { intervalMs: 5000, immediate: true });
+  const { connected, mode: sseMode } = useSSE({ onUpdate: handleSSEUpdate, fallbackPollingMs: 5000 });
 
   // --- Unified Health Scoring Logic ---
   const getDeviceStatus = (item: any, srv: ServerTelemetry | undefined) => {
@@ -246,10 +240,14 @@ export default function Dashboard() {
 
           <div className="flex items-center gap-2">
             <span className="relative flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-cyan-500 shadow-[0_0_8px_#06b6d4]"></span>
+              {connected && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>}
+              <span className={`relative inline-flex rounded-full h-3 w-3 ${connected ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]' : 'bg-amber-500 shadow-[0_0_8px_#f59e0b]'}`}></span>
             </span>
-            {t.online}
+            {connected ? (
+              <><Wifi size={14} className="text-emerald-400" /> <span className="text-emerald-400 text-[10px] tracking-widest">SSE LIVE</span></>
+            ) : (
+              <><WifiOff size={14} className="text-amber-400" /> <span className="text-amber-400 text-[10px] tracking-widest">POLLING</span></>
+            )}
           </div>
           <div className="flex items-center gap-2 bg-[#0a1e3f] border border-cyan-800 px-4 py-1 rounded-bl-xl rounded-tr-xl">
             <Clock size={16} />

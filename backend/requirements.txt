@@ -5,3 +5,5 @@ influxdb-client==1.40.0
 pymongo==4.6.1
 paho-mqtt==2.0.0
 requests==2.31.0
+psutil==5.9.8
+PyJWT==2.12.1

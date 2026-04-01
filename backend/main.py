@@ -7,6 +7,7 @@ from core.container import AppContainer
 from routers.system import ops_router, router as system_router
 from routers.telemetry import router as telemetry_router
 from routers.control import router as control_router
+from routers.auth import router as auth_router
 
 app = FastAPI(title="DataCenter Monitoring API")
 app.add_middleware(
@@ -22,6 +23,7 @@ app.include_router(telemetry_router)
 app.include_router(system_router)
 app.include_router(ops_router)
 app.include_router(control_router)
+app.include_router(auth_router)
 
 
 @app.on_event("startup")

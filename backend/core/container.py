@@ -7,6 +7,7 @@ from services.kafka_service import KafkaRuntimeService
 from services.storage_service import AlertStorageService, InfluxService
 from services.telemetry_service import TelemetryService
 from services.notification_service import NotificationService
+from services.sse_manager import SSEManager
 
 
 @dataclass
@@ -34,6 +35,7 @@ class AppContainer:
         )
         self.kafka = KafkaRuntimeService(broker=self.settings.kafka_broker, topic=self.settings.topic)
         self.notifier = NotificationService(token=self.settings.line_notify_token)
+        self.sse = SSEManager()
         self.system_mode = "simulation"
 
     def trigger_alert(self, server_id: str, msg_type: str, message: str) -> None:
@@ -61,8 +63,33 @@ class AppContainer:
             self.trigger_alert(server_id, "AI_ANOMALY", reason)
             data["anomaly"] = reason
 
+        # --- DLC / Liquid Cooling Threshold Checks ---
+        inlet_temp = data.get("inlet_temp")
+        outlet_temp = data.get("outlet_temp")
+        flow_rate = data.get("flow_rate_lpm")
+        pressure = data.get("pressure_bar")
+
+        if inlet_temp is not None and float(inlet_temp) > 35:
+            self.trigger_alert(server_id, "DLC_INLET_HIGH", f"Coolant inlet temp too high: {inlet_temp}°C (threshold: 35°C)")
+            data["dlc_alert"] = "Inlet High"
+
+        if outlet_temp is not None and float(outlet_temp) > 50:
+            self.trigger_alert(server_id, "DLC_OUTLET_HIGH", f"Coolant outlet temp too high: {outlet_temp}°C (threshold: 50°C)")
+            data["dlc_alert"] = "Outlet High"
+
+        if flow_rate is not None and float(flow_rate) < 3.0:
+            self.trigger_alert(server_id, "DLC_LOW_FLOW", f"Coolant flow rate critically low: {flow_rate} LPM (threshold: 3.0 LPM)")
+            data["dlc_alert"] = "Low Flow"
+
+        if pressure is not None and float(pressure) > 3.5:
+            self.trigger_alert(server_id, "DLC_HIGH_PRESSURE", f"System pressure too high: {pressure} bar (threshold: 3.5 bar)")
+            data["dlc_alert"] = "High Pressure"
+
         self.telemetry.upsert_latest(server_id, data)
         self.influx.write_metrics(server_id=server_id, temp=temp, cpu=cpu)
+
+        # SSE: broadcast to all connected frontends in real-time
+        self.sse.broadcast(data)
 
     def startup(self) -> None:
         self.alert_storage.init()
