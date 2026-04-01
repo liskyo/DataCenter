@@ -33,13 +33,41 @@ def get_system_metrics(server_id: str) -> dict:
         "timestamp": int(time.time() * 1000)
     }
 
+def install_autostart(server_id: str):
+    import os
+    import sys
+    import platform
+    
+    if platform.system() == "Windows":
+        import winreg
+        key_path = r"Software\Microsoft\Windows\CurrentVersion\Run"
+        exe_path = sys.executable
+        script_path = os.path.abspath(__file__)
+        # 組合啟動指令，並且讓它在背景執行 (這裡先用最簡單的做法)
+        command = f'"{exe_path}" "{script_path}" --server-id {server_id}'
+        
+        try:
+            key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path, 0, winreg.KEY_SET_VALUE)
+            winreg.SetValueEx(key, f"DataCenterAgent_{server_id}", 0, winreg.REG_SZ, command)
+            winreg.CloseKey(key)
+            logging.info(f"✅ 成功寫入 Windows 登錄檔！下次開機將自動啟動 {server_id} 的 Agent。")
+        except Exception as e:
+            logging.error(f"❌ 寫入登錄檔失敗: {e}")
+    else:
+        logging.warning("目前 --install 功能僅實作 Windows 系統的自動啟動設定。")
+
 def main():
     parser = argparse.ArgumentParser(description="DataCenter In-Band Telemetry Agent")
     parser.add_argument("--server-id", type=str, default=None, help="The ID of this server (e.g. SERVER-015)")
+    parser.add_argument("--install", action="store_true", help="Register script to auto-start on boot (Windows)")
     args = parser.parse_args()
 
     # 預設使用主機名稱當作 ID
     server_id = args.server_id or socket.gethostname()
+
+    if args.install:
+        install_autostart(server_id)
+        return
 
     logging.info(f"Starting DataCenter Agent for Node: {server_id}")
     logging.info(f"Targeting API Endpoint: {API_URL}")

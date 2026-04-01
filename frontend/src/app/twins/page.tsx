@@ -273,24 +273,58 @@ export default function TwinsPage() {
                                 className="w-full bg-[#010613] border border-cyan-900/30 p-2 rounded text-cyan-100 text-sm outline-none focus:border-cyan-400 transition-colors mb-4"
                             />
                             
-                            <div className="flex gap-2 mb-4">
-                                <div className="flex-1">
-                                    <label className="text-[10px] text-slate-500 uppercase tracking-[0.2em] mb-2 block">Width (m)</label>
-                                    <input
-                                        type="number" min="5" max="100"
-                                        value={store.locations.find(l => l.id === store.currentLocationId)?.width || 20}
-                                        onChange={(e) => store.updateLocationProps(store.currentLocationId, { width: Number(e.target.value) })}
-                                        className="w-full bg-[#010613] border border-cyan-900/30 p-2 rounded text-cyan-100 text-sm outline-none focus:border-cyan-400 transition-colors"
-                                    />
+                            <div className="grid grid-cols-2 gap-4 mb-4">
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="text-[10px] text-slate-500 uppercase tracking-[0.2em] mb-2 block font-bold text-blue-400">West Wall (-X)</label>
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="number" step="0.6"
+                                                value={store.locations.find(l => l.id === store.currentLocationId)?.xMin ?? -10}
+                                                onChange={(e) => store.updateLocationProps(store.currentLocationId, { xMin: Number(e.target.value) })}
+                                                className="w-full bg-[#010613] border border-cyan-900/30 p-2 rounded text-cyan-100 text-sm outline-none focus:border-cyan-400 transition-colors"
+                                            />
+                                            <span className="text-[10px] text-slate-600">m</span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] text-slate-500 uppercase tracking-[0.2em] mb-2 block font-bold text-blue-400">East Wall (+X)</label>
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="number" step="0.6"
+                                                value={store.locations.find(l => l.id === store.currentLocationId)?.xMax ?? 10}
+                                                onChange={(e) => store.updateLocationProps(store.currentLocationId, { xMax: Number(e.target.value) })}
+                                                className="w-full bg-[#010613] border border-cyan-900/30 p-2 rounded text-cyan-100 text-sm outline-none focus:border-cyan-400 transition-colors"
+                                            />
+                                            <span className="text-[10px] text-slate-600">m</span>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div className="flex-1">
-                                    <label className="text-[10px] text-slate-500 uppercase tracking-[0.2em] mb-2 block">Depth (m)</label>
-                                    <input
-                                        type="number" min="5" max="100"
-                                        value={store.locations.find(l => l.id === store.currentLocationId)?.depth || 15}
-                                        onChange={(e) => store.updateLocationProps(store.currentLocationId, { depth: Number(e.target.value) })}
-                                        className="w-full bg-[#010613] border border-cyan-900/30 p-2 rounded text-cyan-100 text-sm outline-none focus:border-cyan-400 transition-colors"
-                                    />
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="text-[10px] text-slate-500 uppercase tracking-[0.2em] mb-2 block font-bold text-emerald-400">North Wall (-Z)</label>
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="number" step="0.6"
+                                                value={store.locations.find(l => l.id === store.currentLocationId)?.zMin ?? -7.5}
+                                                onChange={(e) => store.updateLocationProps(store.currentLocationId, { zMin: Number(e.target.value) })}
+                                                className="w-full bg-[#010613] border border-cyan-900/30 p-2 rounded text-cyan-100 text-sm outline-none focus:border-cyan-400 transition-colors"
+                                            />
+                                            <span className="text-[10px] text-slate-600">m</span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] text-slate-500 uppercase tracking-[0.2em] mb-2 block font-bold text-emerald-400">South Wall (+Z)</label>
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="number" step="0.6"
+                                                value={store.locations.find(l => l.id === store.currentLocationId)?.zMax ?? 7.5}
+                                                onChange={(e) => store.updateLocationProps(store.currentLocationId, { zMax: Number(e.target.value) })}
+                                                className="w-full bg-[#010613] border border-cyan-900/30 p-2 rounded text-cyan-100 text-sm outline-none focus:border-cyan-400 transition-colors"
+                                            />
+                                            <span className="text-[10px] text-slate-600">m</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
@@ -300,7 +334,6 @@ export default function TwinsPage() {
                                 onChange={(e) => store.updateLocationProps(store.currentLocationId, { doorPosition: e.target.value as any })}
                                 className="w-full bg-[#010613] border border-cyan-900/30 p-2 rounded text-cyan-100 text-sm outline-none focus:border-cyan-400 transition-colors"
                             >
-                                <option value="front">Front Wall (+Z)</option>
                                 <option value="back">Back Wall (-Z)</option>
                                 <option value="left">Left Wall (-X)</option>
                                 <option value="right">Right Wall (+X)</option>

@@ -30,6 +30,10 @@ export type LocationData = {
     type: 'floor' | 'region';
     width?: number;
     depth?: number;
+    xMin?: number;
+    xMax?: number;
+    zMin?: number;
+    zMax?: number;
     doorPosition?: 'front' | 'back' | 'left' | 'right';
 };
 
@@ -96,7 +100,7 @@ export const useDcimStore = create<DcimState>()(
             setEditMode: (mode) => set({ isEditMode: mode, selectedRackId: null, selectedEquipmentId: null }),
 
             locations: [
-                { id: 'default-loc', name: '1F Core DC', type: 'floor' }
+                { id: 'default-loc', name: '1F Core DC', type: 'floor', xMin: -10, xMax: 10, zMin: -7.5, zMax: 7.5 }
             ],
             currentLocationId: 'default-loc',
 
@@ -309,7 +313,18 @@ export const useDcimStore = create<DcimState>()(
             })),
 
             addLocation: (name, type) => set((state: any) => ({
-                locations: [...state.locations, { id: uuidv4(), name, type, width: 20, depth: 15, doorPosition: 'right' }]
+                locations: [...state.locations, { 
+                    id: uuidv4(), 
+                    name, 
+                    type, 
+                    width: 20, 
+                    depth: 15,
+                    xMin: -10,
+                    xMax: 10,
+                    zMin: -7.5,
+                    zMax: 7.5,
+                    doorPosition: 'right' 
+                }]
             })),
 
             setCurrentLocation: (id) => set({ currentLocationId: id, selectedRackId: null, selectedEquipmentId: null }),
@@ -387,10 +402,29 @@ export const useDcimStore = create<DcimState>()(
                     : [];
 
                 const safeLocations = locations.length > 0
-                    ? locations
+                    ? locations.map(l => {
+                        // Migrate legacy width/depth if boundaries are missing
+                        const nl = { ...l };
+                        if (nl.xMin === undefined || nl.xMax === undefined) {
+                            const w = nl.width || 20;
+                            nl.xMin = -w / 2;
+                            nl.xMax = w / 2;
+                        }
+                        if (nl.zMin === undefined || nl.zMax === undefined) {
+                            const d = nl.depth || 15;
+                            nl.zMin = -d / 2;
+                            nl.zMax = d / 2;
+                        }
+                        return nl;
+                    })
                     : currentState.locations.length > 0
                         ? currentState.locations
-                        : [fallbackLocation];
+                        : [
+                            { 
+                                ...fallbackLocation, 
+                                xMin: -10, xMax: 10, zMin: -7.5, zMax: 7.5 
+                            }
+                        ];
 
                 const locationIdSet = new Set(safeLocations.map((l) => l.id));
                 const currentLocationId = typeof persisted.currentLocationId === "string" && locationIdSet.has(persisted.currentLocationId)

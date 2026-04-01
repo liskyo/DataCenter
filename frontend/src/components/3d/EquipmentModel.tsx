@@ -134,18 +134,35 @@ export default function EquipmentModel({ data, telemetry }: { data: EquipmentDat
     } else if (data.type === 'chiller') {
         innerContent = (
             <group>
-                {/* Industrial Cooling Unit */}
-                <mesh position={[0, 1.3, 0]} castShadow receiveShadow>
-                    <boxGeometry args={[2.5, 2.6, 2.0]} />
-                    <meshStandardMaterial color={isSelected ? "#1e40af" : "#cbd5e1"} roughness={0.4} metalness={0.6} />
+                {/* Slim High-Tech Body */}
+                <mesh position={[0, 1.2, 0]} castShadow receiveShadow>
+                    <boxGeometry args={[1.2, 2.4, 1.2]} />
+                    <meshStandardMaterial color={isSelected ? "#0284c7" : "#0f172a"} roughness={0.2} metalness={0.8} />
                 </mesh>
-                {/* Blue accents / Fans */}
-                <mesh position={[0, 2.61, 0]}>
-                    <cylinderGeometry args={[0.8, 0.8, 0.1, 32]} />
-                    <meshStandardMaterial color="#3b82f6" transparent opacity={0.6} />
+                
+                {/* Glowing Core Tube / Coolant Pipe */}
+                <mesh position={[0, 1.2, 0]}>
+                    <cylinderGeometry args={[0.4, 0.4, 2.45, 16]} />
+                    <meshStandardMaterial color="#0ea5e9" emissive="#0284c7" emissiveIntensity={isSelected ? 2 : 1.2} transparent opacity={0.6} />
                 </mesh>
-                <mesh position={[0, 2.9, 0]}>
-                    <Text fontSize={0.2} color="#1e3a8a" anchorX="center" anchorY="middle">
+
+                {/* Digital HUD Panel */}
+                <mesh position={[0, 1.8, 0.61]}>
+                    <boxGeometry args={[0.8, 0.4, 0.02]} />
+                    <meshBasicMaterial color="#000" />
+                </mesh>
+                <Text position={[0, 1.8, 0.63]} fontSize={0.08} color="#22d3ee" anchorX="center" anchorY="middle">
+                    COOLANT: OPTIMAL
+                </Text>
+
+                {/* Top Holographic Halo */}
+                <mesh position={[0, 2.45, 0]} rotation={[Math.PI / 2, 0, 0]}>
+                    <torusGeometry args={[0.45, 0.02, 16, 32]} />
+                    <meshBasicMaterial color="#38bdf8" />
+                </mesh>
+
+                <mesh position={[0, 2.8, 0]}>
+                    <Text fontSize={0.15} color="#7dd3fc" anchorX="center" anchorY="middle">
                         {data.name} (CHILLER)
                     </Text>
                 </mesh>

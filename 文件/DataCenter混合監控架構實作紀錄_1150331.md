@@ -1,52 +1,41 @@
-# DataCenter 頻內與頻外混合監控架構實作紀錄
+# DataCenter 混合監控架構實作紀錄 (白話文版)
 
-**日期:** 2026-03-31 (1150331)
-
-## 異動摘要設定 (Commit Message Summary)
-**Feat:** 實作頻內擷取器 (Client Agent) 與 Redfish 頻外硬體控制 (OOB Control API)
+**日期:** 2026-03-31
+**優化目標:** 讓原本純 UI 模擬的「機房控制面板」，真正具備串接實體伺服器的能力。
 
 ---
 
-## 架構設計理念 (Architecture Concept)
-本次更新借鏡了 CDU 與現代機房管理文件中的標準，導入了「雙管齊下」的混合式架構：
-1. **頻內管理 (In-Band / Push-based):** 類似 *guchii Telemetry*，透過輕量級 Agent 安裝於作業系統內，主動且即時地將資源負載推播給 DCIM。
-2. **頻外管理 (Out-of-Band / Pull-based):** 類似 *Redfish*，直接對接伺服器底層 BMC（如技嘉 AST2600 控制晶片），不受作業系統死機影響，執行強制硬體指令。
+## 什麼是「混合監控架構」？
+簡單來說，我們用了「兩套方法」來管好一台伺服器：
+
+1. **收集數據的「小幫手程式」 (Client Agent)：** 
+   這是一個裝在伺服器作業系統（Windows 或 Linux）裡面的小程式。它主要負責每隔幾秒鐘，把自己的「真實 CPU 使用率」跟「溫度」主動回報給中控中心（FastAPI）。
+2. **不管電腦當機也能控制的「硬體直連法」 (OOB 硬體控制 API)：** 
+   如果伺服器整個大當機（藍白畫面），裡面的作業系統死掉了，小幫手程式也跟著死了。這時候我們就可以透過這個機制，直接「戳」伺服器主機板上的管理晶片（BMC / Redfish），強制它拔電源或重新開機。
 
 ---
 
-## 詳細異動內容
+## 本次我們具體寫了什麼程式碼？
 
-### 1. 頻內資料擷取器 (In-Band Client Agent)
-**新增檔案：**
-- `backend/client_agent.py`
+### 1. 寫了一支「數據收集小幫手」 (`backend/client_agent.py`)
+這支 Python 小程式，可以直接放在任何一台實體電腦或筆電上執行。
+- **功能：** 執行後，它會自動讀取這台電腦發熱的溫度跟 CPU 多忙碌，並把資料「送進」我們的資料庫讓 3D 機房顯示。
+- **怎麼測試這支程式？** 在終端機輸入：`python backend/client_agent.py --server-id SERVER-015`。
 
-**異動細節：**
-- 實作了一支獨立的 Python 擷取腳本，做為未來實體伺服器上的代理程式 (Agent)。
-- 核心邏輯使用 `psutil` 讀取實體主機真實的 CPU 負載 (CPU Usage) 與核心溫度 (Core Temperature)。
-- 建立無窮迴圈（預設每 3 秒），將採樣數據以 JSON 格式 `POST` 推送至我們 FastAPI 中控台的 `/ingest` 端點。
-- **測試指令：** `python backend/client_agent.py --server-id SERVER-015`
+### 2. 寫了後端的「遠端遙控器接收端」 (`backend/routers/control.py`)
+這是改在我們的 FastAPI 伺服器（中控中心）裡的程式碼。
+- **功能：** 負責接收從網頁按鈕按下來的「開機 / 關機 / 重新啟動」指令。
+- **未來怎麼改？** 
+  這段程式位在 `backend/routers/control.py` 約第 16 行的 `time.sleep(1.5)`。
+  目前因為沒有真實硬體，我們在此處加上這行**「模擬假睡 1.5 秒鐘」**，假裝電腦正在連線，這會觸發前端網頁的「按鈕轉圈圈」等候效果。
+  等未來把「技嘉真實伺服器」接上網路線後，只要把這行 `time.sleep(1.5)` 刪除，並把下方的真實 Redfish HTTP 請求程式碼區塊（包在 `"""` 之間的註解）解除註解，就能真正對實體機強制開關機了。
 
-### 2. 頻外硬體控制 API (Out-of-Band Control API)
-**新增與修改檔案：**
-- **新增:** `backend/routers/control.py`
-- **修改:** `backend/main.py` (註冊路由)
-
-**異動細節：**
-- 新增專屬硬體管理的 API 路由群組 `/api/control`。
-- 實作了 `POST /api/control/{server_id}/power` 核心端點，接收 `on`, `off`, `reboot` 等動作指令。
-- 程式碼內部已加上**真實硬體對接的註解區塊**（包含未來如何使用 HTTP Requests 打向 Gigabyte/Dell BMC 的 `/redfish/v1/Systems/Self/Actions/ComputerSystem.Reset`），方便硬體到位後隨時無縫解除註解直接啟用。
-
-### 3. 前端真實 API 串接 (Frontend API Integration)
-**修改檔案：**
-- `frontend/src/app/control/page.tsx`
-
-**異動細節：**
-- 將原本「設備控制介面」純粹透過 `setMachines` 改變的假按鈕，全面升級為非同步 (`async`) 呼叫。
-- 加入 `fetch` 邏輯：當使用者點擊「主電源」或「重新啟動」時，會實際打出 HTTP POST 請求至後端控制端點。
-- 優化使用者體驗：在等待後端處理實體硬體回應時，按鈕會鎖定並顯示 `REBOOTING` 動畫，收到成功回應後才正式更新畫面狀態與變色。
+### 3. 把網頁的按鈕變成「玩真的」 (`frontend/src/app/control/page.tsx`)
+以前網頁上的「控制面板」，那些開關機的按鈕按下去，純粹只是畫面按鈕自己改變顏色，並沒有真的去對外發送信號。
+- **功能更新：** 現在我們把按鈕串接上我們剛剛寫的「後端遙控器接收端」了！
+- 現在按下去之後，網頁上的按鈕會進入「轉圈圈（Rebooting... 等待中）」的狀態，等真的收到後端說「我已經把硬體重開機了」的回報，畫面才會切換狀態。
 
 ---
 
-> **未來維護指引 (Maintenance Guide):**
-> 1. 當第一台實體型號 (例如 技嘉 R163-Z32-AAc1) 到貨後，請至 `routers/control.py` 取代掉 `time.sleep(1.5)` 的 mock 行為，填寫該機器的 BMC IP 即可直接使用。
-> 2. `client_agent.py` 目前適合用於開發或輕量監控，後續若有成百上千台機器，可考慮使用跨平台的開源 `Telegraf` 替代，我們的 `/ingest` 依然相容。
+> **給未來的備忘錄📝：** 
+> 簡單來說，今天的更新把「前端網頁」、「API 中樞」與「實體電腦小幫手」這三條線初步暢通了。未來只要硬體伺服器一到，我們隨時能將假資料替換成真實硬體指令！

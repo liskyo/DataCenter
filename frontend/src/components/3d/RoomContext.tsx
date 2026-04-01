@@ -7,10 +7,17 @@ export default function RoomContext() {
     const store = useDcimStore();
     const loc = store.locations.find(l => l.id === store.currentLocationId);
     
-    // Default to 20x15 if undefined
-    const width = loc?.width || 20;
-    const depth = loc?.depth || 15;
+    // Default boundaries if undefined
+    const xMin = loc?.xMin ?? -10;
+    const xMax = loc?.xMax ?? 10;
+    const zMin = loc?.zMin ?? -7.5;
+    const zMax = loc?.zMax ?? 7.5;
     const doorPos = loc?.doorPosition || 'right';
+
+    const width = xMax - xMin;
+    const depth = zMax - zMin;
+    const centerX = (xMin + xMax) / 2;
+    const centerZ = (zMin + zMax) / 2;
 
     const wallHeight = 5;
     const wallThick = 0.5;
@@ -37,22 +44,24 @@ export default function RoomContext() {
                 position={[0, 0.01, 0]}
             />
 
-            <ContactShadows position={[0, 0, 0]} color="#000000" opacity={0.5} scale={40} blur={2.5} far={4} />
+            <ContactShadows position={[centerX, 0, centerZ]} color="#000000" opacity={0.5} scale={Math.max(width, depth) * 1.5} blur={2.5} far={4} />
 
-            {/* 實體壓克力質感地板 (Dynamic size) */}
-            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.05, 0]} receiveShadow>
+            {/* 實體壓克力質感地板 (Dynamic bounds) */}
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[centerX, -0.05, centerZ]} receiveShadow>
                 <planeGeometry args={[width, depth]} />
                 <meshStandardMaterial color="#ffffff" roughness={0.1} metalness={0.2} />
             </mesh>
             
-            <Walls width={width} depth={depth} doorPos={doorPos} wallHeight={wallHeight} wallThick={wallThick} doorW={doorW} doorH={doorH} />
+            <Walls xMin={xMin} xMax={xMax} zMin={zMin} zMax={zMax} doorPos={doorPos} wallHeight={wallHeight} wallThick={wallThick} doorW={doorW} doorH={doorH} />
         </group>
     );
 }
 
-function Walls({ width, depth, doorPos, wallHeight, wallThick, doorW, doorH }: any) {
-    const hw = width / 2;
-    const hd = depth / 2;
+function Walls({ xMin, xMax, zMin, zMax, doorPos, wallHeight, wallThick, doorW, doorH }: any) {
+    const width = xMax - xMin;
+    const depth = zMax - zMin;
+    const centerX = (xMin + xMax) / 2;
+    const centerZ = (zMin + zMax) / 2;
     const hh = wallHeight / 2;
 
     const buildWall = (pos: [number, number, number], rot: [number, number, number], len: number, hasDoor: boolean) => {
@@ -65,7 +74,7 @@ function Walls({ width, depth, doorPos, wallHeight, wallThick, doorW, doorH }: a
             );
         }
 
-        // Wall with door in the center
+        // Wall with door in the center of its specific length
         const sideLen = Math.max(0, (len - doorW) / 2);
         return (
             <group position={pos} rotation={rot}>
@@ -113,14 +122,14 @@ function Walls({ width, depth, doorPos, wallHeight, wallThick, doorW, doorH }: a
 
     return (
         <group position={[0, hh, 0]}>
-            {/* Front Wall (+Z) - 預設隱藏以營造透視剖面感 */}
-            {/* {buildWall([0, 0, hd], [0, 0, 0], width, doorPos === 'front')} */}
+            {/* Front Wall (+Z) - Hidden for cutaway view */}
+            {/* {buildWall([centerX, 0, zMax], [0, 0, 0], width, doorPos === 'front')} */}
             {/* Back Wall (-Z) */}
-            {buildWall([0, 0, -hd], [0, 0, 0], width, doorPos === 'back')}
+            {buildWall([centerX, 0, zMin], [0, 0, 0], width, doorPos === 'back')}
             {/* Left Wall (-X) */}
-            {buildWall([-hw, 0, 0], [0, Math.PI / 2, 0], depth, doorPos === 'left')}
+            {buildWall([xMin, 0, centerZ], [0, Math.PI / 2, 0], depth, doorPos === 'left')}
             {/* Right Wall (+X) */}
-            {buildWall([hw, 0, 0], [0, Math.PI / 2, 0], depth, doorPos === 'right')}
+            {buildWall([xMax, 0, centerZ], [0, Math.PI / 2, 0], depth, doorPos === 'right')}
         </group>
     );
 }

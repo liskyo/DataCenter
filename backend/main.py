@@ -2,7 +2,6 @@ import threading
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.gzip import GZipMiddleware
 
 from core.container import AppContainer
 from routers.system import ops_router, router as system_router
@@ -10,8 +9,6 @@ from routers.telemetry import router as telemetry_router
 from routers.control import router as control_router
 
 app = FastAPI(title="DataCenter Monitoring API")
-
-app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
