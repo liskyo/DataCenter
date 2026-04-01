@@ -5,7 +5,7 @@ import {
   AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer,
   BarChart, Bar, PieChart, Pie, Cell
 } from "recharts";
-import { Activity, AlertTriangle, Cpu, Thermometer, Clock, Database, Power, LayoutGrid, Box, Link2, Wifi, WifiOff } from "lucide-react";
+import { Activity, AlertTriangle, Cpu, Thermometer, Clock, Database, Power, LayoutGrid, Box, Link2, Wifi, WifiOff, Zap, Droplets, Gauge } from "lucide-react";
 import { useDcimStore } from "@/store/useDcimStore";
 import { ClientOnlyChart } from "@/components/ClientOnlyChart";
 import { useSSE } from "@/shared/hooks/useSSE";
@@ -43,6 +43,73 @@ const TechPanel = ({ title, children, className = "" }: { title: string, childre
   </div>
 );
 
+const LiquidCoolingPanel = ({ title, cduData, className = "" }: { title: string, cduData: any[], className?: string }) => (
+  <TechPanel title={title} className={className}>
+    <div className="flex flex-col gap-4">
+      {cduData.length === 0 ? (
+        <div className="flex items-center justify-center py-10 text-slate-600 italic text-xs font-mono tracking-widest">
+          NO CDU DETECTED IN ZONE
+        </div>
+      ) : (
+        cduData.map((cdu, idx) => (
+          <div key={idx} className="bg-[#03112b] border border-blue-900/40 rounded p-3 relative overflow-hidden group">
+            {/* Background Accent */}
+            <div className="absolute top-0 right-0 w-20 h-20 bg-blue-500/5 blur-3xl rounded-full -mr-10 -mt-10 group-hover:bg-blue-500/10 transition-colors"></div>
+            
+            <div className="flex justify-between items-center mb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></div>
+                <span className="font-mono font-bold text-cyan-100 text-sm">{cdu.server_id}</span>
+              </div>
+              <div className="text-[10px] bg-blue-950 border border-blue-800 px-1.5 py-0.5 rounded text-blue-400 font-mono">
+                DLC-MODE
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <div className="flex justify-between items-center text-[10px]">
+                  <span className="text-slate-500 flex items-center gap-1"><Thermometer size={10} /> SUPPLY</span>
+                  <span className="font-mono text-sky-400 font-bold">{cdu.inlet_temp?.toFixed(1) ?? "--"}°C</span>
+                </div>
+                <div className="flex justify-between items-center text-[10px]">
+                  <span className="text-slate-500 flex items-center gap-1"><Thermometer size={10} /> RETURN</span>
+                  <span className={`font-mono font-bold ${cdu.outlet_temp > 45 ? 'text-red-400' : 'text-orange-400'}`}>{cdu.outlet_temp?.toFixed(1) ?? "--"}°C</span>
+                </div>
+                <div className="flex justify-between items-center text-[10px]">
+                  <span className="text-slate-500 flex items-center gap-1"><Droplets size={10} /> FLOW</span>
+                  <span className="font-mono text-cyan-400 font-bold">{cdu.flow_rate_lpm?.toFixed(1) ?? "--"} LPM</span>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center text-[10px]">
+                  <span className="text-slate-500 flex items-center gap-1"><Gauge size={10} /> PRESSURE</span>
+                  <span className="font-mono text-violet-400 font-bold">{cdu.pressure_bar?.toFixed(2) ?? "--"} bar</span>
+                </div>
+                <div className="flex justify-between items-center text-[10px]">
+                  <span className="text-slate-500 flex items-center gap-1"><Zap size={10} /> TANK</span>
+                  <span className={`font-mono font-bold ${cdu.reservoir_level < 30 ? 'text-red-400' : 'text-slate-300'}`}>{cdu.reservoir_level ?? "--"}%</span>
+                </div>
+                <div className="flex justify-between items-center text-[10px]">
+                  <span className="text-slate-500 flex items-center gap-1"><Activity size={10} /> PUMPS</span>
+                  <span className="font-mono text-emerald-400 font-bold">{cdu.pump_a_rpm ? 'ON' : 'OFF'}</span>
+                </div>
+              </div>
+            </div>
+
+            {cdu.leak_detected && (
+              <div className="mt-3 bg-red-900/30 border border-red-500/50 rounded py-1 px-2 flex items-center justify-center gap-2 animate-pulse">
+                <AlertTriangle size={12} className="text-red-500" />
+                <span className="text-[10px] font-black text-red-500 tracking-tighter">LEAKAGE DETECTED - EMERGENCY STOP</span>
+              </div>
+            )}
+          </div>
+        ))
+      )}
+    </div>
+  </TechPanel>
+);
+
 export default function Dashboard() {
   const { language } = useLanguage();
   const store = useDcimStore();
@@ -76,6 +143,7 @@ export default function Dashboard() {
       cpuByNode: "各節點 CPU 負載佔比",
       alarms: "即時系統警報 (Real-time Alarms)",
       noAlarms: "目前無告警",
+      liquidCooling: "CDU 液冷監控 (Liquid Cooling)",
     };
   }, [language]);
   const [data, setData] = useState<ServerTelemetry[]>([]);
@@ -302,6 +370,15 @@ export default function Dashboard() {
             </div>
             </ClientOnlyChart>
           </TechPanel>
+
+          {/* Liquid Cooling Panel */}
+          <LiquidCoolingPanel 
+            title={t.liquidCooling} 
+            cduData={data.filter(d => 
+              store.equipments.some(e => e.name === d.server_id && e.type === 'cdu' && e.locationId === store.currentLocationId)
+            )}
+            className="flex-1 min-h-[300px]"
+          />
 
           <TechPanel title={t.health} className="flex-1 min-h-[220px]">
             <div className="h-[180px] w-full relative flex items-center justify-center">

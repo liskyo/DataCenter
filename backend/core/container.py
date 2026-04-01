@@ -85,6 +85,15 @@ class AppContainer:
             self.trigger_alert(server_id, "DLC_HIGH_PRESSURE", f"System pressure too high: {pressure} bar (threshold: 3.5 bar)")
             data["dlc_alert"] = "High Pressure"
 
+        if data.get("leak_detected") is True:
+            self.trigger_alert(server_id, "DLC_LEAK_DETECTED", "⚠️ LEAK DETECTED! Emergency-locking all control actions.")
+            data["dlc_alert"] = "Leak Detected"
+
+        reservoir = data.get("reservoir_level")
+        if reservoir is not None and float(reservoir) < 20.0:
+            self.trigger_alert(server_id, "DLC_LOW_RESERVOIR", f"Coolant reservoir level critically low: {reservoir}% (threshold: 20%)")
+            data["dlc_alert"] = "Low Reservoir"
+
         self.telemetry.upsert_latest(server_id, data)
         self.influx.write_metrics(server_id=server_id, temp=temp, cpu=cpu)
 

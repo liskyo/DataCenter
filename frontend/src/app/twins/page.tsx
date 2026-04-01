@@ -7,6 +7,7 @@ import RoomContext from "@/components/3d/RoomContext";
 import RackModel from "@/components/3d/RackModel";
 import EquipmentModel from "@/components/3d/EquipmentModel";
 import NetworkLines from "@/components/3d/NetworkLines";
+import CoolantFlow from "@/components/3d/CoolantFlow";
 import { apiUrl } from "@/shared/api";
 import { Activity, Download, Upload, Server, Trash, Save, Edit, Lock, Thermometer, Zap, Box, MonitorIcon, Globe, Link2 } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
@@ -253,6 +254,33 @@ export default function TwinsPage() {
                         <EquipmentModel key={eq.id} data={eq} telemetry={telemetry} />
                     ))}
                     <NetworkLines />
+                    {/* Coolant flow particle streams: CDU ↔ Server Racks */}
+                    {store.equipments
+                        .filter(eq => eq.locationId === store.currentLocationId && eq.type === 'cdu')
+                        .flatMap(cdu => {
+                            const cduPos: [number, number, number] = [cdu.position[0], 0, cdu.position[2]];
+                            const cduTelem = (telemetry as any)[cdu.name];
+                            const flowRate = cduTelem?.flow_rate_lpm ?? 8.0;
+
+                            // Use manually configured racks if set, else auto-find 3 nearest
+                            const allServerRacks = store.racks.filter(r => r.locationId === store.currentLocationId && r.type === 'server');
+                            const targetRacks = cdu.connectedRackIds && cdu.connectedRackIds.length > 0
+                                ? allServerRacks.filter(r => cdu.connectedRackIds!.includes(r.id))
+                                : allServerRacks
+                                    .map(r => ({ rack: r, dist: Math.hypot(r.position[0] - cdu.position[0], r.position[2] - cdu.position[2]) }))
+                                    .sort((a, b) => a.dist - b.dist)
+                                    .slice(0, 3)
+                                    .map(x => x.rack);
+
+                            return targetRacks.flatMap(rack => {
+                                const rackPos: [number, number, number] = [rack.position[0], 0, rack.position[2]];
+                                return [
+                                    <CoolantFlow key={`supply-${cdu.id}-${rack.id}`} from={cduPos} to={rackPos} type="supply" flowRate={flowRate} />,
+                                    <CoolantFlow key={`return-${rack.id}-${cdu.id}`} from={rackPos} to={cduPos} type="return" flowRate={flowRate} />,
+                                ];
+                            });
+                        })
+                    }
                     <OrbitControls makeDefault minPolarAngle={0} maxPolarAngle={Math.PI / 2 - 0.05} />
                 </Canvas>
             </div>
@@ -788,6 +816,95 @@ export default function TwinsPage() {
                                 </div>
                             </div>
                         )}
+                        {/* CDU: Rack Connection Selector + Live Telemetry */}
+                        {selectedEquipment.type === 'cdu' && (() => {
+                            const cduTelem = (telemetry as any)[selectedEquipment.name];
+                            const serverRacks = store.racks.filter(r => r.locationId === store.currentLocationId && r.type === 'server');
+                            const connectedIds: string[] = selectedEquipment.connectedRackIds ?? [];
+
+                            const toggleRack = (rackId: string) => {
+                                const updated = connectedIds.includes(rackId)
+                                    ? connectedIds.filter(id => id !== rackId)
+                                    : [...connectedIds, rackId];
+                                store.updateEquipmentConnectedRacks(selectedEquipment.id, updated);
+                            };
+
+                            return (
+                                <div className="flex flex-col gap-4">
+                                    {/* Rack Selector */}
+                                    <div className="bg-[#03112b] p-4 rounded-lg border border-cyan-800">
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <Thermometer size={14} className="text-cyan-400" />
+                                            <h3 className="text-xs font-bold text-cyan-400 tracking-widest uppercase">連接機架 (Coolant Pipe)</h3>
+                                        </div>
+                                        <p className="text-[10px] text-slate-500 mb-3">勾選後粒子流將從此 CDU 延伸至指定機架。若無勾選，自動連接最近 3 台。</p>
+                                        <div className="flex flex-col gap-2 max-h-40 overflow-y-auto">
+                                            {serverRacks.length === 0 && (
+                                                <p className="text-slate-600 text-xs">場景中無伺服器機架</p>
+                                            )}
+                                            {serverRacks.map(rack => (
+                                                <label key={rack.id} className="flex items-center gap-2 cursor-pointer group">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={connectedIds.includes(rack.id)}
+                                                        onChange={() => toggleRack(rack.id)}
+                                                        className="accent-cyan-400"
+                                                    />
+                                                    <span className={`text-xs font-mono transition ${connectedIds.includes(rack.id) ? 'text-cyan-300' : 'text-slate-400 group-hover:text-slate-200'}`}>
+                                                        {rack.name}
+                                                    </span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                        {connectedIds.length > 0 && (
+                                            <button
+                                                onClick={() => store.updateEquipmentConnectedRacks(selectedEquipment.id, [])}
+                                                className="mt-3 text-[10px] text-slate-500 hover:text-red-400 transition underline"
+                                            >
+                                                清除 → 恢復自動模式
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {/* Live Liquid Cooling Telemetry */}
+                                    <div className="bg-[#03112b] p-4 rounded-lg border border-blue-900/50">
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <Zap size={14} className="text-blue-400" />
+                                            <h3 className="text-xs font-bold text-blue-400 tracking-widest uppercase">液冷即時數據</h3>
+                                        </div>
+                                        {!cduTelem ? (
+                                            <p className="text-slate-600 text-xs">尚未接收到 {selectedEquipment.name} 的遙測數據。請確認 CDU Agent 已啟動。</p>
+                                        ) : (
+                                            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[11px]">
+                                                {[
+                                                    { label: '進水 Supply', value: cduTelem.inlet_temp !== undefined ? `${cduTelem.inlet_temp}°C` : '---', color: 'text-sky-400' },
+                                                    { label: '回水 Return', value: cduTelem.outlet_temp !== undefined ? `${cduTelem.outlet_temp}°C` : '---', color: cduTelem.outlet_temp > 45 ? 'text-red-400' : 'text-orange-400' },
+                                                    { label: '流量 Flow', value: cduTelem.flow_rate_lpm !== undefined ? `${cduTelem.flow_rate_lpm} LPM` : '---', color: cduTelem.flow_rate_lpm < 5 ? 'text-red-400' : 'text-cyan-400' },
+                                                    { label: '壓力 Pressure', value: cduTelem.pressure_bar !== undefined ? `${cduTelem.pressure_bar} bar` : '---', color: 'text-violet-400' },
+                                                    { label: '幫浦 A', value: cduTelem.pump_a_rpm !== undefined ? `${cduTelem.pump_a_rpm} RPM` : '---', color: 'text-emerald-400' },
+                                                    { label: '幫浦 B', value: cduTelem.pump_b_rpm !== undefined ? `${cduTelem.pump_b_rpm} RPM` : '---', color: 'text-emerald-400' },
+                                                    { label: '液位 Tank', value: cduTelem.reservoir_level !== undefined ? `${cduTelem.reservoir_level}%` : '---', color: cduTelem.reservoir_level < 30 ? 'text-red-400' : 'text-slate-300' },
+                                                    { label: '閥門 Valve', value: cduTelem.valve_position !== undefined ? `${cduTelem.valve_position}%` : '---', color: 'text-slate-300' },
+                                                    { label: '冰水進 CHW↓', value: cduTelem.facility_supply_temp !== undefined ? `${cduTelem.facility_supply_temp}°C` : '---', color: 'text-sky-300' },
+                                                    { label: '冰水回 CHW↑', value: cduTelem.facility_return_temp !== undefined ? `${cduTelem.facility_return_temp}°C` : '---', color: 'text-sky-300' },
+                                                ].map(row => (
+                                                    <div key={row.label} className="flex justify-between gap-1">
+                                                        <span className="text-slate-500">{row.label}</span>
+                                                        <span className={`font-mono font-bold ${row.color}`}>{row.value}</span>
+                                                    </div>
+                                                ))}
+                                                {cduTelem.leak_detected === true && (
+                                                    <div className="col-span-2 mt-1 text-center bg-red-900/40 border border-red-600 rounded p-1 text-red-400 font-bold animate-pulse">
+                                                        ⚠ LEAK DETECTED
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })()}
+
                         <div className="bg-[#03112b] p-4 rounded-lg border border-slate-800 text-xs text-slate-500 font-mono flex flex-col gap-1">
                             <p>X Position: {Math.round(selectedEquipment.position[0] * 100) / 100}m</p>
                             <p>Z Position: {Math.round(selectedEquipment.position[2] * 100) / 100}m</p>

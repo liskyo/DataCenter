@@ -3,6 +3,7 @@ import React, { useRef } from 'react';
 import { PivotControls, Text, Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { EquipmentData, useDcimStore } from '@/store/useDcimStore';
+import CDUModel from './CDUModel';
 
 export default function EquipmentModel({ data, telemetry }: { data: EquipmentData, telemetry?: any }) {
     const isEditMode = useDcimStore(state => state.isEditMode);
@@ -89,27 +90,11 @@ export default function EquipmentModel({ data, telemetry }: { data: EquipmentDat
         );
     } else if (data.type === 'cdu') {
         innerContent = (
-            <group>
-                <mesh position={[0, 1.2, 0]} castShadow receiveShadow>
-                    <boxGeometry args={[0.6, 2.4, 1.0]} />
-                    <meshStandardMaterial color={isSelected ? "#2dd4bf" : "#334155"} roughness={0.3} metalness={0.6} />
-                </mesh>
-                <mesh position={[0, 2.45, -0.2]}>
-                    <cylinderGeometry args={[0.05, 0.05, 0.2]} />
-                    <meshStandardMaterial color="#ef4444" />
-                </mesh>
-                <mesh position={[0, 2.45, 0.2]}>
-                    <cylinderGeometry args={[0.05, 0.05, 0.2]} />
-                    <meshStandardMaterial color="#3b82f6" />
-                </mesh>
-                <mesh position={[0, 1.5, 0.51]}>
-                    <boxGeometry args={[0.3, 0.5, 0.05]} />
-                    <meshBasicMaterial color="#0ea5e9" />
-                </mesh>
-                <Text position={[0, 2.7, 0]} fontSize={0.15} color="#334155" anchorX="center" anchorY="middle">
-                    {data.name}
-                </Text>
-            </group>
+            <CDUModel
+                name={data.name}
+                isSelected={isSelected}
+                telemetry={telemetry}
+            />
         );
     } else if (data.type === 'ups') {
         innerContent = (

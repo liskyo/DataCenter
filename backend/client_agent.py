@@ -21,13 +21,18 @@ def get_dlc_metrics() -> dict:
     # from pymodbus.client import ModbusTcpClient
     # client = ModbusTcpClient('192.168.1.200', port=502)
     # client.connect()
-    # result = client.read_holding_registers(0, 6, slave=1)
-    # inlet_temp  = result.registers[0] / 10.0
-    # outlet_temp = result.registers[1] / 10.0
-    # flow_rate   = result.registers[2] / 10.0
-    # pressure    = result.registers[3] / 100.0
-    # pump_rpm    = result.registers[4]
-    # valve_pos   = result.registers[5]
+    # result = client.read_holding_registers(0, 10, slave=1)
+    # inlet_temp       = result.registers[0] / 10.0   # Secondary (IT Loop)
+    # outlet_temp      = result.registers[1] / 10.0
+    # flow_rate        = result.registers[2] / 10.0
+    # pressure         = result.registers[3] / 100.0
+    # pump_a_rpm       = result.registers[4]
+    # pump_b_rpm       = result.registers[5]
+    # valve_position   = result.registers[6]
+    # reservoir_level  = result.registers[7]   # %
+    # facility_supply  = result.registers[8] / 10.0  # Chiller primary loop
+    # facility_return  = result.registers[9] / 10.0
+    # leak_detected    = read_discrete_input(0, slave=1).bits[0]
     # client.close()
     -------------------------------------------------------
     """
@@ -35,14 +40,24 @@ def get_dlc_metrics() -> dict:
     base_outlet = 38.0
     base_flow = 8.5
     base_pressure = 1.8
+    base_pump_rpm = 3000
 
     return {
+        # Secondary loop (IT side)
         "inlet_temp": round(base_inlet + random.uniform(-1.5, 3.0), 1),
         "outlet_temp": round(base_outlet + random.uniform(-2.0, 8.0), 1),
         "flow_rate_lpm": round(base_flow + random.uniform(-1.0, 1.0), 1),
         "pressure_bar": round(base_pressure + random.uniform(-0.3, 0.5), 2),
-        "pump_rpm": random.randint(2800, 3200),
+        # Dual pump status
+        "pump_a_rpm": base_pump_rpm + random.randint(-200, 200),
+        "pump_b_rpm": base_pump_rpm + random.randint(-200, 200),
+        # Mechanical status
         "valve_position": random.randint(60, 100),
+        "reservoir_level": round(random.uniform(75.0, 95.0), 1),  # % capacity
+        "leak_detected": False,  # Set to True to test emergency alert
+        # Primary loop (Facility/Chiller side)
+        "facility_supply_temp": round(7.0 + random.uniform(-0.5, 1.0), 1),
+        "facility_return_temp": round(12.0 + random.uniform(-0.5, 2.0), 1),
     }
 
 

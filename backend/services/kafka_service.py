@@ -153,6 +153,25 @@ class KafkaRuntimeService:
                                 "temperature": round(base["temp"], 2),
                                 "timestamp": int(time.time() * 1000),
                             }
+                        elif s_id.startswith("CDU-"):
+                            # Simulation for Liquid Cooling Units (CDU)
+                            payload = {
+                                "server_id": s_id,
+                                "cpu_usage": round(base["cpu"] * 0.4, 1),
+                                "temperature": round(base["temp"], 2),
+                                "inlet_temp": round(23.0 + random.uniform(-1.0, 2.0), 1),
+                                "outlet_temp": round(35.0 + random.uniform(-2.0, 5.0), 1),
+                                "flow_rate_lpm": round(8.0 + random.uniform(-0.5, 0.5), 1),
+                                "pressure_bar": round(1.5 + random.uniform(-0.1, 0.2), 2),
+                                "pump_a_rpm": 2800 + random.randint(-50, 50),
+                                "pump_b_rpm": 2800 + random.randint(-50, 50),
+                                "reservoir_level": round(85.0 + random.uniform(-2.0, 2.0), 1),
+                                "valve_position": 80,
+                                "facility_supply_temp": 7.2,
+                                "facility_return_temp": 12.5,
+                                "leak_detected": False,
+                                "timestamp": int(time.time() * 1000),
+                            }
                         else:
                             current_temp = base["temp"] + (random.uniform(15, 25) if random.random() < 0.005 else 0)
                             current_cpu = base["cpu"] + (random.uniform(30, 50) if random.random() < 0.005 else 0)

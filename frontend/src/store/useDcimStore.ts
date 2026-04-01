@@ -22,6 +22,7 @@ export type EquipmentData = {
     rotation: [number, number, number];
     ipAddress?: string; // For Dashboard PC
     locationId: string; // Associated location
+    connectedRackIds?: string[]; // For CDU: manually selected server racks to connect
 };
 
 export type LocationData = {
@@ -88,6 +89,7 @@ type DcimState = {
     selectEquipment: (id: string | null) => void;
     updateEquipmentIp: (id: string, ip: string) => void;
     updateEquipmentName: (id: string, name: string) => void;
+    updateEquipmentConnectedRacks: (id: string, rackIds: string[]) => void;
 
     exportState: () => string;
     importState: (jsonConfig: string) => boolean;
@@ -310,6 +312,10 @@ export const useDcimStore = create<DcimState>()(
 
             updateEquipmentName: (id, name) => set((state: any) => ({
                 equipments: state.equipments.map((e: any) => e.id === id ? { ...e, name } : e)
+            })),
+
+            updateEquipmentConnectedRacks: (id, rackIds) => set((state: any) => ({
+                equipments: state.equipments.map((e: any) => e.id === id ? { ...e, connectedRackIds: rackIds } : e)
             })),
 
             addLocation: (name, type) => set((state: any) => ({
