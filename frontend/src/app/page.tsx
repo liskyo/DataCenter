@@ -201,7 +201,7 @@ export default function Dashboard() {
         const lastTime = new Date();
         const [h, m, s] = lastPoint.time.split(':');
         lastTime.setHours(parseInt(h), parseInt(m), parseInt(s));
-        if (now.getTime() - lastTime.getTime() < 5000) return prev; // 小於 5 秒不更新
+        if (now.getTime() - lastTime.getTime() < 2000) return prev; // 小於 2 秒不更新
       }
 
       const avgCpu = sortedData.reduce((acc, cur) => acc + cur.cpu_usage, 0) / (sortedData.length || 1);
@@ -221,7 +221,7 @@ export default function Dashboard() {
 
   // --- Unified Health Scoring Logic ---
   const getDeviceStatus = (item: any, srv: ServerTelemetry | undefined) => {
-    if (!srv) return 'offline';
+    if (!srv) return 'powered_off';
     if (srv.power_state === 'off') return 'powered_off';
 
     // CDU specific thresholds

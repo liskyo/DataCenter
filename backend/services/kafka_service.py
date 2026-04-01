@@ -93,95 +93,104 @@ class KafkaRuntimeService:
         loops = 0
 
         while not self.stop_event.is_set():
-            if system_mode_getter() == "simulation" and self.producer:
+            mode = system_mode_getter()
+            if self.producer:
                 try:
                     all_ids = self.simulation_targets
                     if not all_ids:
-                        servers = [f"SERVER-{str(i).zfill(3)}" for i in range(1, 13)]
-                        switches = [f"SW-{str(i).zfill(3)}" for i in range(1, 13)]
+                        servers = [f"SERVER-{str(i).zfill(3)}" for i in range(1, 19)]
+                        switches = [f"SW-{str(i).zfill(3)}" for i in range(1, 4)]
                         all_ids = servers + switches
                         
                     for s_id in all_ids:
                         if s_id not in base_metrics:
                             base_metrics[s_id] = {"temp": random.uniform(20, 25), "cpu": random.uniform(10, 30), "traffic": random.uniform(2, 10)}
 
-                    if loops % 12 == 0 and len(all_ids) >= 2:
-                        sampled = random.sample(all_ids, 2)
-                        active_critical = sampled[0]
-                        active_warning = sampled[1]
-                    loops += 1
+                    # 僅在模擬模式下更新模擬數值
+                    if mode == "simulation":
+                        if loops % 12 == 0 and len(all_ids) >= 2:
+                            sampled = random.sample(all_ids, 2)
+                            active_critical = sampled[0]
+                            active_warning = sampled[1]
+                        loops += 1
 
+                        for s_id in all_ids:
+                            base = base_metrics[s_id]
+                            base["temp"] += random.uniform(-1.0, 1.0)
+                            base["cpu"] += random.uniform(-4.0, 4.0)
+                            base["traffic"] += random.uniform(-2.0, 2.0)
+
+                            if s_id == active_critical:
+                                if base["temp"] < 75: base["temp"] += 10.0
+                                if base["cpu"] < 95: base["cpu"] += 20.0
+                                if base["traffic"] < 45: base["traffic"] += 10.0
+                            elif s_id == active_warning:
+                                if base["temp"] < 45: base["temp"] += 5.0
+                                if base["cpu"] < 75: base["cpu"] += 10.0
+                                if base["traffic"] < 30: base["traffic"] += 5.0
+                            else:
+                                if base["temp"] > 25: base["temp"] -= 5.0
+                                if base["cpu"] > 25: base["cpu"] -= 10.0
+                                if base["traffic"] > 10: base["traffic"] -= 5.0
+
+                            base["temp"] = max(18, min(base["temp"], 90))
+                            base["cpu"] = max(2, min(base["cpu"], 100))
+                            base["traffic"] = max(0.1, min(base["traffic"], 50))
+
+                    # 發送數據
                     for s_id in all_ids:
-                        base = base_metrics[s_id]
-                        base["temp"] += random.uniform(-1.0, 1.0)
-                        base["cpu"] += random.uniform(-4.0, 4.0)
-                        base["traffic"] += random.uniform(-2.0, 2.0)
-
-                        if s_id == active_critical:
-                            if base["temp"] < 75:
-                                base["temp"] += 10.0
-                            if base["cpu"] < 95:
-                                base["cpu"] += 20.0
-                            if base["traffic"] < 45:
-                                base["traffic"] += 10.0
-                        elif s_id == active_warning:
-                            if base["temp"] < 45:
-                                base["temp"] += 5.0
-                            if base["cpu"] < 75:
-                                base["cpu"] += 10.0
-                            if base["traffic"] < 30:
-                                base["traffic"] += 5.0
+                        if mode == "simulation":
+                            base = base_metrics[s_id]
+                            if s_id.startswith("SW-"):
+                                payload = {
+                                    "server_id": s_id,
+                                    "is_simulated": True,
+                                    "traffic_gbps": round(base["traffic"], 2),
+                                    "ports_active": int(48 * (base["cpu"] / 100)),
+                                    "ports_total": 48,
+                                    "cpu_usage": round(base["cpu"], 2),
+                                    "temperature": round(base["temp"], 2),
+                                    "timestamp": int(time.time() * 1000),
+                                }
+                            elif s_id.startswith("CDU-"):
+                                payload = {
+                                    "server_id": s_id,
+                                    "is_simulated": True,
+                                    "cpu_usage": round(base["cpu"] * 0.4, 1),
+                                    "temperature": round(base["temp"], 2),
+                                    "inlet_temp": round(23.0 + random.uniform(-1.0, 2.0), 1),
+                                    "outlet_temp": round(35.0 + random.uniform(-2.0, 5.0), 1),
+                                    "flow_rate_lpm": round(8.0 + random.uniform(-0.5, 0.5), 1),
+                                    "pressure_bar": round(1.5 + random.uniform(-0.1, 0.2), 2),
+                                    "pump_a_rpm": 2800 + random.randint(-50, 50),
+                                    "pump_b_rpm": 2800 + random.randint(-50, 50),
+                                    "reservoir_level": round(85.0 + random.uniform(-2.0, 2.0), 1),
+                                    "valve_position": 80,
+                                    "facility_supply_temp": 7.2,
+                                    "facility_return_temp": 12.5,
+                                    "leak_detected": False,
+                                    "timestamp": int(time.time() * 1000),
+                                }
+                            else:
+                                current_temp = base["temp"] + (random.uniform(15, 25) if random.random() < 0.005 else 0)
+                                current_cpu = base["cpu"] + (random.uniform(30, 50) if random.random() < 0.005 else 0)
+                                payload = {
+                                    "server_id": s_id,
+                                    "is_simulated": True,
+                                    "temperature": min(current_temp, 99.9),
+                                    "cpu_usage": min(current_cpu, 100.0),
+                                    "timestamp": int(time.time() * 1000),
+                                }
                         else:
-                            if base["temp"] > 25:
-                                base["temp"] -= 5.0
-                            if base["cpu"] > 25:
-                                base["cpu"] -= 10.0
-                            if base["traffic"] > 10:
-                                base["traffic"] -= 5.0
-
-                        base["temp"] = max(18, min(base["temp"], 90))
-                        base["cpu"] = max(2, min(base["cpu"], 100))
-                        base["traffic"] = max(0.1, min(base["traffic"], 50))
-
-                        if s_id.startswith("SW-"):
+                            # 真實模式下，對於無真實數據的節點發送最低限度狀態
+                            # 這樣 AppContainer.process_message 會注入電源狀態，並讓前端感知
                             payload = {
                                 "server_id": s_id,
-                                "traffic_gbps": round(base["traffic"], 2),
-                                "ports_active": int(48 * (base["cpu"] / 100)),
-                                "ports_total": 48,
-                                "cpu_usage": round(base["cpu"], 2),
-                                "temperature": round(base["temp"], 2),
+                                "is_simulated": True,
+                                "power_state": "off", # 真實模式下若無數據，我們標記為 off (除非手動開機)
                                 "timestamp": int(time.time() * 1000),
                             }
-                        elif s_id.startswith("CDU-"):
-                            # Simulation for Liquid Cooling Units (CDU)
-                            payload = {
-                                "server_id": s_id,
-                                "cpu_usage": round(base["cpu"] * 0.4, 1),
-                                "temperature": round(base["temp"], 2),
-                                "inlet_temp": round(23.0 + random.uniform(-1.0, 2.0), 1),
-                                "outlet_temp": round(35.0 + random.uniform(-2.0, 5.0), 1),
-                                "flow_rate_lpm": round(8.0 + random.uniform(-0.5, 0.5), 1),
-                                "pressure_bar": round(1.5 + random.uniform(-0.1, 0.2), 2),
-                                "pump_a_rpm": 2800 + random.randint(-50, 50),
-                                "pump_b_rpm": 2800 + random.randint(-50, 50),
-                                "reservoir_level": round(85.0 + random.uniform(-2.0, 2.0), 1),
-                                "valve_position": 80,
-                                "facility_supply_temp": 7.2,
-                                "facility_return_temp": 12.5,
-                                "leak_detected": False,
-                                "timestamp": int(time.time() * 1000),
-                            }
-                        else:
-                            current_temp = base["temp"] + (random.uniform(15, 25) if random.random() < 0.005 else 0)
-                            current_cpu = base["cpu"] + (random.uniform(30, 50) if random.random() < 0.005 else 0)
-                            payload = {
-                                "server_id": s_id,
-                                "temperature": min(current_temp, 99.9),
-                                "cpu_usage": min(current_cpu, 100.0),
-                                "timestamp": int(time.time() * 1000),
-                            }
-
+                        
                         self.producer.send(self.topic, value=payload)
                     self.producer.flush()
                 except Exception:
@@ -198,7 +207,7 @@ class KafkaRuntimeService:
                         pass
                     self.producer = None
                     self.ensure_kafka_producer_thread()
-            if self.stop_event.wait(5):
+            if self.stop_event.wait(2):
                 break
 
     def shutdown(self) -> None:

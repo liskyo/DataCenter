@@ -82,7 +82,7 @@ export default function ControlPage() {
         .filter(item => !existingIds.has(item.name))
         .map(item => ({
           id: item.name,
-          powerOn: true,
+          powerOn: false, // 預設關閉，直到收到遙測更新
           fanSpeed: 60,
           targetTemp: 22,
           isRebooting: false,

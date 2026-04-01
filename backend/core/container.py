@@ -38,6 +38,7 @@ class AppContainer:
         self.sse = SSEManager()
         self.system_mode = "simulation"
         self.power_states: dict[str, str] = {} # { "SERVER-001": "on", "CDU-001": "off" }
+        self.last_real_data_at: dict[str, float] = {} # { "SERVER-15": 1711956... }
 
     def trigger_alert(self, server_id: str, msg_type: str, message: str) -> None:
         alert_doc = {
@@ -52,9 +53,25 @@ class AppContainer:
 
     def process_message(self, data: dict) -> None:
         server_id = data.get("server_id", "unknown")
+        is_simulated = data.get("is_simulated", False)
+        now = time.time()
 
-        # 注入電源狀態 (預設為 "on")
-        data["power_state"] = self.power_states.get(server_id, "on")
+        # 如果收到的是「真實數據」，記錄時間戳
+        if not is_simulated:
+            self.last_real_data_at[server_id] = now
+
+        # 衝突保護: 如果該伺服器最近 10 秒內有真實數據，則忽略任何針對該伺服器的模擬數據
+        # 這能避免「模擬器發送 OFF」與「真實 Agent 發送真實數據」衝突導致的延遲
+        if is_simulated and (now - self.last_real_data_at.get(server_id, 0) < 10):
+            return
+
+        # 注入電源狀態
+        # 邏輯: 如果系統處於「真實模式」且接收到的是「模擬數據」，強制為 off
+        if self.system_mode == "real" and is_simulated:
+            data["power_state"] = "off"
+        else:
+            # 否則使用記憶體中的狀態 (預設為 on)
+            data["power_state"] = self.power_states.get(server_id, "on")
 
         # 邏輯保護: 如果電源為 "off"，強制數據為零/環境值 (防止舊數據殘留)
         if data["power_state"] == "off":
