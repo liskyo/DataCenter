@@ -213,6 +213,16 @@ export default function Dashboard() {
   const getDeviceStatus = (item: any, srv: ServerTelemetry | undefined) => {
     if (!srv) return 'offline';
 
+    // CDU specific thresholds
+    if (item.type === 'cdu') {
+      const cdu = srv as any;
+      if (cdu.leak_detected) return 'critical';
+      const outTemp = cdu.outlet_temp || 0;
+      const flow = cdu.flow_rate_lpm || 0;
+      if (outTemp > 50 || (flow > 0 && flow < 3)) return 'critical';
+      if (outTemp > 45 || (flow > 0 && flow < 5)) return 'warning';
+      return 'normal';
+    }
     // Switch specific thresholds (Dynamic)
     if (item.type === 'switch' || item.rackType === 'network') {
       const traffic = srv.traffic_gbps || 0;
@@ -239,12 +249,18 @@ export default function Dashboard() {
   );
 
   // Calculate stats based on store servers (Filtered by location)
-  const allGridItems = useMemo(() =>
-    store.racks
+  const allGridItems = useMemo(() => {
+    const rackServers = store.racks
       .filter(r => r.locationId === store.currentLocationId)
-      .flatMap(r => r.servers.map(s => ({ ...s, rackName: r.name, rackType: r.type }))),
-    [store.racks, store.currentLocationId]
-  );
+      .flatMap(r => r.servers.map(s => ({ ...s, rackName: r.name, rackType: r.type })));
+    
+    const standaloneEquips = store.equipments
+      .filter(e => e.locationId === store.currentLocationId)
+      .map(e => ({ id: e.id, name: e.name, type: e.type, rackName: 'Facility', rackType: 'equipment' }));
+      
+    return [...rackServers, ...standaloneEquips];
+  }, [store.racks, store.equipments, store.currentLocationId]);
+
   const totalServers = allGridItems.length;
 
   const { healthData, pieData } = useMemo(() => {
@@ -266,7 +282,14 @@ export default function Dashboard() {
     return { healthData: health, pieData: pie };
   }, [allGridItems, telemetryById]);
 
-  const itemNameSet = useMemo(() => new Set(allGridItems.map((i) => i.name)), [allGridItems]);
+  const itemNameSet = useMemo(() => {
+    const serverNames = allGridItems.map((i) => i.name);
+    const equipmentNames = store.equipments
+      .filter(e => e.locationId === store.currentLocationId)
+      .map(e => e.name);
+    return new Set([...serverNames, ...equipmentNames]);
+  }, [allGridItems, store.equipments, store.currentLocationId]);
+
   const activeStoreData = useMemo(
     () => data.filter((d) => itemNameSet.has(d.server_id)),
     [data, itemNameSet]
