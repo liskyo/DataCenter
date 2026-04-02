@@ -111,6 +111,57 @@ const LiquidCoolingPanel = ({ title, cduData, className = "" }: { title: string,
   </TechPanel>
 );
 
+const ImmersionCoolingPanel = ({ title, immersionData, className = "" }: { title: string, immersionData: any[], className?: string }) => (
+  <TechPanel title={title} className={className}>
+    <div className="flex flex-col gap-4">
+      {immersionData.length === 0 ? (
+        <div className="flex items-center justify-center py-10 text-slate-600 italic text-xs font-mono tracking-widest">
+          NO DUAL-PHASE TANKS DETECTED
+        </div>
+      ) : (
+        immersionData.map((tank, idx) => (
+          <div key={idx} className="bg-[#03112b] border border-purple-900/40 rounded p-3 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-20 h-20 bg-purple-500/5 blur-3xl rounded-full -mr-10 -mt-10 group-hover:bg-purple-500/10 transition-colors"></div>
+            
+            <div className="flex justify-between items-center mb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-purple-400 animate-pulse"></div>
+                <span className="font-mono font-bold text-purple-100 text-sm">{tank.server_id}</span>
+              </div>
+              <div className="text-[10px] bg-purple-950 border border-purple-800 px-1.5 py-0.5 rounded text-purple-400 font-mono">
+                {tank.isDemo ? "DEMO-MODE" : "IMM-2P-PHASE"}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <div className="flex justify-between items-center text-[10px]">
+                  <span className="text-slate-500 flex items-center gap-1"><Droplets size={10} /> INLET FLOW</span>
+                  <span className="font-mono text-purple-400 font-bold">{tank.flow_rate_lpm?.toFixed(1) ?? "--"} LPM</span>
+                </div>
+                <div className="flex justify-between items-center text-[10px]">
+                  <span className="text-slate-500 flex items-center gap-1"><Thermometer size={10} /> FLUID TEMP</span>
+                  <span className="font-mono text-purple-300 font-bold">{tank.temperature?.toFixed(1) ?? "--"}°C</span>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center text-[10px]">
+                  <span className="text-slate-500 flex items-center gap-1"><Gauge size={10} /> VAPOR PRESS</span>
+                  <span className="font-mono text-violet-400 font-bold">{tank.pressure_bar?.toFixed(2) ?? "--"} bar</span>
+                </div>
+                <div className="flex justify-between items-center text-[10px]">
+                  <span className="text-slate-500 flex items-center gap-1"><Database size={10} /> FLUID LEVEL</span>
+                  <span className="font-mono text-emerald-400 font-bold">{tank.coolant_level ?? "--"}%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  </TechPanel>
+);
+
 export default function Dashboard() {
   const { language } = useLanguage();
   const store = useDcimStore();
@@ -129,6 +180,8 @@ export default function Dashboard() {
         cpuByNode: "CPU Usage by Node",
         alarms: "Real-time Alarms",
         noAlarms: "No Active Alarms",
+        liquidCooling: "CDU Liquid Cooling",
+        immersionCooling: "Immersion Monitoring",
       };
     }
     return {
@@ -145,6 +198,7 @@ export default function Dashboard() {
       alarms: "即時系統警報 (Real-time Alarms)",
       noAlarms: "目前無告警",
       liquidCooling: "CDU 液冷監控 (Liquid Cooling)",
+      immersionCooling: "雙相浸沒式監控 (Immersion Cooling)",
     };
   }, [language]);
   const [data, setData] = useState<ServerTelemetry[]>([]);
@@ -298,8 +352,11 @@ export default function Dashboard() {
     const equipmentNames = store.equipments
       .filter(e => e.locationId === store.currentLocationId)
       .map(e => e.name);
-    return new Set([...serverNames, ...equipmentNames]);
-  }, [allGridItems, store.equipments, store.currentLocationId]);
+    const rackNames = store.racks
+      .filter(r => r.locationId === store.currentLocationId)
+      .map(r => r.name);
+    return new Set([...serverNames, ...equipmentNames, ...rackNames]);
+  }, [allGridItems, store.equipments, store.racks, store.currentLocationId]);
 
   const activeStoreData = useMemo(
     () => data.filter((d) => itemNameSet.has(d.server_id)),
@@ -408,42 +465,37 @@ export default function Dashboard() {
           {/* Liquid Cooling Panel */}
           <LiquidCoolingPanel 
             title={t.liquidCooling} 
-            cduData={data.filter(d => 
-              store.equipments.some(e => e.name === d.server_id && e.type === 'cdu' && e.locationId === store.currentLocationId)
-            )}
-            className="flex-1 min-h-[300px]"
+            cduData={(() => {
+              const expectedCdus = store.equipments.filter(e => e.type === 'cdu' && e.locationId === store.currentLocationId);
+              return expectedCdus.map(e => {
+                const telemetry = data.find(d => d.server_id === e.name);
+                return { ...e, server_id: e.name, ...telemetry };
+              });
+            })()}
+            className="flex-1 min-h-[250px]"
           />
 
-          <TechPanel title={t.health} className="flex-1 min-h-[220px]">
-            <div className="h-[180px] w-full relative flex items-center justify-center">
-              <ClientOnlyChart placeholderClassName="h-[180px] w-[200px]">
-              <ResponsiveContainer width={200} height={180} initialDimension={{ width: 200, height: 180 }}>
-                <PieChart>
-                  <Pie
-                    data={pieData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={5}
-                    dataKey="value"
-                    isAnimationActive={false}
-                  >
-                    {pieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <RechartsTooltip contentStyle={{ backgroundColor: '#020b1a', borderColor: '#1e3a8a', color: '#fff' }} />
-                </PieChart>
-              </ResponsiveContainer>
-              </ClientOnlyChart>
-              {/* 中間文字 */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-1">
-                <span className="text-3xl font-black text-white leading-none">{totalServers}</span>
-                <span className="text-[10px] text-cyan-600 font-bold uppercase tracking-widest">Total</span>
-              </div>
-            </div>
-          </TechPanel>
+          <ImmersionCoolingPanel 
+            title={t.immersionCooling} 
+            immersionData={(() => {
+              const expectedTanks = store.racks.filter(r => r.type === 'immersion_dual' && r.locationId === store.currentLocationId);
+              
+              if (expectedTanks.length > 0) {
+                return expectedTanks.map(r => {
+                  const telemetry = data.find(d => d.server_id === r.name);
+                  return { ...r, server_id: r.name, ...telemetry };
+                });
+              }
+
+              // 如果模擬模式且沒建立對應機櫃，回傳一個名為 IMM-TAN-001 的 Demo 數據
+              if (simMode === 'simulation') {
+                const agentData = data.find(d => d.server_id === 'IMM-TAN-001');
+                if (agentData) return [{ ...agentData, isDemo: true }];
+              }
+              return [];
+            })()}
+            className="flex-1 min-h-[250px]"
+          />
         </div>
 
         {/* Center Column (Server Grid Matrix) */}
@@ -679,6 +731,38 @@ export default function Dashboard() {
                   );
                 });
               })()}
+            </div>
+          </TechPanel>
+
+          {/* Health Distribution moved here */}
+          <TechPanel title={t.health} className="flex-1 min-h-[160px]">
+            <div className="h-[140px] w-full relative flex items-center justify-center">
+              <ClientOnlyChart placeholderClassName="h-[140px] w-[160px]">
+              <ResponsiveContainer width={160} height={140} initialDimension={{ width: 160, height: 140 }}>
+                <PieChart>
+                  <Pie
+                    data={pieData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={50}
+                    outerRadius={65}
+                    paddingAngle={5}
+                    dataKey="value"
+                    isAnimationActive={false}
+                  >
+                    {pieData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <RechartsTooltip contentStyle={{ backgroundColor: '#020b1a', borderColor: '#1e3a8a', color: '#fff' }} />
+                </PieChart>
+              </ResponsiveContainer>
+              </ClientOnlyChart>
+              {/* 中間文字 */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-1">
+                <span className="text-2xl font-black text-white leading-none">{totalServers}</span>
+                <span className="text-[8px] text-cyan-600 font-bold uppercase tracking-widest">Total</span>
+              </div>
             </div>
           </TechPanel>
         </div>

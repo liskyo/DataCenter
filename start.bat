@@ -29,6 +29,8 @@ echo   - SERVER-015 (standard mode: CPU + Temp)
 start cmd /k "title Agent-SERVER-015 && cd /d %~dp0backend && python client_agent.py --server-id SERVER-015"
 echo   - CDU-001 (DLC mode: + liquid cooling metrics)
 start cmd /k "title Agent-CDU-001 && cd /d %~dp0backend && python client_agent.py --server-id CDU-001 --mode dlc"
+echo   - IMM-TAN-001 (Immersion mode: + immersion metrics)
+start cmd /k "title Agent-IMM-TAN-001 && cd /d %~dp0backend && python client_agent.py --server-id IMM-TAN-001 --mode immersion"
 
 echo.
 echo ==============================================

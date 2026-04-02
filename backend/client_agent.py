@@ -61,6 +61,20 @@ def get_dlc_metrics() -> dict:
     }
 
 
+def get_immersion_metrics() -> dict:
+    """Simulate Immersion Cooling (Single/Dual phase) metrics."""
+    base_temp = 32.0
+    base_flow = 12.5
+    base_pressure = 1.02
+    
+    return {
+        "flow_rate_lpm": round(base_flow + random.uniform(-2.0, 2.0), 1),
+        "temperature": round(base_temp + random.uniform(-1.0, 4.0), 1),
+        "pressure_bar": round(base_pressure + random.uniform(-0.05, 0.1), 2),
+        "coolant_level": random.randint(92, 98),  # % level
+    }
+
+
 def get_system_metrics(server_id: str, mode: str = "standard") -> dict:
     # 讀取真實 CPU 負載 (1秒內的平均)
     cpu_usage = psutil.cpu_percent(interval=1.0)
@@ -86,6 +100,8 @@ def get_system_metrics(server_id: str, mode: str = "standard") -> dict:
     # DLC 液冷模式: 附加冷卻系統遙測數據
     if mode == "dlc":
         payload.update(get_dlc_metrics())
+    elif mode == "immersion":
+        payload.update(get_immersion_metrics())
 
     return payload
 
@@ -115,7 +131,7 @@ def install_autostart(server_id: str):
 def main():
     parser = argparse.ArgumentParser(description="DataCenter In-Band Telemetry Agent")
     parser.add_argument("--server-id", type=str, default=None, help="The ID of this server (e.g. SERVER-015)")
-    parser.add_argument("--mode", type=str, default="standard", choices=["standard", "dlc"], help="Telemetry mode: standard (CPU only) or dlc (+ liquid cooling)")
+    parser.add_argument("--mode", type=str, default="standard", choices=["standard", "dlc", "immersion"], help="Telemetry mode: standard, dlc, or immersion")
     parser.add_argument("--api-key", type=str, default="dc-agent-key-2026", help="API key for authentication")
     parser.add_argument("--install", action="store_true", help="Register script to auto-start on boot (Windows)")
     args = parser.parse_args()

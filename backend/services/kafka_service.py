@@ -171,6 +171,17 @@ class KafkaRuntimeService:
                                     "leak_detected": False,
                                     "timestamp": int(time.time() * 1000),
                                 }
+                            elif s_id.startswith("IMM-"):
+                                payload = {
+                                    "server_id": s_id,
+                                    "is_simulated": True,
+                                    "flow_rate_lpm": round(12.0 + random.uniform(-1.0, 1.0), 1),
+                                    "temperature": round(32.0 + random.uniform(-1.0, 3.0), 1),
+                                    "pressure_bar": round(1.02 + random.uniform(-0.02, 0.05), 2),
+                                    "coolant_level": random.randint(92, 98),
+                                    "cpu_usage": round(base["cpu"] * 0.2, 1),
+                                    "timestamp": int(time.time() * 1000),
+                                }
                             else:
                                 current_temp = base["temp"] + (random.uniform(15, 25) if random.random() < 0.005 else 0)
                                 current_cpu = base["cpu"] + (random.uniform(30, 50) if random.random() < 0.005 else 0)
