@@ -38,13 +38,15 @@ export type LocationData = {
     doorPosition?: 'front' | 'back' | 'left' | 'right';
 };
 
+export type RackType = 'server' | 'network' | 'immersion_single' | 'immersion_dual';
+
 export type RackData = {
     id: string;
     name: string;
-    type: 'server' | 'network';
+    type: RackType;
     position: [number, number, number];
     rotation: [number, number, number];
-    uCapacity: number; // usually 42
+    uCapacity: number; // usually 42, immersion defaults to 20
     maxPowerKw: number;
     servers: ServerData[];
     connectedNetworkRackId?: string; // Link to a network rack
@@ -71,7 +73,7 @@ type DcimState = {
     updateLocationName: (id: string, name: string) => void;
     updateLocationProps: (id: string, props: Partial<LocationData>) => void;
 
-    addRack: (position: [number, number, number], type?: 'server' | 'network') => void;
+    addRack: (position: [number, number, number], type?: RackType) => void;
     updateRackPosition: (id: string, position: [number, number, number]) => void;
     updateRackRotation: (id: string, rotation: [number, number, number]) => void;
     updateRackConnection: (id: string, networkRackId: string | null, switchId?: string | null) => void;
@@ -138,22 +140,31 @@ export const useDcimStore = create<DcimState>()(
             ],
             selectedRackId: null,
 
-            addRack: (position, type = 'server') => set((state) => ({
-                racks: [
-                    ...state.racks,
-                    {
-                        id: uuidv4(),
-                        name: type === 'server' ? `RACK-${Math.floor(Math.random() * 1000)}` : `NET-RACK-${Math.floor(Math.random() * 1000)}`,
-                        type,
-                        position,
-                        rotation: [0, 0, 0],
-                        uCapacity: 42,
-                        maxPowerKw: type === 'server' ? 15 : 10,
-                        servers: [],
-                        locationId: state.currentLocationId // Assign to current location
-                    }
-                ]
-            })),
+            addRack: (position, type = 'server') => set((state) => {
+                const nameMap: Record<RackType, string> = {
+                    server: `RACK-${Math.floor(Math.random() * 1000)}`,
+                    network: `NET-RACK-${Math.floor(Math.random() * 1000)}`,
+                    immersion_single: `IMM-1P-${Math.floor(Math.random() * 1000)}`,
+                    immersion_dual: `IMM-2P-${Math.floor(Math.random() * 1000)}`,
+                };
+                const isImmersion = type === 'immersion_single' || type === 'immersion_dual';
+                return {
+                    racks: [
+                        ...state.racks,
+                        {
+                            id: uuidv4(),
+                            name: nameMap[type],
+                            type,
+                            position,
+                            rotation: [0, 0, 0],
+                            uCapacity: isImmersion ? 20 : 42,
+                            maxPowerKw: isImmersion ? 30 : (type === 'server' ? 15 : 10),
+                            servers: [],
+                            locationId: state.currentLocationId
+                        }
+                    ]
+                };
+            }),
 
             updateRackConnection: (id, networkRackId, switchId = null) => set((state) => ({
                 racks: state.racks.map(r => r.id === id ? { ...r, connectedNetworkRackId: networkRackId || undefined, connectedSwitchId: switchId } : r)

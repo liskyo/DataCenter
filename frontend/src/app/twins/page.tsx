@@ -9,7 +9,7 @@ import EquipmentModel from "@/components/3d/EquipmentModel";
 import NetworkLines from "@/components/3d/NetworkLines";
 import CoolantFlow from "@/components/3d/CoolantFlow";
 import { apiUrl } from "@/shared/api";
-import { Activity, Download, Upload, Server, Trash, Save, Edit, Lock, Thermometer, Zap, Box, MonitorIcon, Globe, Link2 } from "lucide-react";
+import { Activity, Download, Upload, Server, Trash, Save, Edit, Lock, Thermometer, Zap, Box, MonitorIcon, Globe, Link2, Droplets } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
 import { useLanguage } from "@/shared/i18n/language";
 import { usePolling } from "@/shared/hooks/usePolling";
@@ -199,6 +199,12 @@ export default function TwinsPage() {
                         <button onClick={() => store.addRack([Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)], 'network')} className="p-3 bg-[#020b1a] rounded-xl text-purple-500 hover:text-purple-400 hover:bg-[#0a1e3f] transition" title="Add Network Rack (Switch)">
                             <Globe size={24} />
                         </button>
+                        <button onClick={() => store.addRack([Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)], 'immersion_single')} className="p-3 bg-[#020b1a] rounded-xl text-sky-400 hover:text-sky-300 hover:bg-[#0a1e3f] transition" title="Add Single-Phase Immersion Tank (單相浸沒式)">
+                            <Droplets size={24} />
+                        </button>
+                        <button onClick={() => store.addRack([Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)], 'immersion_dual')} className="p-3 bg-[#020b1a] rounded-xl text-violet-400 hover:text-violet-300 hover:bg-[#0a1e3f] transition" title="Add Dual-Phase Immersion Tank (雙相浸沒式)">
+                            <Droplets size={24} />
+                        </button>
                     </div>
                 )}
 
@@ -263,7 +269,7 @@ export default function TwinsPage() {
                             const flowRate = cduTelem?.flow_rate_lpm ?? 8.0;
 
                             // Use manually configured racks if set, else auto-find 3 nearest
-                            const allServerRacks = store.racks.filter(r => r.locationId === store.currentLocationId && r.type === 'server');
+                            const allServerRacks = store.racks.filter(r => r.locationId === store.currentLocationId && (r.type === 'server' || r.type === 'immersion_single'));
                             const targetRacks = cdu.connectedRackIds && cdu.connectedRackIds.length > 0
                                 ? allServerRacks.filter(r => cdu.connectedRackIds!.includes(r.id))
                                 : allServerRacks
@@ -682,7 +688,7 @@ export default function TwinsPage() {
                                     <div className="flex-1">
                                         <label className="text-slate-500 mb-1 block">Start U</label>
                                         <input
-                                            type="number" min="1" max="42"
+                                            type="number" min="1" max={selectedRack.uCapacity}
                                             value={newServer.uPosition}
                                             onChange={(e) => setNewServer({ ...newServer, uPosition: Number(e.target.value) })}
                                             className="w-full bg-[#0a1e3f] border border-cyan-800 p-2 rounded text-white outline-none focus:border-cyan-400"
@@ -691,7 +697,7 @@ export default function TwinsPage() {
                                     <div className="flex-1">
                                         <label className="text-slate-500 mb-1 block">Height (U)</label>
                                         <input
-                                            type="number" min="1" max="42"
+                                            type="number" min="1" max={selectedRack.uCapacity}
                                             value={newServer.uHeight}
                                             onChange={(e) => setNewServer({ ...newServer, uHeight: Number(e.target.value) })}
                                             className="w-full bg-[#0a1e3f] border border-cyan-800 p-2 rounded text-white outline-none focus:border-cyan-400"
@@ -819,7 +825,7 @@ export default function TwinsPage() {
                         {/* CDU: Rack Connection Selector + Live Telemetry */}
                         {selectedEquipment.type === 'cdu' && (() => {
                             const cduTelem = (telemetry as any)[selectedEquipment.name];
-                            const serverRacks = store.racks.filter(r => r.locationId === store.currentLocationId && r.type === 'server');
+                            const serverRacks = store.racks.filter(r => r.locationId === store.currentLocationId && (r.type === 'server' || r.type === 'immersion_single'));
                             const connectedIds: string[] = selectedEquipment.connectedRackIds ?? [];
 
                             const toggleRack = (rackId: string) => {

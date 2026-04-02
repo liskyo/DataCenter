@@ -5,6 +5,7 @@ import { PivotControls, Text } from '@react-three/drei';
 import * as THREE from 'three';
 import { RackData, useDcimStore } from '@/store/useDcimStore';
 import ServerModel from './ServerModel';
+import ImmersionTankModel from './ImmersionTankModel';
 
 const U_HEIGHT = 0.04445;
 const RACK_WIDTH = 0.6;
@@ -104,6 +105,10 @@ export default function RackModel({ data, isSelected, telemetry = {} }: { data: 
                     if (isEditMode) selectRack(data.id);
                 }}
             >
+                {/* Immersion tank delegation */}
+                {(data.type === 'immersion_single' || data.type === 'immersion_dual') ? (
+                    <ImmersionTankModel data={data} isSelected={isSelected} telemetry={telemetry} />
+                ) : (<>
                 {/* Rack Frame outer box (Translucent) */}
                 <mesh position={[0, rackHeight / 2, 0]} castShadow>
                     <boxGeometry args={[RACK_WIDTH, rackHeight, RACK_DEPTH]} />
@@ -208,6 +213,7 @@ export default function RackModel({ data, isSelected, telemetry = {} }: { data: 
                         [ NETWORK CORE ]
                     </Text>
                 )}
+                </>)}
             </group>
         </PivotControls>
     );
