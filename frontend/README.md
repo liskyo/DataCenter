@@ -4,8 +4,9 @@ DataCenter Command Center 前端儀表板，負責即時監控視覺化、3D 機
 
 ## 核心功能
 
-- 即時遙測更新：優先使用 SSE (`/stream`)，失敗時自動切換為 polling (`/metrics`)。
+- 即時遙測更新：優先使用 SSE (`/stream`)，失敗或靜默時自動切換為 polling (`/metrics`)。
 - 監控總覽儀表板：包含設備矩陣、健康分布、警報列表、資源趨勢。
+- 監控矩陣分頁：每頁 100 台，降低高密度渲染卡頓。
 - 液冷監控：顯示 CDU 關鍵指標（流量、溫度等）。
 - 雙相浸沒監控：動態對應 3D 機房中的 immersion rack，支援 DEMO 顯示邏輯。
 - 模式切換：可切換 simulation / real，並同步下發模擬目標。
@@ -45,7 +46,8 @@ npm run dev
 1. `useSSE` 嘗試連線 `${BACKEND_BASE_URL}/stream`。
 2. 每筆事件會依 `asset_id/server_id/node_id/device_id` 建立 key，並做 ID 正規化（例如 `SERVER-1` -> `SERVER-001`）。
 3. Hook 以短間隔批次觸發 `onUpdate`，降低高頻資料造成的重繪壓力。
-4. 若 SSE 失敗，自動改為固定週期向 `${BACKEND_BASE_URL}/metrics` 拉取資料。
+4. 若 SSE 失敗或長時間無事件，自動改為固定週期向 `${BACKEND_BASE_URL}/metrics` 拉取資料。
+5. polling 期間會背景重試 SSE，SSE 恢復後自動切回 `SSE LIVE`。
 
 ## 常用指令
 
@@ -61,6 +63,7 @@ npm run lint
 - 頁面顯示已連線但資料空白：
   - 先檢查後端是否有啟動，且 `BACKEND_BASE_URL` 指向正確 API 位址。
 - 長時間顯示 polling：
-  - 代表 SSE 通道不可用，請確認後端 `/stream` 與反向代理設定。
+  - 代表 SSE 通道不可用或暫時靜默；若資料仍更新屬正常容錯行為。
+  - 若資料也停住，請確認後端 `/stream`、`/metrics` 與反向代理設定。
 - 本機 git 出現大量 `.next` 變更：
   - 屬開發暫存產物，請確認 `.gitignore` 已忽略 `.next/`。

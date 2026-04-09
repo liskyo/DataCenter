@@ -858,17 +858,17 @@ export default function Dashboard() {
           </TechPanel>
 
           {/* Health Distribution moved here */}
-          <TechPanel title={t.health} className="flex-1 min-h-[160px]">
-            <div className="h-[140px] w-full relative flex items-center justify-center">
-              <ClientOnlyChart placeholderClassName="h-[140px] w-[160px]">
-              <ResponsiveContainer width={160} height={140} initialDimension={{ width: 160, height: 140 }}>
+          <TechPanel title={t.health} className="h-[220px] shrink-0">
+            <div className="h-[150px] w-full relative flex items-center justify-center">
+              <ClientOnlyChart placeholderClassName="h-[150px] w-[220px]">
+              <ResponsiveContainer width={220} height={150} initialDimension={{ width: 220, height: 150 }}>
                 <PieChart>
                   <Pie
                     data={pieData}
                     cx="50%"
                     cy="50%"
-                    innerRadius={50}
-                    outerRadius={65}
+                    innerRadius={54}
+                    outerRadius={74}
                     paddingAngle={5}
                     dataKey="value"
                     isAnimationActive={false}
@@ -885,6 +885,20 @@ export default function Dashboard() {
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-1">
                 <span className="text-2xl font-black text-white leading-none">{totalServers}</span>
                 <span className="text-[8px] text-cyan-600 font-bold uppercase tracking-widest">Total</span>
+              </div>
+            </div>
+            <div className="mt-2 grid grid-cols-3 gap-2 text-[10px] font-mono">
+              <div className="flex items-center justify-center gap-1 border border-cyan-900/40 bg-cyan-950/20 py-1">
+                <span className="inline-block h-2 w-2 bg-cyan-400 rounded-full"></span>
+                <span className="text-cyan-300">{healthData.normal}</span>
+              </div>
+              <div className="flex items-center justify-center gap-1 border border-yellow-900/40 bg-yellow-950/20 py-1">
+                <span className="inline-block h-2 w-2 bg-yellow-400 rounded-full"></span>
+                <span className="text-yellow-300">{healthData.warning}</span>
+              </div>
+              <div className="flex items-center justify-center gap-1 border border-red-900/40 bg-red-950/20 py-1">
+                <span className="inline-block h-2 w-2 bg-red-500 rounded-full"></span>
+                <span className="text-red-300">{healthData.critical}</span>
               </div>
             </div>
           </TechPanel>

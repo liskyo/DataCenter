@@ -27,6 +27,11 @@ class KafkaRuntimeService:
                     self.producer = KafkaProducer(
                         bootstrap_servers=[self.broker],
                         value_serializer=lambda v: json.dumps(v).encode("utf-8"),
+                        # Avoid blocking API requests for long periods when broker is unavailable.
+                        request_timeout_ms=2500,
+                        max_block_ms=2000,
+                        retries=0,
+                        acks=1,
                     )
                     print("Kafka Producer connected...")
                 except Exception:
@@ -43,9 +48,19 @@ class KafkaRuntimeService:
     def emit(self, payload: dict) -> bool:
         if not self.producer:
             return False
-        self.producer.send(self.topic, value=payload)
-        self.producer.flush()
-        return True
+        try:
+            # Wait briefly for broker ack; do not block ingest endpoint indefinitely.
+            future = self.producer.send(self.topic, value=payload)
+            future.get(timeout=1.5)
+            return True
+        except Exception:
+            try:
+                self.producer.close(timeout=1)
+            except Exception:
+                pass
+            self.producer = None
+            self.ensure_kafka_producer_thread()
+            return False
 
     def kafka_consumer_worker(self, on_message: Callable[[dict], None]) -> None:
         backoff_s = 3.0
@@ -61,19 +76,21 @@ class KafkaRuntimeService:
                     group_id="influx_writer_group_persistent",
                     auto_offset_reset="latest",
                     value_deserializer=lambda m: json.loads(m.decode("utf-8")),
-                    consumer_timeout_ms=1500,  # allow periodic stop checks and cleanup
+                    # Keep the same member in group; do not auto-timeout and recreate.
+                    enable_auto_commit=True,
                 )
                 self.consumer_ready = True
                 backoff_s = 3.0
                 fail_count = 0
                 print("Kafka Consumer started and polling...")
-                for msg in consumer:
-                    if self.stop_event.is_set():
-                        break
-                    try:
-                        on_message(msg.value)
-                    except Exception as exc:
-                        print(f"Error processing message: {exc}")
+                while not self.stop_event.is_set():
+                    records = consumer.poll(timeout_ms=1000, max_records=200)
+                    for msg_list in records.values():
+                        for msg in msg_list:
+                            try:
+                                on_message(msg.value)
+                            except Exception as exc:
+                                print(f"Error processing message: {exc}")
             except Exception as exc:
                 self.consumer_ready = False
                 fail_count += 1
