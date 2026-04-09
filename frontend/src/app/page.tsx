@@ -1,25 +1,27 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer,
   BarChart, Bar, PieChart, Pie, Cell
 } from "recharts";
-import { Activity, AlertTriangle, Cpu, Thermometer, Clock, Database, Power, LayoutGrid, Box, Link2 } from "lucide-react";
+import { Activity, AlertTriangle, Cpu, Thermometer, Clock, Database, Power, LayoutGrid, Box, Link2, Wifi, WifiOff, Zap, Droplets, Gauge } from "lucide-react";
 import { useDcimStore } from "@/store/useDcimStore";
 import { ClientOnlyChart } from "@/components/ClientOnlyChart";
-import { usePolling } from "@/shared/hooks/usePolling";
+import { useSSE } from "@/shared/hooks/useSSE";
 import { apiUrl } from "@/shared/api";
 import { useLanguage } from "@/shared/i18n/language";
 
 type ServerTelemetry = {
   server_id: string;
+  asset_id?: string;
   cpu_usage: number;
   temperature: number;
   timestamp: number;
   traffic_gbps?: number;
   ports_active?: number;
   ports_total?: number;
+  power_state?: 'on' | 'off';
 };
 
 const TechPanel = ({ title, children, className = "" }: { title: string, children: React.ReactNode, className?: string }) => (
@@ -43,7 +45,132 @@ const TechPanel = ({ title, children, className = "" }: { title: string, childre
   </div>
 );
 
+const LiquidCoolingPanel = ({ title, cduData, className = "" }: { title: string, cduData: any[], className?: string }) => (
+  <TechPanel title={title} className={className}>
+    <div className="flex flex-col gap-4">
+      {cduData.length === 0 ? (
+        <div className="flex items-center justify-center py-10 text-slate-600 italic text-xs font-mono tracking-widest">
+          NO CDU DETECTED IN ZONE
+        </div>
+      ) : (
+        cduData.map((cdu, idx) => (
+          <div key={idx} className="bg-[#03112b] border border-blue-900/40 rounded p-3 relative overflow-hidden group">
+            {/* Background Accent */}
+            <div className="absolute top-0 right-0 w-20 h-20 bg-blue-500/5 blur-3xl rounded-full -mr-10 -mt-10 group-hover:bg-blue-500/10 transition-colors"></div>
+            
+            <div className="flex justify-between items-center mb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></div>
+                <span className="font-mono font-bold text-cyan-100 text-sm">{cdu.server_id}</span>
+              </div>
+              <div className="text-[10px] bg-blue-950 border border-blue-800 px-1.5 py-0.5 rounded text-blue-400 font-mono">
+                DLC-MODE
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <div className="flex justify-between items-center text-[10px]">
+                  <span className="text-slate-500 flex items-center gap-1"><Thermometer size={10} /> SUPPLY</span>
+                  <span className="font-mono text-sky-400 font-bold">{cdu.inlet_temp?.toFixed(1) ?? "--"}°C</span>
+                </div>
+                <div className="flex justify-between items-center text-[10px]">
+                  <span className="text-slate-500 flex items-center gap-1"><Thermometer size={10} /> RETURN</span>
+                  <span className={`font-mono font-bold ${cdu.outlet_temp > 45 ? 'text-red-400' : 'text-orange-400'}`}>{cdu.outlet_temp?.toFixed(1) ?? "--"}°C</span>
+                </div>
+                <div className="flex justify-between items-center text-[10px]">
+                  <span className="text-slate-500 flex items-center gap-1"><Droplets size={10} /> FLOW</span>
+                  <span className="font-mono text-cyan-400 font-bold">{cdu.flow_rate_lpm?.toFixed(1) ?? "--"} LPM</span>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center text-[10px]">
+                  <span className="text-slate-500 flex items-center gap-1"><Gauge size={10} /> PRESSURE</span>
+                  <span className="font-mono text-violet-400 font-bold">{cdu.pressure_bar?.toFixed(2) ?? "--"} bar</span>
+                </div>
+                <div className="flex justify-between items-center text-[10px]">
+                  <span className="text-slate-500 flex items-center gap-1"><Zap size={10} /> TANK</span>
+                  <span className={`font-mono font-bold ${cdu.reservoir_level < 30 ? 'text-red-400' : 'text-slate-300'}`}>{cdu.reservoir_level ?? "--"}%</span>
+                </div>
+                <div className="flex justify-between items-center text-[10px]">
+                  <span className="text-slate-500 flex items-center gap-1"><Activity size={10} /> PUMPS</span>
+                  <span className="font-mono text-emerald-400 font-bold">{cdu.pump_a_rpm ? 'ON' : 'OFF'}</span>
+                </div>
+              </div>
+            </div>
+
+            {cdu.leak_detected && (
+              <div className="mt-3 bg-red-900/30 border border-red-500/50 rounded py-1 px-2 flex items-center justify-center gap-2 animate-pulse">
+                <AlertTriangle size={12} className="text-red-500" />
+                <span className="text-[10px] font-black text-red-500 tracking-tighter">LEAKAGE DETECTED - EMERGENCY STOP</span>
+              </div>
+            )}
+          </div>
+        ))
+      )}
+    </div>
+  </TechPanel>
+);
+
+const ImmersionCoolingPanel = ({ title, immersionData, className = "" }: { title: string, immersionData: any[], className?: string }) => (
+  <TechPanel title={title} className={className}>
+    <div className="flex flex-col gap-4">
+      {immersionData.length === 0 ? (
+        <div className="flex items-center justify-center py-10 text-slate-600 italic text-xs font-mono tracking-widest">
+          NO DUAL-PHASE TANKS DETECTED
+        </div>
+      ) : (
+        immersionData.map((tank, idx) => (
+          <div key={idx} className="bg-[#03112b] border border-purple-900/40 rounded p-3 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-20 h-20 bg-purple-500/5 blur-3xl rounded-full -mr-10 -mt-10 group-hover:bg-purple-500/10 transition-colors"></div>
+            
+            <div className="flex justify-between items-center mb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-purple-400 animate-pulse"></div>
+                <span className="font-mono font-bold text-purple-100 text-sm">{tank.server_id}</span>
+              </div>
+              <div className="text-[10px] bg-purple-950 border border-purple-800 px-1.5 py-0.5 rounded text-purple-400 font-mono">
+                {tank.isDemo ? "DEMO-MODE" : "IMM-2P-PHASE"}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <div className="flex justify-between items-center text-[10px]">
+                  <span className="text-slate-500 flex items-center gap-1"><Droplets size={10} /> INLET FLOW</span>
+                  <span className="font-mono text-purple-400 font-bold">{tank.flow_rate_lpm?.toFixed(1) ?? "--"} LPM</span>
+                </div>
+                <div className="flex justify-between items-center text-[10px]">
+                  <span className="text-slate-500 flex items-center gap-1"><Thermometer size={10} /> FLUID TEMP</span>
+                  <span className="font-mono text-purple-300 font-bold">{tank.temperature?.toFixed(1) ?? "--"}°C</span>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center text-[10px]">
+                  <span className="text-slate-500 flex items-center gap-1"><Gauge size={10} /> VAPOR PRESS</span>
+                  <span className="font-mono text-violet-400 font-bold">{tank.pressure_bar?.toFixed(2) ?? "--"} bar</span>
+                </div>
+                <div className="flex justify-between items-center text-[10px]">
+                  <span className="text-slate-500 flex items-center gap-1"><Database size={10} /> FLUID LEVEL</span>
+                  <span className="font-mono text-emerald-400 font-bold">{tank.coolant_level ?? "--"}%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  </TechPanel>
+);
+
 export default function Dashboard() {
+  const normalizeNodeId = (value: string): string => {
+    const raw = (value || "").trim().toUpperCase().replace(/\s+/g, "").replace(/_/g, "-");
+    const m = raw.match(/^(SERVER|SW|IMM|CDU)-?(\d+)$/);
+    if (!m) return raw;
+    return `${m[1]}-${String(Number(m[2])).padStart(3, "0")}`;
+  };
+
   const { language } = useLanguage();
   const store = useDcimStore();
   const t = useMemo(() => {
@@ -61,6 +188,8 @@ export default function Dashboard() {
         cpuByNode: "CPU Usage by Node",
         alarms: "Real-time Alarms",
         noAlarms: "No Active Alarms",
+        liquidCooling: "CDU Liquid Cooling",
+        immersionCooling: "Immersion Monitoring",
       };
     }
     return {
@@ -76,6 +205,8 @@ export default function Dashboard() {
       cpuByNode: "各節點 CPU 負載佔比",
       alarms: "即時系統警報 (Real-time Alarms)",
       noAlarms: "目前無告警",
+      liquidCooling: "CDU 液冷監控 (Liquid Cooling)",
+      immersionCooling: "雙相浸沒式監控 (Immersion Cooling)",
     };
   }, [language]);
   const [data, setData] = useState<ServerTelemetry[]>([]);
@@ -118,39 +249,53 @@ export default function Dashboard() {
     return () => clearInterval(timer);
   }, []);
 
-  usePolling(async () => {
-    try {
-      const res = await fetch(apiUrl("/metrics"));
-      if (!res.ok) return;
-      const json = await res.json();
+  const handleSSEUpdate = useCallback((metricsMap: Record<string, any>) => {
+    const sortedData = Object.values(metricsMap).sort((a: any, b: any) =>
+      (a.server_id || "").localeCompare(b.server_id || "")
+    ) as ServerTelemetry[];
+    setData(sortedData);
 
-      const sortedData = (json.data || []).sort((a: ServerTelemetry, b: ServerTelemetry) =>
-        a.server_id.localeCompare(b.server_id)
-      );
-      setData(sortedData);
+    // 更新歷史紀錄供圖表使用 (節流：至少間隔 5 秒才更新一次歷史點)
+    setHistory(prev => {
+      const lastPoint = prev[prev.length - 1];
+      const now = new Date();
+      if (lastPoint) {
+        const lastTime = new Date();
+        const [h, m, s] = lastPoint.time.split(':');
+        lastTime.setHours(parseInt(h), parseInt(m), parseInt(s));
+        if (now.getTime() - lastTime.getTime() < 2000) return prev; // 小於 2 秒不更新
+      }
 
-      // 更新歷史紀錄供圖表使用
-      setHistory(prev => {
-        const avgCpu = sortedData.reduce((acc: number, cur: ServerTelemetry) => acc + cur.cpu_usage, 0) / (sortedData.length || 1);
-        const avgTemp = sortedData.reduce((acc: number, cur: ServerTelemetry) => acc + cur.temperature, 0) / (sortedData.length || 1);
-        const newPoint = {
-          time: new Date().toLocaleTimeString("zh-TW", { hour12: false, minute: "2-digit", second: "2-digit" }),
-          avgCpu: Number(avgCpu.toFixed(1)),
-          avgTemp: Number(avgTemp.toFixed(1))
-        };
-        const newHistory = [...prev, newPoint];
-        if (newHistory.length > 20) newHistory.shift(); // 保持最後 20 筆
-        return newHistory;
-      });
-    } catch (e) {
-      // 靜默處理錯誤以維持畫面
-    }
-  }, { intervalMs: 5000, immediate: true });
+      const avgCpu = sortedData.reduce((acc, cur) => acc + cur.cpu_usage, 0) / (sortedData.length || 1);
+      const avgTemp = sortedData.reduce((acc, cur) => acc + cur.temperature, 0) / (sortedData.length || 1);
+      const newPoint = {
+        time: now.toLocaleTimeString("zh-TW", { hour12: false, minute: "2-digit", second: "2-digit" }),
+        avgCpu: Number(avgCpu.toFixed(1)),
+        avgTemp: Number(avgTemp.toFixed(1))
+      };
+      const newHistory = [...prev, newPoint];
+      if (newHistory.length > 30) newHistory.shift();
+      return newHistory;
+    });
+  }, []);
+
+  const { connected, mode: sseMode } = useSSE({ onUpdate: handleSSEUpdate, fallbackPollingMs: 5000 });
 
   // --- Unified Health Scoring Logic ---
   const getDeviceStatus = (item: any, srv: ServerTelemetry | undefined) => {
-    if (!srv) return 'offline';
+    if (!srv) return 'powered_off';
+    if (srv.power_state === 'off') return 'powered_off';
 
+    // CDU specific thresholds
+    if (item.type === 'cdu') {
+      const cdu = srv as any;
+      if (cdu.leak_detected) return 'critical';
+      const outTemp = cdu.outlet_temp || 0;
+      const flow = cdu.flow_rate_lpm || 0;
+      if (outTemp > 50 || (flow > 0 && flow < 3)) return 'critical';
+      if (outTemp > 45 || (flow > 0 && flow < 5)) return 'warning';
+      return 'normal';
+    }
     // Switch specific thresholds (Dynamic)
     if (item.type === 'switch' || item.rackType === 'network') {
       const traffic = srv.traffic_gbps || 0;
@@ -171,40 +316,79 @@ export default function Dashboard() {
     }
   };
 
-  const telemetryById = useMemo(
-    () => new Map(data.map((d) => [d.server_id, d])),
-    [data]
-  );
+  const telemetryById = useMemo(() => {
+    const m = new Map<string, ServerTelemetry>();
+    data.forEach((d) => {
+      [d.asset_id, d.server_id]
+        .filter((v): v is string => typeof v === "string" && v.length > 0)
+        .forEach((id) => {
+          m.set(id, d);
+          m.set(normalizeNodeId(id), d);
+        });
+    });
+    return m;
+  }, [data]);
 
   // Calculate stats based on store servers (Filtered by location)
-  const allGridItems = useMemo(() =>
-    store.racks
+  const allGridItems = useMemo(() => {
+    const rackServers = store.racks
       .filter(r => r.locationId === store.currentLocationId)
-      .flatMap(r => r.servers.map(s => ({ ...s, rackName: r.name, rackType: r.type }))),
-    [store.racks, store.currentLocationId]
-  );
+      .flatMap(r => r.servers.map(s => ({ ...s, assetId: s.assetId || normalizeNodeId(s.name), rackName: r.name, rackType: r.type })));
+    
+    const standaloneEquips = store.equipments
+      .filter(e => e.locationId === store.currentLocationId)
+      .map(e => ({ id: e.id, assetId: normalizeNodeId(e.name), name: e.name, type: e.type, rackName: 'Facility', rackType: 'equipment' }));
+      
+    return [...rackServers, ...standaloneEquips];
+  }, [store.racks, store.equipments, store.currentLocationId]);
+
   const totalServers = allGridItems.length;
 
-  const healthData = allGridItems.reduce((acc, item) => {
-    const srv = telemetryById.get(item.name);
-    const status = getDeviceStatus(item, srv);
-    if (status === 'critical') acc.critical++;
-    else if (status === 'warning') acc.warning++;
-    else acc.normal++;
-    return acc;
-  }, { normal: 0, warning: 0, critical: 0 });
+  const { healthData, pieData } = useMemo(() => {
+    const health = allGridItems.reduce((acc, item) => {
+      const srv = telemetryById.get(item.assetId || item.name) || telemetryById.get(item.name);
+      const status = getDeviceStatus(item, srv);
+      if (status === 'critical') acc.critical++;
+      else if (status === 'warning') acc.warning++;
+      else acc.normal++;
+      return acc;
+    }, { normal: 0, warning: 0, critical: 0 });
 
-  const pieData = [
-    { name: '正常 (Normal)', value: healthData.normal, color: '#06b6d4' },
-    { name: '警告 (Warning)', value: healthData.warning, color: '#fbbf24' },
-    { name: '異常 (Critical)', value: healthData.critical, color: '#ef4444' }
-  ].filter(d => d.value > 0);
+    const pie = [
+      { name: '正常 (Normal)', value: health.normal, color: '#06b6d4' },
+      { name: '警告 (Warning)', value: health.warning, color: '#fbbf24' },
+      { name: '異常 (Critical)', value: health.critical, color: '#ef4444' }
+    ].filter(d => d.value > 0);
 
-  const itemNameSet = useMemo(() => new Set(allGridItems.map((i) => i.name)), [allGridItems]);
+    return { healthData: health, pieData: pie };
+  }, [allGridItems, telemetryById]);
+
+  const itemNameSet = useMemo(() => {
+    const serverNames = allGridItems.map((i) => i.assetId || i.name);
+    const equipmentNames = store.equipments
+      .filter(e => e.locationId === store.currentLocationId)
+      .map(e => normalizeNodeId(e.name));
+    const rackNames = store.racks
+      .filter(r => r.locationId === store.currentLocationId)
+      .map(r => normalizeNodeId(r.name));
+    return new Set([...serverNames, ...equipmentNames, ...rackNames]);
+  }, [allGridItems, store.equipments, store.racks, store.currentLocationId]);
+
   const activeStoreData = useMemo(
-    () => data.filter((d) => itemNameSet.has(d.server_id)),
+    () => data.filter((d) => itemNameSet.has(d.asset_id || d.server_id)),
     [data, itemNameSet]
   );
+
+  useEffect(() => {
+    if (simMode !== "simulation") return;
+    const targets = Array.from(itemNameSet);
+    if (targets.length === 0) return;
+    fetch(apiUrl("/api/system/simulate_targets"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ targets })
+    }).catch(() => {});
+  }, [itemNameSet, simMode]);
 
   return (
     <div className="w-full bg-[#010613] text-slate-300 font-sans flex flex-col overflow-x-hidden selection:bg-cyan-900">
@@ -231,10 +415,14 @@ export default function Dashboard() {
 
           <div className="flex items-center gap-2">
             <span className="relative flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-cyan-500 shadow-[0_0_8px_#06b6d4]"></span>
+              {connected && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>}
+              <span className={`relative inline-flex rounded-full h-3 w-3 ${connected ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]' : 'bg-amber-500 shadow-[0_0_8px_#f59e0b]'}`}></span>
             </span>
-            {t.online}
+            {connected ? (
+              <><Wifi size={14} className="text-emerald-400" /> <span className="text-emerald-400 text-[10px] tracking-widest">SSE LIVE</span></>
+            ) : (
+              <><WifiOff size={14} className="text-amber-400" /> <span className="text-amber-400 text-[10px] tracking-widest">POLLING</span></>
+            )}
           </div>
           <div className="flex items-center gap-2 bg-[#0a1e3f] border border-cyan-800 px-4 py-1 rounded-bl-xl rounded-tr-xl">
             <Clock size={16} />
@@ -290,36 +478,42 @@ export default function Dashboard() {
             </ClientOnlyChart>
           </TechPanel>
 
-          <TechPanel title={t.health} className="flex-1 min-h-[220px]">
-            <div className="h-[180px] w-full relative flex items-center justify-center">
-              <ClientOnlyChart placeholderClassName="h-[180px] w-[200px]">
-              <ResponsiveContainer width={200} height={180} initialDimension={{ width: 200, height: 180 }}>
-                <PieChart>
-                  <Pie
-                    data={pieData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={5}
-                    dataKey="value"
-                    isAnimationActive={false}
-                  >
-                    {pieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <RechartsTooltip contentStyle={{ backgroundColor: '#020b1a', borderColor: '#1e3a8a', color: '#fff' }} />
-                </PieChart>
-              </ResponsiveContainer>
-              </ClientOnlyChart>
-              {/* 中間文字 */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-1">
-                <span className="text-3xl font-black text-white leading-none">{totalServers}</span>
-                <span className="text-[10px] text-cyan-600 font-bold uppercase tracking-widest">Total</span>
-              </div>
-            </div>
-          </TechPanel>
+          {/* Liquid Cooling Panel */}
+          <LiquidCoolingPanel 
+            title={t.liquidCooling} 
+            cduData={(() => {
+              const expectedCdus = store.equipments.filter(e => e.type === 'cdu' && e.locationId === store.currentLocationId);
+              return expectedCdus.map(e => {
+                const eid = normalizeNodeId(e.name);
+                const telemetry = data.find(d => (d.asset_id || d.server_id) === eid || d.server_id === e.name);
+                return { ...e, server_id: e.name, ...telemetry };
+              });
+            })()}
+            className="flex-1 min-h-[250px]"
+          />
+
+          <ImmersionCoolingPanel 
+            title={t.immersionCooling} 
+            immersionData={(() => {
+              const expectedTanks = store.racks.filter(r => r.type === 'immersion_dual' && r.locationId === store.currentLocationId);
+              
+              if (expectedTanks.length > 0) {
+                return expectedTanks.map(r => {
+                  const rid = normalizeNodeId(r.name);
+                  const telemetry = data.find(d => (d.asset_id || d.server_id) === rid || d.server_id === r.name);
+                  return { ...r, server_id: r.name, ...telemetry };
+                });
+              }
+
+              // 如果模擬模式且沒建立對應機櫃，回傳一個名為 IMM-TAN-001 的 Demo 數據
+              if (simMode === 'simulation') {
+                const agentData = data.find(d => d.server_id === 'IMM-TAN-001');
+                if (agentData) return [{ ...agentData, isDemo: true }];
+              }
+              return [];
+            })()}
+            className="flex-1 min-h-[250px]"
+          />
         </div>
 
         {/* Center Column (Server Grid Matrix) */}
@@ -340,27 +534,30 @@ export default function Dashboard() {
                 }
 
                 return items.map(item => {
-                  const srv = telemetryById.get(item.name);
+                  const srv = telemetryById.get(item.assetId || item.name) || telemetryById.get(item.name);
                   const liveStatus = getDeviceStatus(item, srv);
+                  const isOff = liveStatus === 'powered_off';
 
-                  const borderColor = liveStatus === 'critical' ? 'border-red-500' : liveStatus === 'warning' ? 'border-yellow-500' : 'border-cyan-500';
-                  const titleColor = liveStatus === 'critical' ? 'text-red-400' : liveStatus === 'warning' ? 'text-yellow-400' : 'text-cyan-100';
-                  const shadowCss = liveStatus === 'critical' ? 'shadow-[inset_0_0_15px_rgba(239,68,68,0.2)]' : liveStatus === 'warning' ? 'shadow-[inset_0_0_15px_rgba(245,158,11,0.2)]' : 'hover:bg-[#06183a]';
+                  const borderColor = isOff ? 'border-slate-700' : liveStatus === 'critical' ? 'border-red-500' : liveStatus === 'warning' ? 'border-yellow-500' : 'border-cyan-500';
+                  const titleColor = isOff ? 'text-slate-500' : liveStatus === 'critical' ? 'text-red-400' : liveStatus === 'warning' ? 'text-yellow-400' : 'text-cyan-100';
+                  const shadowCss = isOff ? 'opacity-50 grayscale' : liveStatus === 'critical' ? 'shadow-[inset_0_0_15px_rgba(239,68,68,0.2)]' : liveStatus === 'warning' ? 'shadow-[inset_0_0_15px_rgba(245,158,11,0.2)]' : 'hover:bg-[#06183a]';
 
-                  if (!srv) {
+                  if (!srv || isOff) {
                     return (
-                      <div key={item.id} className="p-4 border-l-4 bg-gradient-to-r from-[#03112b] to-transparent border-slate-700 opacity-60 hover:opacity-100 transition-all">
+                      <div key={item.id} className={`p-4 border-l-4 bg-gradient-to-r from-[#03112b] to-transparent ${borderColor} ${isOff ? 'opacity-50 grayscale' : 'opacity-60'} hover:opacity-100 transition-all`}>
                         <div className="flex justify-between items-start mb-2">
                           <div className="flex flex-col">
-                            <div className="font-mono font-bold text-slate-500 text-lg">{item.name}</div>
+                            <div className={`font-mono font-bold ${titleColor} text-lg`}>{item.name}</div>
                             <div className="text-[10px] text-slate-600 bg-[#0a1e3f] border border-slate-800 px-1.5 py-0.5 rounded w-fit flex items-center gap-1 mt-1">
                               <LayoutGrid size={10} /> {item.rackName}
                             </div>
                           </div>
-                          <Power size={16} className="text-slate-700 mt-1" />
+                          <Power size={16} className={`${isOff ? 'text-slate-600' : 'text-slate-700'} mt-1`} />
                         </div>
                         <div className="mt-4 flex items-center justify-center py-5 bg-slate-900/30 rounded border border-slate-800/50">
-                          <span className="text-[10px] text-slate-500 tracking-widest font-mono">OFFLINE / NO SIGNAL</span>
+                          <span className={`text-[10px] ${isOff ? 'text-slate-400' : 'text-slate-500'} tracking-widest font-mono`}>
+                            {isOff ? "POWERED OFF" : "OFFLINE / NO SIGNAL"}
+                          </span>
                         </div>
                       </div>
                     );
@@ -439,10 +636,10 @@ export default function Dashboard() {
                             <div className="relative">
                               <div className="flex justify-between text-[10px] text-cyan-600 font-bold mb-1">
                                 <span className="flex items-center gap-1"><Thermometer size={10} /> TEMP</span>
-                                <span className={srv.temperature > 50 ? 'text-red-400' : srv.temperature > 40 ? 'text-yellow-400' : 'text-white'}>{(srv.temperature || 0).toFixed(1)}°C</span>
+                                <span className={(srv.temperature || 0) > 55 ? 'text-red-400' : (srv.temperature || 0) > 45 ? 'text-yellow-400' : 'text-white'}>{(srv.temperature || 0).toFixed(1)}°C</span>
                               </div>
                               <div className="h-1 w-full bg-[#0a1e3f] overflow-hidden">
-                                <div className={`h-full ${srv.temperature > 50 ? 'bg-red-500' : srv.temperature > 40 ? 'bg-yellow-400' : 'bg-blue-400'}`} style={{ width: `${((srv.temperature || 0) / 100) * 100}%` }}></div>
+                                <div className={`h-full ${(srv.temperature || 0) > 55 ? 'bg-red-500' : (srv.temperature || 0) > 45 ? 'bg-yellow-400' : 'bg-blue-400'}`} style={{ width: `${((srv.temperature || 0) / 100) * 100}%` }}></div>
                               </div>
                             </div>
                           </>
@@ -458,21 +655,37 @@ export default function Dashboard() {
 
         {/* Right Column (Alarms & Details) */}
         <div className="col-span-3 flex flex-col gap-6">
-          <TechPanel title={t.cpuByNode} className="h-[300px]">
+          <TechPanel title={t.cpuByNode} className="h-[400px]">
             <ClientOnlyChart placeholderClassName="h-full w-full min-h-[200px]">
-            <div className="h-full w-full min-h-[200px]">
-            <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1} initialDimension={{ width: 100, height: 200 }}>
-              <BarChart data={activeStoreData} layout="vertical" margin={{ top: 0, right: 20, left: 10, bottom: 0 }}>
-                <XAxis type="number" domain={[0, 100]} hide />
-                <YAxis dataKey="server_id" type="category" stroke="#1e3a8a" fontSize={10} width={70} tick={{ fill: '#06b6d4' }} />
-                <RechartsTooltip cursor={{ fill: '#1e3a8a' }} contentStyle={{ backgroundColor: '#020b1a', borderColor: '#06b6d4', color: '#fff' }} />
-                <Bar dataKey="cpu_usage" isAnimationActive={false}>
-                  {activeStoreData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.cpu_usage > 85 ? '#ef4444' : '#06b6d4'} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            <div className="h-full w-full overflow-y-auto pr-1 overflow-x-hidden custom-scrollbar">
+              <div style={{ height: `${Math.max(200, activeStoreData.length * 20)}px` }} className="w-full">
+                <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1} initialDimension={{ width: 100, height: 200 }}>
+                  <BarChart data={activeStoreData} layout="vertical" margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                    <XAxis type="number" domain={[0, 100]} hide />
+                    <YAxis 
+                      dataKey="server_id" 
+                      type="category" 
+                      stroke="#1e3a8a" 
+                      fontSize={9} 
+                      width={75} 
+                      tick={{ fill: '#06b6d4' }} 
+                      interval={0}
+                    />
+                    <RechartsTooltip cursor={{ fill: '#1e3a8a' }} contentStyle={{ backgroundColor: '#020b1a', borderColor: '#06b6d4', color: '#fff' }} />
+                    <Bar dataKey="cpu_usage" isAnimationActive={false} barSize={12}>
+                      {activeStoreData.map((entry, index) => {
+                        const isOff = entry.power_state === 'off';
+                        return (
+                          <Cell 
+                            key={`cell-${index}`} 
+                            fill={isOff ? '#64748b' : (entry.cpu_usage > 85 ? '#ef4444' : '#06b6d4')} 
+                          />
+                        );
+                      })}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </div>
             </ClientOnlyChart>
           </TechPanel>
@@ -480,51 +693,96 @@ export default function Dashboard() {
           <TechPanel title={t.alarms} className="flex-1">
             <div className="h-full overflow-y-auto pr-2 space-y-2 custom-scrollbar">
               {(() => {
-                const criticalDevices = allGridItems.filter(item => {
-                  const srv = telemetryById.get(item.name);
-                  return getDeviceStatus(item, srv) === 'critical';
+                const alertDevices = allGridItems.filter(item => {
+                  const srv =
+                    telemetryById.get(item.assetId || item.name) || telemetryById.get(item.name);
+                  const status = getDeviceStatus(item, srv);
+                  return status === 'critical' || status === 'warning';
                 });
 
-                if (criticalDevices.length === 0) {
+                if (alertDevices.length === 0) {
                   return <div className="text-xs text-cyan-800 font-mono text-center mt-10 uppercase tracking-widest">{t.noAlarms}</div>;
                 }
 
-                return criticalDevices.map(item => {
-                  const srv = telemetryById.get(item.name);
+                return alertDevices.map(item => {
+                  const srv =
+                    telemetryById.get(item.assetId || item.name) || telemetryById.get(item.name);
                   if (!srv) return null;
 
+                  const status = getDeviceStatus(item, srv);
                   const traffic = srv.traffic_gbps || 0;
                   const ports = srv.ports_active || 0;
                   const cpu = srv.cpu_usage || 0;
                   const temp = srv.temperature || 0;
 
+                  const isWarn = status === 'warning';
+                  const bgClass = isWarn ? "bg-yellow-950/40 border-yellow-900" : "bg-red-950/40 border-red-900";
+                  const barClass = isWarn ? "bg-yellow-500" : "bg-red-500";
+                  const iconClass = isWarn ? "text-yellow-500" : "text-red-500";
+                  const titleClass = isWarn ? "text-yellow-400" : "text-red-400";
+                  const textClass = isWarn ? "text-yellow-200/60" : "text-red-200/60";
+                  const timeClass = isWarn ? "text-yellow-900" : "text-red-900";
+                  const stateTitle = isWarn ? "WARNING STATE" : "CRITICAL STATE";
+
                   return (
-                    <div key={`alarm-${item.name}`} className="bg-red-950/40 border border-red-900 p-3 rounded-none flex gap-3 items-start relative overflow-hidden group">
-                      <div className="absolute left-0 top-0 bottom-0 w-1 bg-red-500"></div>
-                      <AlertTriangle className="text-red-500 shrink-0" size={16} />
+                    <div key={`alarm-${item.name}`} className={`${bgClass} border p-3 rounded-none flex gap-3 items-start relative overflow-hidden group`}>
+                      <div className={`absolute left-0 top-0 bottom-0 w-1 ${barClass}`}></div>
+                      <AlertTriangle className={`${iconClass} shrink-0`} size={16} />
                       <div className="flex-1">
-                        <div className="text-red-400 text-xs font-bold font-mono">[{item.name}] CRITICAL STATE</div>
-                        <div className="text-red-200/60 text-[10px] mt-1 space-y-1">
+                        <div className={`${titleClass} text-xs font-bold font-mono`}>[{item.name}] {stateTitle}</div>
+                        <div className={`${textClass} text-[10px] mt-1 space-y-1`}>
                           {item.type === 'switch' ? (
                             <>
-                              {traffic > 35 && <div>- Network Congestion ({traffic.toFixed(1)} Gbps)</div>}
-                              {ports > 42 && <div>- Port Saturation ({ports}/48)</div>}
-                              {cpu > 85 && <div>- Mgmt CPU Critical ({cpu.toFixed(0)}%)</div>}
-                              {temp > 55 && <div>- Chassis Overheat ({temp.toFixed(0)}°C)</div>}
+                              {traffic > 25 && <div>- Network Congestion ({traffic.toFixed(1)} Gbps)</div>}
+                              {ports > 35 && <div>- Port Saturation ({ports}/48)</div>}
+                              {cpu > 60 && <div>- Mgmt CPU Output ({cpu.toFixed(0)}%)</div>}
+                              {temp > 45 && <div>- Chassis Heat ({temp.toFixed(0)}°C)</div>}
                             </>
                           ) : (
                             <>
-                              {cpu > 85 && <div>- Processor Overload ({cpu.toFixed(1)}%)</div>}
-                              {temp > 55 && <div>- High Core Temperature ({temp.toFixed(1)}°C)</div>}
+                              {cpu > 60 && <div>- Processor Load ({cpu.toFixed(1)}%)</div>}
+                              {temp > 45 && <div>- Core Temperature ({temp.toFixed(1)}°C)</div>}
                             </>
                           )}
                         </div>
-                        <div className="text-red-900 text-[9px] mt-2 text-right">{new Date(srv.timestamp).toLocaleTimeString()}</div>
+                        <div className={`${timeClass} text-[9px] mt-2 text-right`}>{new Date(srv.timestamp).toLocaleTimeString()}</div>
                       </div>
                     </div>
                   );
                 });
               })()}
+            </div>
+          </TechPanel>
+
+          {/* Health Distribution moved here */}
+          <TechPanel title={t.health} className="flex-1 min-h-[160px]">
+            <div className="h-[140px] w-full relative flex items-center justify-center">
+              <ClientOnlyChart placeholderClassName="h-[140px] w-[160px]">
+              <ResponsiveContainer width={160} height={140} initialDimension={{ width: 160, height: 140 }}>
+                <PieChart>
+                  <Pie
+                    data={pieData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={50}
+                    outerRadius={65}
+                    paddingAngle={5}
+                    dataKey="value"
+                    isAnimationActive={false}
+                  >
+                    {pieData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <RechartsTooltip contentStyle={{ backgroundColor: '#020b1a', borderColor: '#1e3a8a', color: '#fff' }} />
+                </PieChart>
+              </ResponsiveContainer>
+              </ClientOnlyChart>
+              {/* 中間文字 */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-1">
+                <span className="text-2xl font-black text-white leading-none">{totalServers}</span>
+                <span className="text-[8px] text-cyan-600 font-bold uppercase tracking-widest">Total</span>
+              </div>
             </div>
           </TechPanel>
         </div>

@@ -1,8 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Power, Fan, Settings2, SlidersHorizontal, RefreshCcw, X, Cpu, Network, ShieldCheck, DatabaseZap } from "lucide-react";
 import { useLanguage } from "@/shared/i18n/language";
+import { useDcimStore } from "@/store/useDcimStore";
+import { apiUrl } from "@/shared/api";
+import { useSSE } from "@/shared/hooks/useSSE";
+
+type ServerTelemetry = {
+  server_id: string;
+  power_state?: "on" | "off";
+  fan_speed?: number;
+};
 
 const TechPanel = ({ title, children, className = "" }: { title: string, children: React.ReactNode, className?: string }) => (
   <div className={`relative bg-[#020b1a] border border-[#1e3a8a] flex flex-col ${className}`}>
@@ -23,6 +32,14 @@ const TechPanel = ({ title, children, className = "" }: { title: string, childre
 );
 
 export default function ControlPage() {
+  const store = useDcimStore();
+  const allGridItems = useMemo(() =>
+    store.racks
+      .filter(r => r.locationId === store.currentLocationId)
+      .flatMap(r => r.servers.map(s => ({ ...s, rackName: r.name, rackType: r.type }))),
+    [store.racks, store.currentLocationId]
+  );
+
   const { language } = useLanguage();
   const t = language === "en"
     ? {
@@ -41,34 +58,90 @@ export default function ControlPage() {
       rebooting: "重啟中...",
       configure: "設定",
     };
-  const [machines, setMachines] = useState(
-    Array.from({ length: 6 }).map((_, i) => ({
-      id: `SERVER-${String(i+1).padStart(3, '0')}`,
-      powerOn: true,
-      fanSpeed: 60,
-      targetTemp: 22,
-      isRebooting: false,
-    }))
-  );
+
+  const [machines, setMachines] = useState<{id: string, powerOn: boolean, fanSpeed: number, targetTemp: number, isRebooting: boolean}[]>([]);
+
+  // Listen to real-time power state changes from the telemetry stream
+  useSSE({
+    onUpdate: (metricsMap: Record<string, any>) => {
+      setMachines(prev => prev.map(m => {
+        const telemetry = metricsMap[m.id];
+        if (telemetry && telemetry.power_state) {
+          return { ...m, powerOn: telemetry.power_state === "on" };
+        }
+        return m;
+      }));
+    }
+  });
+
+  useEffect(() => {
+    setMachines(prev => {
+      const existingIds = new Set(prev.map(m => m.id));
+      const currentIds = new Set(allGridItems.map(i => i.name));
+      const newMachines = allGridItems
+        .filter(item => !existingIds.has(item.name))
+        .map(item => ({
+          id: item.name,
+          powerOn: false, // 預設關閉，直到收到遙測更新
+          fanSpeed: 60,
+          targetTemp: 22,
+          isRebooting: false,
+        }));
+      
+      const filteredPrev = prev.filter(m => currentIds.has(m.id));
+      
+      if (newMachines.length === 0 && filteredPrev.length === prev.length) {
+        return prev;
+      }
+      
+      return [...filteredPrev, ...newMachines].sort((a, b) => a.id.localeCompare(b.id));
+    });
+  }, [allGridItems]);
 
   const [configuringMachine, setConfiguringMachine] = useState<string | null>(null);
 
-  const togglePower = (id: string) => {
-    setMachines(prev => prev.map(m => m.id === id ? { ...m, powerOn: !m.powerOn } : m));
+  const togglePower = async (id: string) => {
+    const machine = machines.find((m) => m.id === id);
+    if (!machine) return;
+    const currentPower = machine.powerOn;
+
+    setMachines((prev) => prev.map((m) => (m.id === id ? { ...m, isRebooting: true } : m)));
+
+    try {
+      const targetAction = currentPower ? "off" : "on";
+      await fetch(apiUrl(`/api/control/${id}/power`), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: targetAction }),
+      });
+      setMachines((prev) =>
+        prev.map((m) => (m.id === id ? { ...m, powerOn: !currentPower, isRebooting: false } : m))
+      );
+    } catch (err) {
+      alert("Hardware control error: Server unreachable");
+      setMachines((prev) => prev.map((m) => (m.id === id ? { ...m, isRebooting: false } : m)));
+    }
   };
 
   const changeFanSpeed = (id: string, val: number) => {
-    setMachines(prev => prev.map(m => m.id === id ? { ...m, fanSpeed: val } : m));
+    setMachines((prev) => prev.map((m) => (m.id === id ? { ...m, fanSpeed: val } : m)));
   };
 
-  const rebootMachine = (id: string) => {
-    setMachines(prev => prev.map(m => m.id === id ? { ...m, isRebooting: true, powerOn: false } : m));
-    setTimeout(() => {
-      setMachines(prev => prev.map(m => m.id === id ? { ...m, powerOn: true } : m));
-      setTimeout(() => {
-        setMachines(prev => prev.map(m => m.id === id ? { ...m, isRebooting: false } : m));
-      }, 500);
-    }, 2500);
+  const rebootMachine = async (id: string) => {
+    setMachines((prev) => prev.map((m) => (m.id === id ? { ...m, isRebooting: true } : m)));
+    try {
+      await fetch(apiUrl(`/api/control/${id}/power`), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reboot" }),
+      });
+      setMachines((prev) =>
+        prev.map((m) => (m.id === id ? { ...m, powerOn: true, isRebooting: false } : m))
+      );
+    } catch (err) {
+      alert("Hardware reboot error: Server unreachable");
+      setMachines((prev) => prev.map((m) => (m.id === id ? { ...m, isRebooting: false } : m)));
+    }
   };
 
   return (

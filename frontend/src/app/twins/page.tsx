@@ -7,12 +7,51 @@ import RoomContext from "@/components/3d/RoomContext";
 import RackModel from "@/components/3d/RackModel";
 import EquipmentModel from "@/components/3d/EquipmentModel";
 import NetworkLines from "@/components/3d/NetworkLines";
+import CoolantFlow from "@/components/3d/CoolantFlow";
 import { apiUrl } from "@/shared/api";
-import { Activity, Download, Upload, Server, Trash, Save, Edit, Lock, Thermometer, Zap, Box, MonitorIcon, Globe, Link2 } from "lucide-react";
+import { Activity, Download, Upload, Server, Trash, Save, Edit, Lock, Thermometer, Zap, Box, MonitorIcon, Globe, Link2, Droplets } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
 import { useLanguage } from "@/shared/i18n/language";
+import { usePolling } from "@/shared/hooks/usePolling";
 
 export default function TwinsPage() {
+    const normalizeNodeId = (value: string): string => {
+        const raw = (value || "").trim().toUpperCase().replace(/\s+/g, "").replace(/_/g, "-");
+        const m = raw.match(/^(SERVER|SW|IMM|CDU)-?(\d+)$/);
+        if (!m) return raw;
+        return `${m[1]}-${String(Number(m[2])).padStart(3, "0")}`;
+    };
+
+    const buildTelemetryKeys = (payload: any): string[] => {
+        const keys = new Set<string>();
+        const idCandidates = [payload?.asset_id, payload?.server_id, payload?.node_id, payload?.device_id]
+            .filter((v) => typeof v === "string") as string[];
+        for (const id of idCandidates) {
+            keys.add(id);
+            keys.add(normalizeNodeId(id));
+        }
+        return Array.from(keys);
+    };
+
+    useEffect(() => {
+        // three.js r183 emits this deprecation warning from internals; silence only this one in dev.
+        if (process.env.NODE_ENV !== "development") return;
+        const originalWarn = console.warn;
+        console.warn = (...args: unknown[]) => {
+            const first = args[0];
+            if (
+                typeof first === "string" &&
+                first.includes("THREE.THREE.Clock: This module has been deprecated. Please use THREE.Timer instead.")
+            ) {
+                return;
+            }
+            originalWarn(...args);
+        };
+        return () => {
+            console.warn = originalWarn;
+        };
+    }, []);
+
     const { language } = useLanguage();
     const t = language === "en"
         ? {
@@ -99,23 +138,63 @@ export default function TwinsPage() {
         }
     }, [store.selectedRackId]);
 
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const res = await fetch(apiUrl("/metrics"), { cache: "no-store" });
-                if (!res.ok) return;
-                const json = await res.json();
-                const tMap: Record<string, any> = {};
-                (json.data || []).forEach((d: any) => {
-                    tMap[d.server_id] = d;
+    usePolling(async () => {
+        try {
+            const res = await fetch(apiUrl("/metrics"), { cache: "no-store" });
+            if (!res.ok) return;
+            const json = await res.json();
+            const tMap: Record<string, any> = {};
+            (json.data || []).forEach((d: any) => {
+                buildTelemetryKeys(d).forEach((key) => {
+                    tMap[key] = d;
                 });
-                setTelemetry(tMap);
-            } catch (e) { }
+            });
+            setTelemetry(tMap);
+        } catch (e) { }
+    }, { intervalMs: 5000, immediate: true });
+
+    useEffect(() => {
+        const syncTargets = async () => {
+            try {
+                const modeRes = await fetch(apiUrl("/api/system/mode"), { cache: "no-store" });
+                if (!modeRes.ok) return;
+                const modeJson = await modeRes.json();
+                if (modeJson.mode !== "simulation") return;
+
+                const servers = store.racks
+                    .filter((r) => r.locationId === store.currentLocationId)
+                    .flatMap((r) => r.servers);
+                const targets = Array.from(new Set([
+                    ...servers.map((s) => normalizeNodeId(s.assetId || s.name)),
+                    ...store.equipments
+                        .filter((e) => e.locationId === store.currentLocationId)
+                        .map((e) => normalizeNodeId(e.name)),
+                ]));
+                if (targets.length === 0) return;
+
+                const bindingItems = servers.map((s) => ({
+                    asset_id: normalizeNodeId(s.assetId || s.name),
+                    display_name: normalizeNodeId(s.name),
+                }));
+                if (bindingItems.length > 0) {
+                    await fetch(apiUrl("/api/system/id_bindings/bulk_bind"), {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ items: bindingItems }),
+                    });
+                }
+
+                await fetch(apiUrl("/api/system/simulate_targets"), {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ targets }),
+                });
+            } catch {
+                // best effort only
+            }
         };
-        fetchData();
-        const interval = setInterval(fetchData, 5000);
-        return () => clearInterval(interval);
-    }, []);
+        syncTargets();
+    }, [store.racks, store.equipments, store.currentLocationId]);
 
     const handleExport = () => {
         const json = store.exportState();
@@ -178,38 +257,44 @@ export default function TwinsPage() {
 
                 {store.isEditMode && (
                     <div className="flex flex-col gap-3 mt-2 pt-4 border-t border-cyan-900/50 w-full items-center">
-                        <button onClick={() => store.addRack([Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)])} className="p-3 bg-[#020b1a] rounded-xl text-slate-400 hover:text-cyan-400 hover:bg-[#0a1e3f] transition" title="Add RACK">
+                        <button onClick={() => store.addRack([Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)])} className="p-3 bg-[#020b1a] rounded-xl text-indigo-400 hover:text-indigo-300 hover:bg-[#0a1e3f] transition" title="Add RACK">
                             <Server size={24} />
                         </button>
-                        <button onClick={() => store.addEquipment('crac', [Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)])} className="p-3 bg-[#020b1a] rounded-xl text-slate-400 hover:text-cyan-400 hover:bg-[#0a1e3f] transition" title="Add CRAC (Cooling)">
+                        <button onClick={() => store.addEquipment('crac', [Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)])} className="p-3 bg-[#020b1a] rounded-xl text-teal-400 hover:text-teal-300 hover:bg-[#0a1e3f] transition" title="Add CRAC (Cooling)">
                             <Thermometer size={24} />
                         </button>
-                        <button onClick={() => store.addEquipment('pdu', [Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)])} className="p-3 bg-[#020b1a] rounded-xl text-slate-400 hover:text-cyan-400 hover:bg-[#0a1e3f] transition" title="Add PDU (Power)">
+                        <button onClick={() => store.addEquipment('pdu', [Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)])} className="p-3 bg-[#020b1a] rounded-xl text-orange-400 hover:text-orange-300 hover:bg-[#0a1e3f] transition" title="Add PDU (Power)">
                             <Zap size={24} />
                         </button>
-                        <button onClick={() => store.addEquipment('cdu', [Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)])} className="p-3 bg-[#020b1a] rounded-xl text-slate-400 hover:text-cyan-400 hover:bg-[#0a1e3f] transition" title="Add CDU (Liquid Cooling)">
+                        <button onClick={() => store.addEquipment('cdu', [Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)])} className="p-3 bg-[#020b1a] rounded-xl text-cyan-300 hover:text-cyan-200 hover:bg-[#0a1e3f] transition" title="Add CDU (Liquid Cooling)">
                             <Box size={24} />
                         </button>
-                        <button onClick={() => store.addEquipment('ups', [Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)])} className="p-3 bg-[#020b1a] rounded-xl text-slate-400 hover:text-cyan-400 hover:bg-[#0a1e3f] transition" title="Add UPS (Power Backup)">
-                            <Zap size={24} className="text-yellow-500" />
+                        <button onClick={() => store.addEquipment('ups', [Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)])} className="p-3 bg-[#020b1a] rounded-xl text-yellow-500 hover:text-yellow-400 hover:bg-[#0a1e3f] transition" title="Add UPS (Power Backup)">
+                            <Zap size={24} />
                         </button>
-                        <button onClick={() => store.addEquipment('chiller', [Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)])} className="p-3 bg-[#020b1a] rounded-xl text-slate-400 hover:text-cyan-400 hover:bg-[#0a1e3f] transition" title="Add Chiller (Water Cooling)">
-                            <Activity size={24} className="text-blue-500" />
+                        <button onClick={() => store.addEquipment('chiller', [Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)])} className="p-3 bg-[#020b1a] rounded-xl text-blue-500 hover:text-blue-400 hover:bg-[#0a1e3f] transition" title="Add Chiller (Water Cooling)">
+                            <Activity size={24} />
                         </button>
-                        <button onClick={() => store.addEquipment('dashboard', [Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)])} className="p-3 bg-[#020b1a] rounded-xl text-slate-400 hover:text-cyan-400 hover:bg-[#0a1e3f] transition" title="Add Dashboard PC">
-                            <MonitorIcon size={24} className="text-emerald-500" />
+                        <button onClick={() => store.addEquipment('dashboard', [Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)])} className="p-3 bg-[#020b1a] rounded-xl text-emerald-500 hover:text-emerald-400 hover:bg-[#0a1e3f] transition" title="Add Dashboard PC">
+                            <MonitorIcon size={24} />
                         </button>
-                        <button onClick={() => store.addRack([Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)], 'network')} className="p-3 bg-[#020b1a] rounded-xl text-slate-400 hover:text-cyan-400 hover:bg-[#0a1e3f] transition" title="Add Network Rack (Switch)">
-                            <Globe size={24} className="text-purple-500" />
+                        <button onClick={() => store.addRack([Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)], 'network')} className="p-3 bg-[#020b1a] rounded-xl text-purple-500 hover:text-purple-400 hover:bg-[#0a1e3f] transition" title="Add Network Rack (Switch)">
+                            <Globe size={24} />
+                        </button>
+                        <button onClick={() => store.addRack([Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)], 'immersion_single')} className="p-3 bg-[#020b1a] rounded-xl text-sky-400 hover:text-sky-300 hover:bg-[#0a1e3f] transition" title="Add Single-Phase Immersion Tank (單相浸沒式)">
+                            <Droplets size={24} />
+                        </button>
+                        <button onClick={() => store.addRack([Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)], 'immersion_dual')} className="p-3 bg-[#020b1a] rounded-xl text-violet-400 hover:text-violet-300 hover:bg-[#0a1e3f] transition" title="Add Dual-Phase Immersion Tank (雙相浸沒式)">
+                            <Droplets size={24} />
                         </button>
                     </div>
                 )}
 
-                <div className="flex-1"></div>
-                <button onClick={handleExport} className="p-3 text-slate-400 hover:text-cyan-400 transition" title="Export Layout">
+                <div className="w-full border-t border-cyan-900/50 my-2"></div>
+                <button onClick={handleExport} className="p-3 text-emerald-400 hover:text-emerald-300 hover:bg-[#0a1e3f] rounded-xl transition" title="Export Layout">
                     <Download size={24} />
                 </button>
-                <button onClick={() => fileInputRef.current?.click()} className="p-3 text-slate-400 hover:text-cyan-400 transition" title="Import Layout">
+                <button onClick={() => fileInputRef.current?.click()} className="p-3 text-pink-400 hover:text-pink-300 hover:bg-[#0a1e3f] rounded-xl transition" title="Import Layout">
                     <Upload size={24} />
                 </button>
             </div>
@@ -217,15 +302,15 @@ export default function TwinsPage() {
             {/* 中央 3D 視窗 */}
             <div className="flex-1 relative overflow-hidden min-w-0 min-h-0">
                 {/* HUD Overlay */}
-                <div className="absolute top-4 left-2 z-10 pointer-events-none">
-                    <h1 className="-ml-8 text-2xl font-black italic tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 drop-shadow-[0_0_8px_rgba(6,182,212,0.8)] flex items-center gap-3">
+                <div className="absolute top-4 left-4 z-10 pointer-events-none">
+                    <h1 className="text-2xl font-black italic tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 drop-shadow-[0_0_8px_rgba(6,182,212,0.8)] flex items-center gap-3">
                         <Server /> {t.title}
                         <span className="text-white/20 mx-2 text-sm">|</span>
                         <span className="text-cyan-200 text-lg not-italic tracking-normal">
                             {store.locations.find(l => l.id === store.currentLocationId)?.name || t.unknownSite}
                         </span>
                     </h1>
-                    <p className="ml-2 text-xs text-cyan-700 font-mono mt-1 uppercase">
+                    <p className="text-xs text-cyan-700 font-mono mt-1 uppercase">
                         {t.realtime} • {store.locations.find(l => l.id === store.currentLocationId)?.type === 'region' ? t.regionView : t.floorView}
                     </p>
                 </div>
@@ -257,9 +342,146 @@ export default function TwinsPage() {
                         <EquipmentModel key={eq.id} data={eq} telemetry={telemetry} />
                     ))}
                     <NetworkLines />
+                    {/* Coolant flow particle streams: CDU ↔ Server Racks */}
+                    {store.equipments
+                        .filter(eq => eq.locationId === store.currentLocationId && eq.type === 'cdu')
+                        .flatMap(cdu => {
+                            const cduPos: [number, number, number] = [cdu.position[0], 0, cdu.position[2]];
+                            const cduTelem = (telemetry as any)[cdu.name];
+                            const flowRate = cduTelem?.flow_rate_lpm ?? 8.0;
+
+                            // Use manually configured racks if set, else auto-find 3 nearest
+                            const allServerRacks = store.racks.filter(
+                                r =>
+                                    r.locationId === store.currentLocationId &&
+                                    (r.type === 'server' || r.type === 'immersion_single' || r.type === 'immersion_dual')
+                            );
+                            const targetRacks = cdu.connectedRackIds && cdu.connectedRackIds.length > 0
+                                ? allServerRacks.filter(r => cdu.connectedRackIds!.includes(r.id))
+                                : allServerRacks
+                                    .map(r => ({ rack: r, dist: Math.hypot(r.position[0] - cdu.position[0], r.position[2] - cdu.position[2]) }))
+                                    .sort((a, b) => a.dist - b.dist)
+                                    .slice(0, 3)
+                                    .map(x => x.rack);
+
+                            return targetRacks.flatMap(rack => {
+                                const rackPos: [number, number, number] = [rack.position[0], 0, rack.position[2]];
+                                return [
+                                    <CoolantFlow key={`supply-${cdu.id}-${rack.id}`} from={cduPos} to={rackPos} type="supply" flowRate={flowRate} />,
+                                    <CoolantFlow key={`return-${rack.id}-${cdu.id}`} from={rackPos} to={cduPos} type="return" flowRate={flowRate} />,
+                                ];
+                            });
+                        })
+                    }
                     <OrbitControls makeDefault minPolarAngle={0} maxPolarAngle={Math.PI / 2 - 0.05} />
                 </Canvas>
             </div>
+
+            {/* 右側屬性面板 (Room) */}
+            {store.isEditMode && !selectedRack && !selectedEquipment && (
+                <div className="w-80 bg-[#020b1a] border-l border-[#1e3a8a] flex flex-col z-10 shadow-[-2px_0_15px_rgba(6,182,212,0.1)]">
+                    <div className="p-4 border-b border-[#1e3a8a] flex justify-between items-center bg-gradient-to-r from-transparent to-[#0a1e3f]">
+                        <h2 className="text-cyan-400 font-bold tracking-widest uppercase text-xs">Room Settings</h2>
+                    </div>
+                    <div className="p-4 flex flex-col gap-6 overflow-y-auto flex-1">
+                        <div className="bg-[#03112b] p-4 rounded-lg border border-slate-800">
+                            <label className="text-[10px] text-slate-500 uppercase tracking-[0.2em] mb-2 block">Room Name</label>
+                            <input
+                                type="text"
+                                value={store.locations.find(l => l.id === store.currentLocationId)?.name || ''}
+                                onChange={(e) => store.updateLocationName(store.currentLocationId, e.target.value)}
+                                className="w-full bg-[#010613] border border-cyan-900/30 p-2 rounded text-cyan-100 text-sm outline-none focus:border-cyan-400 transition-colors mb-4"
+                            />
+                            
+                            <div className="grid grid-cols-2 gap-4 mb-4">
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="text-[10px] text-slate-500 uppercase tracking-[0.2em] mb-2 block font-bold text-blue-400">West Wall (-X)</label>
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="number" step="0.6"
+                                                value={store.locations.find(l => l.id === store.currentLocationId)?.xMin ?? -10}
+                                                onChange={(e) => store.updateLocationProps(store.currentLocationId, { xMin: Number(e.target.value) })}
+                                                className="w-full bg-[#010613] border border-cyan-900/30 p-2 rounded text-cyan-100 text-sm outline-none focus:border-cyan-400 transition-colors"
+                                            />
+                                            <span className="text-[10px] text-slate-600">m</span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] text-slate-500 uppercase tracking-[0.2em] mb-2 block font-bold text-blue-400">East Wall (+X)</label>
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="number" step="0.6"
+                                                value={store.locations.find(l => l.id === store.currentLocationId)?.xMax ?? 10}
+                                                onChange={(e) => store.updateLocationProps(store.currentLocationId, { xMax: Number(e.target.value) })}
+                                                className="w-full bg-[#010613] border border-cyan-900/30 p-2 rounded text-cyan-100 text-sm outline-none focus:border-cyan-400 transition-colors"
+                                            />
+                                            <span className="text-[10px] text-slate-600">m</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="text-[10px] text-slate-500 uppercase tracking-[0.2em] mb-2 block font-bold text-emerald-400">North Wall (-Z)</label>
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="number" step="0.6"
+                                                value={store.locations.find(l => l.id === store.currentLocationId)?.zMin ?? -7.5}
+                                                onChange={(e) => store.updateLocationProps(store.currentLocationId, { zMin: Number(e.target.value) })}
+                                                className="w-full bg-[#010613] border border-cyan-900/30 p-2 rounded text-cyan-100 text-sm outline-none focus:border-cyan-400 transition-colors"
+                                            />
+                                            <span className="text-[10px] text-slate-600">m</span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] text-slate-500 uppercase tracking-[0.2em] mb-2 block font-bold text-emerald-400">South Wall (+Z)</label>
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="number" step="0.6"
+                                                value={store.locations.find(l => l.id === store.currentLocationId)?.zMax ?? 7.5}
+                                                onChange={(e) => store.updateLocationProps(store.currentLocationId, { zMax: Number(e.target.value) })}
+                                                className="w-full bg-[#010613] border border-cyan-900/30 p-2 rounded text-cyan-100 text-sm outline-none focus:border-cyan-400 transition-colors"
+                                            />
+                                            <span className="text-[10px] text-slate-600">m</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <label className="text-[10px] text-slate-500 uppercase tracking-[0.2em] mb-2 block">Door Position</label>
+                            <select
+                                value={store.locations.find(l => l.id === store.currentLocationId)?.doorPosition || 'right'}
+                                onChange={(e) => store.updateLocationProps(store.currentLocationId, { doorPosition: e.target.value as any })}
+                                className="w-full bg-[#010613] border border-cyan-900/30 p-2 rounded text-cyan-100 text-sm outline-none focus:border-cyan-400 transition-colors"
+                            >
+                                <option value="back">Back Wall (-Z)</option>
+                                <option value="left">Left Wall (-X)</option>
+                                <option value="right">Right Wall (+X)</option>
+                            </select>
+                        </div>
+                        
+                        <div className="mt-8 pt-4">
+                            <button
+                                onClick={() => {
+                                    if (store.locations.length <= 1) {
+                                        alert("❌ 無法刪除！必須至少保留一個機房！");
+                                        return;
+                                    }
+                                    const pwd = window.prompt("⚠️ 警告：這將會永久刪除此機房與內含的所有設備！\\n請輸入管理員密碼(admin)以確認：");
+                                    if (pwd === "admin") {
+                                        store.removeLocation(store.currentLocationId);
+                                    } else if (pwd !== null) {
+                                        alert("❌ 密碼錯誤！刪除已取消。");
+                                    }
+                                }}
+                                className="w-full bg-red-950/30 hover:bg-red-900 border border-red-900/50 text-red-500 hover:text-white font-bold tracking-widest p-3 rounded-lg transition-colors flex items-center justify-center gap-2"
+                            >
+                                <Trash size={16} /> Delete Room
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* 右側屬性面板 (Rack) */}
             {selectedRack && (
@@ -281,6 +503,21 @@ export default function TwinsPage() {
                                 onChange={(e) => store.updateRackName(selectedRack.id, e.target.value)}
                                 className="w-full bg-[#010613] border border-cyan-900/30 p-2 rounded text-cyan-100 text-sm outline-none focus:border-cyan-400 transition-colors"
                             />
+
+                            {/* 旋轉控制 */}
+                            {store.isEditMode && (
+                                <div className="mt-4 border-t border-slate-800/50 pt-3">
+                                    <label className="text-[10px] text-slate-500 uppercase tracking-[0.2em] mb-2 block">Direction Control</label>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => store.updateRackRotation(selectedRack.id, [0, selectedRack.rotation[1] + Math.PI / 2, 0])} className="flex-1 bg-[#0a1e3f] hover:bg-cyan-900 border border-cyan-800 text-cyan-400 p-2 rounded transition text-xs font-bold tracking-widest flex items-center justify-center gap-1">
+                                            ↺ 左轉 90°
+                                        </button>
+                                        <button onClick={() => store.updateRackRotation(selectedRack.id, [0, selectedRack.rotation[1] - Math.PI / 2, 0])} className="flex-1 bg-[#0a1e3f] hover:bg-cyan-900 border border-cyan-800 text-cyan-400 p-2 rounded transition text-xs font-bold tracking-widest flex items-center justify-center gap-1">
+                                            ↻ 右轉 90°
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         {/* 機櫃容量與電力 */}
@@ -309,7 +546,7 @@ export default function TwinsPage() {
                         </div>
 
                         {/* Network Uplink Selection */}
-                        {selectedRack.type === 'server' && (
+                        {(selectedRack.type === 'server' || selectedRack.type === 'immersion_single' || selectedRack.type === 'immersion_dual') && (
                             <div className="bg-[#03112b] p-4 rounded-lg border border-purple-900/30">
                                 <div className="flex items-center gap-2 mb-3">
                                     <Link2 size={14} className="text-purple-400" />
@@ -351,9 +588,15 @@ export default function TwinsPage() {
                         <div>
                             <h3 className="text-xs font-bold text-slate-500 mb-3 tracking-widest uppercase border-b border-slate-800 pb-1">{t.installedEquipment}</h3>
                             <div className="flex flex-col gap-2">
-                                {[...selectedRack.servers].sort((a, b) => b.uPosition - a.uPosition).map(server => {
+                                {[...selectedRack.servers].sort((a, b) => b.uPosition - a.uPosition).map((server, idx) => {
                                     let liveStatus = server.status;
-                                    const sTel = telemetry[server.name];
+                                    const sTel =
+                                        telemetry[server.assetId || ""] ||
+                                        telemetry[normalizeNodeId(server.assetId || "")] ||
+                                        telemetry[server.name] ||
+                                        telemetry[normalizeNodeId(server.name)] ||
+                                        telemetry[selectedRack.name] ||
+                                        telemetry[normalizeNodeId(selectedRack.name)];
                                     const metricsText = sTel
                                         ? (server.type === 'switch'
                                             ? `Traffic: ${(sTel.traffic_gbps || (Math.random() * 10)).toFixed(1)} Gbps | Ports: ${Math.floor((sTel.port_usage || Math.random()) * 48)}/48`
@@ -361,7 +604,7 @@ export default function TwinsPage() {
                                         : "";
 
                                     return (
-                                        <div key={server.id} className="flex flex-col gap-2 text-xs bg-[#0a1e3f] p-2 rounded border border-slate-700">
+                                        <div key={`${selectedRack.id}-${server.id}-${idx}`} className="flex flex-col gap-2 text-xs bg-[#0a1e3f] p-2 rounded border border-slate-700">
                                             {editingServerId === server.id && editingDraft ? (
                                                 <div className="flex flex-col gap-2">
                                                     <div className="text-slate-200 font-bold">
@@ -537,7 +780,7 @@ export default function TwinsPage() {
                                     <div className="flex-1">
                                         <label className="text-slate-500 mb-1 block">Start U</label>
                                         <input
-                                            type="number" min="1" max="42"
+                                            type="number" min="1" max={selectedRack.uCapacity}
                                             value={newServer.uPosition}
                                             onChange={(e) => setNewServer({ ...newServer, uPosition: Number(e.target.value) })}
                                             className="w-full bg-[#0a1e3f] border border-cyan-800 p-2 rounded text-white outline-none focus:border-cyan-400"
@@ -546,7 +789,7 @@ export default function TwinsPage() {
                                     <div className="flex-1">
                                         <label className="text-slate-500 mb-1 block">Height (U)</label>
                                         <input
-                                            type="number" min="1" max="42"
+                                            type="number" min="1" max={selectedRack.uCapacity}
                                             value={newServer.uHeight}
                                             onChange={(e) => setNewServer({ ...newServer, uHeight: Number(e.target.value) })}
                                             className="w-full bg-[#0a1e3f] border border-cyan-800 p-2 rounded text-white outline-none focus:border-cyan-400"
@@ -618,6 +861,21 @@ export default function TwinsPage() {
                                 {selectedEquipment.type === 'chiller' && 'Chiller (Ice Water)'}
                                 {selectedEquipment.type === 'dashboard' && 'Dashboard Center'}
                             </div>
+
+                            {/* 旋轉控制 */}
+                            {store.isEditMode && (
+                                <div className="mt-4 border-t border-slate-800/50 pt-3">
+                                    <label className="text-[10px] text-slate-500 uppercase tracking-[0.2em] mb-2 block">Direction Control</label>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => store.updateEquipmentRotation(selectedEquipment.id, [0, selectedEquipment.rotation[1] + Math.PI / 2, 0])} className="flex-1 bg-[#0a1e3f] hover:bg-cyan-900 border border-cyan-800 text-cyan-400 p-2 rounded transition text-xs font-bold tracking-widest flex items-center justify-center gap-1">
+                                            ↺ 左轉 90°
+                                        </button>
+                                        <button onClick={() => store.updateEquipmentRotation(selectedEquipment.id, [0, selectedEquipment.rotation[1] - Math.PI / 2, 0])} className="flex-1 bg-[#0a1e3f] hover:bg-cyan-900 border border-cyan-800 text-cyan-400 p-2 rounded transition text-xs font-bold tracking-widest flex items-center justify-center gap-1">
+                                            ↻ 右轉 90°
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         {selectedEquipment.type === 'dashboard' && (
@@ -656,6 +914,95 @@ export default function TwinsPage() {
                                 </div>
                             </div>
                         )}
+                        {/* CDU: Rack Connection Selector + Live Telemetry */}
+                        {selectedEquipment.type === 'cdu' && (() => {
+                            const cduTelem = (telemetry as any)[selectedEquipment.name];
+                            const serverRacks = store.racks.filter(r => r.locationId === store.currentLocationId && (r.type === 'server' || r.type === 'immersion_single'));
+                            const connectedIds: string[] = selectedEquipment.connectedRackIds ?? [];
+
+                            const toggleRack = (rackId: string) => {
+                                const updated = connectedIds.includes(rackId)
+                                    ? connectedIds.filter(id => id !== rackId)
+                                    : [...connectedIds, rackId];
+                                store.updateEquipmentConnectedRacks(selectedEquipment.id, updated);
+                            };
+
+                            return (
+                                <div className="flex flex-col gap-4">
+                                    {/* Rack Selector */}
+                                    <div className="bg-[#03112b] p-4 rounded-lg border border-cyan-800">
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <Thermometer size={14} className="text-cyan-400" />
+                                            <h3 className="text-xs font-bold text-cyan-400 tracking-widest uppercase">連接機架 (Coolant Pipe)</h3>
+                                        </div>
+                                        <p className="text-[10px] text-slate-500 mb-3">勾選後粒子流將從此 CDU 延伸至指定機架。若無勾選，自動連接最近 3 台。</p>
+                                        <div className="flex flex-col gap-2 max-h-40 overflow-y-auto">
+                                            {serverRacks.length === 0 && (
+                                                <p className="text-slate-600 text-xs">場景中無伺服器機架</p>
+                                            )}
+                                            {serverRacks.map(rack => (
+                                                <label key={rack.id} className="flex items-center gap-2 cursor-pointer group">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={connectedIds.includes(rack.id)}
+                                                        onChange={() => toggleRack(rack.id)}
+                                                        className="accent-cyan-400"
+                                                    />
+                                                    <span className={`text-xs font-mono transition ${connectedIds.includes(rack.id) ? 'text-cyan-300' : 'text-slate-400 group-hover:text-slate-200'}`}>
+                                                        {rack.name}
+                                                    </span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                        {connectedIds.length > 0 && (
+                                            <button
+                                                onClick={() => store.updateEquipmentConnectedRacks(selectedEquipment.id, [])}
+                                                className="mt-3 text-[10px] text-slate-500 hover:text-red-400 transition underline"
+                                            >
+                                                清除 → 恢復自動模式
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {/* Live Liquid Cooling Telemetry */}
+                                    <div className="bg-[#03112b] p-4 rounded-lg border border-blue-900/50">
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <Zap size={14} className="text-blue-400" />
+                                            <h3 className="text-xs font-bold text-blue-400 tracking-widest uppercase">液冷即時數據</h3>
+                                        </div>
+                                        {!cduTelem ? (
+                                            <p className="text-slate-600 text-xs">尚未接收到 {selectedEquipment.name} 的遙測數據。請確認 CDU Agent 已啟動。</p>
+                                        ) : (
+                                            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[11px]">
+                                                {[
+                                                    { label: '進水 Supply', value: cduTelem.inlet_temp !== undefined ? `${cduTelem.inlet_temp}°C` : '---', color: 'text-sky-400' },
+                                                    { label: '回水 Return', value: cduTelem.outlet_temp !== undefined ? `${cduTelem.outlet_temp}°C` : '---', color: cduTelem.outlet_temp > 45 ? 'text-red-400' : 'text-orange-400' },
+                                                    { label: '流量 Flow', value: cduTelem.flow_rate_lpm !== undefined ? `${cduTelem.flow_rate_lpm} LPM` : '---', color: cduTelem.flow_rate_lpm < 5 ? 'text-red-400' : 'text-cyan-400' },
+                                                    { label: '壓力 Pressure', value: cduTelem.pressure_bar !== undefined ? `${cduTelem.pressure_bar} bar` : '---', color: 'text-violet-400' },
+                                                    { label: '幫浦 A', value: cduTelem.pump_a_rpm !== undefined ? `${cduTelem.pump_a_rpm} RPM` : '---', color: 'text-emerald-400' },
+                                                    { label: '幫浦 B', value: cduTelem.pump_b_rpm !== undefined ? `${cduTelem.pump_b_rpm} RPM` : '---', color: 'text-emerald-400' },
+                                                    { label: '液位 Tank', value: cduTelem.reservoir_level !== undefined ? `${cduTelem.reservoir_level}%` : '---', color: cduTelem.reservoir_level < 30 ? 'text-red-400' : 'text-slate-300' },
+                                                    { label: '閥門 Valve', value: cduTelem.valve_position !== undefined ? `${cduTelem.valve_position}%` : '---', color: 'text-slate-300' },
+                                                    { label: '冰水進 CHW↓', value: cduTelem.facility_supply_temp !== undefined ? `${cduTelem.facility_supply_temp}°C` : '---', color: 'text-sky-300' },
+                                                    { label: '冰水回 CHW↑', value: cduTelem.facility_return_temp !== undefined ? `${cduTelem.facility_return_temp}°C` : '---', color: 'text-sky-300' },
+                                                ].map(row => (
+                                                    <div key={row.label} className="flex justify-between gap-1">
+                                                        <span className="text-slate-500">{row.label}</span>
+                                                        <span className={`font-mono font-bold ${row.color}`}>{row.value}</span>
+                                                    </div>
+                                                ))}
+                                                {cduTelem.leak_detected === true && (
+                                                    <div className="col-span-2 mt-1 text-center bg-red-900/40 border border-red-600 rounded p-1 text-red-400 font-bold animate-pulse">
+                                                        ⚠ LEAK DETECTED
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })()}
+
                         <div className="bg-[#03112b] p-4 rounded-lg border border-slate-800 text-xs text-slate-500 font-mono flex flex-col gap-1">
                             <p>X Position: {Math.round(selectedEquipment.position[0] * 100) / 100}m</p>
                             <p>Z Position: {Math.round(selectedEquipment.position[2] * 100) / 100}m</p>

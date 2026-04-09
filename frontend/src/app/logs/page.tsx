@@ -67,13 +67,32 @@ export default function LogsPage() {
             <div className="text-emerald-500 animate-pulse">{t.waiting}</div>
           ) : (
             logs.map((log, i) => {
-              const isAnomaly = log.type === "AI_ANOMALY";
               const date = new Date(log.timestamp);
+              const rowStyle =
+                log.type === "AI_ANOMALY"
+                  ? "text-rose-400 bg-rose-950/20"
+                  : log.type === "HIGH_TEMPERATURE"
+                    ? "text-red-400 bg-red-950/20"
+                    : log.type === "HIGH_TEMPERATURE_WARNING"
+                      ? "text-amber-400 bg-amber-950/15"
+                      : log.type === "TEMPERATURE_NORMAL"
+                        ? "text-emerald-400 bg-emerald-950/20"
+                        : "text-amber-400";
+              const tagStyle =
+                log.type === "AI_ANOMALY"
+                  ? "text-rose-500"
+                  : log.type === "HIGH_TEMPERATURE"
+                    ? "text-red-500"
+                    : log.type === "HIGH_TEMPERATURE_WARNING"
+                      ? "text-amber-500"
+                      : log.type === "TEMPERATURE_NORMAL"
+                        ? "text-emerald-500"
+                        : "text-amber-500";
               return (
-                <div key={i} className={`flex gap-4 p-2 rounded hover:bg-white/5 transition-colors ${isAnomaly ? 'text-rose-400 bg-rose-950/20' : 'text-amber-400'}`}>
+                <div key={i} className={`flex gap-4 p-2 rounded hover:bg-white/5 transition-colors ${rowStyle}`}>
                   <span className="text-slate-500 shrink-0">[{date.toLocaleString('zh-TW', { hour12: false })}]</span>
                   <span className="shrink-0 font-bold w-[120px]">{log.server_id}</span>
-                  <span className={`shrink-0 font-bold w-[160px] ${isAnomaly ? 'text-rose-500' : 'text-amber-500'}`}>[{log.type}]</span>
+                  <span className={`shrink-0 font-bold w-[160px] ${tagStyle}`}>[{log.type}]</span>
                   <span className="flex-1">{log.message}</span>
                 </div>
               );
