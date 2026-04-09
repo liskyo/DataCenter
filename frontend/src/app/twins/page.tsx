@@ -217,15 +217,15 @@ export default function TwinsPage() {
             {/* 中央 3D 視窗 */}
             <div className="flex-1 relative overflow-hidden min-w-0 min-h-0">
                 {/* HUD Overlay */}
-                <div className="absolute top-4 left-4 z-10 pointer-events-none">
-                    <h1 className="text-2xl font-black italic tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 drop-shadow-[0_0_8px_rgba(6,182,212,0.8)] flex items-center gap-3">
+                <div className="absolute top-4 left-2 z-10 pointer-events-none">
+                    <h1 className="-ml-8 text-2xl font-black italic tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 drop-shadow-[0_0_8px_rgba(6,182,212,0.8)] flex items-center gap-3">
                         <Server /> {t.title}
                         <span className="text-white/20 mx-2 text-sm">|</span>
                         <span className="text-cyan-200 text-lg not-italic tracking-normal">
                             {store.locations.find(l => l.id === store.currentLocationId)?.name || t.unknownSite}
                         </span>
                     </h1>
-                    <p className="text-xs text-cyan-700 font-mono mt-1 uppercase">
+                    <p className="ml-2 text-xs text-cyan-700 font-mono mt-1 uppercase">
                         {t.realtime} • {store.locations.find(l => l.id === store.currentLocationId)?.type === 'region' ? t.regionView : t.floorView}
                     </p>
                 </div>
