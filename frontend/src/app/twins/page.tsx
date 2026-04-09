@@ -303,7 +303,7 @@ export default function TwinsPage() {
             <div className="flex-1 relative overflow-hidden min-w-0 min-h-0">
                 {/* HUD Overlay */}
                 <div className="absolute top-4 left-4 z-10 pointer-events-none">
-                    <h1 className="text-2xl font-black italic tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 drop-shadow-[0_0_8px_rgba(6,182,212,0.8)] flex items-center gap-3">
+                    <h1 className="-ml-9 text-2xl font-black italic tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 drop-shadow-[0_0_8px_rgba(6,182,212,0.8)] flex items-center gap-3">
                         <Server /> {t.title}
                         <span className="text-white/20 mx-2 text-sm">|</span>
                         <span className="text-cyan-200 text-lg not-italic tracking-normal">
