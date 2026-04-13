@@ -5,6 +5,8 @@ import * as THREE from 'three';
 import { EquipmentData, useDcimStore } from '@/store/useDcimStore';
 import CDUModel from './CDUModel';
 import { GRID, CRAC, PDU, CHILLER, DASHBOARD } from './sceneScale';
+// 與首頁共用 getDeviceStatus，3D Dashboard 告警數與狀態總覽一致。
+import { getDeviceStatus } from '@/shared/status';
 
 function normalizeNodeId(value: string): string {
     const raw = (value || "").trim().toUpperCase().replace(/\s+/g, "").replace(/_/g, "-");
@@ -56,6 +58,8 @@ export default function EquipmentModel({ data, telemetry }: { data: EquipmentDat
     }, [data.position, data.rotation]);
 
     const racks = useDcimStore(state => state.racks);
+    const equipments = useDcimStore(state => state.equipments);
+    const currentLocationId = useDcimStore(state => state.currentLocationId);
 
     let innerContent;
 
@@ -171,25 +175,42 @@ export default function EquipmentModel({ data, telemetry }: { data: EquipmentDat
             </group>
         );
     } else if (data.type === 'dashboard') {
-        const allServers = racks.flatMap(r => r.servers.map(s => ({ ...s, rackType: r.type })));
+        const locationRacks = racks.filter((r) => r.locationId === currentLocationId);
+        const locationEquipments = equipments.filter((e) => e.locationId === currentLocationId);
+        const rackServers = locationRacks.flatMap((r) =>
+            r.servers.map((s) => ({
+                ...s,
+                assetId: s.assetId || normalizeNodeId(s.name),
+                rackName: r.name,
+                rackType: r.type,
+            })),
+        );
+        const standaloneEquips = locationEquipments.map((e) => ({
+            id: e.id,
+            assetId: normalizeNodeId(e.name),
+            name: e.name,
+            type: e.type,
+            rackName: 'Facility',
+            rackType: 'equipment',
+        }));
+        const allItems = [...rackServers, ...standaloneEquips];
+
+        const uniqueTelemetry = new Map<string, any>();
+        Object.values(telemetry || {}).forEach((s: any) => {
+            const id = s?.asset_id || s?.server_id;
+            if (typeof id === 'string' && id.length > 0) uniqueTelemetry.set(id, s);
+        });
 
         const stats = {
-            traffic: Object.values(telemetry || {}).reduce((acc: number, s: any) => acc + (s.traffic_gbps || 0), 0) as number,
-            alarms: allServers.filter(srvInStore => {
-                const s = pickTelemetry(telemetry, srvInStore.assetId, srvInStore.name);
-                if (!s) return false;
-                const cpu = s.cpu_usage || 0;
-                const temp = s.temperature || 0;
-                const traffic = s.traffic_gbps || 0;
-                const ports = s.ports_active || 0;
-
-                // Unified Critical Thresholds
-                if (srvInStore.type === 'switch' || srvInStore.rackType === 'network') {
-                    return cpu > 85 || temp > 55 || traffic > 35 || ports > 42;
-                } else {
-                    return cpu > 85 || temp > 55;
-                }
-            }).length
+            traffic: allItems.reduce((acc: number, itemInStore: any) => {
+                const s = pickTelemetry(telemetry, itemInStore.assetId, itemInStore.name);
+                return acc + (s?.traffic_gbps || 0);
+            }, 0),
+            alarms: allItems.filter((itemInStore: any) => {
+                const s = pickTelemetry(telemetry, itemInStore.assetId, itemInStore.name);
+                const status = getDeviceStatus(itemInStore, s);
+                return status === 'warning' || status === 'critical';
+            }).length,
         };
 
         const isCriticalHub = stats.alarms > 0;

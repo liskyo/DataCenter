@@ -7,6 +7,7 @@ import { RackData, useDcimStore } from '@/store/useDcimStore';
 import ServerModel from './ServerModel';
 import ImmersionTankModel from './ImmersionTankModel';
 import { U_HEIGHT, RACK_WIDTH, RACK_DEPTH } from './sceneScale';
+import { getDeviceStatus } from '@/shared/status';
 
 function normalizeNodeId(value: string): string {
     const raw = (value || "").trim().toUpperCase().replace(/\s+/g, "").replace(/_/g, "-");
@@ -41,11 +42,12 @@ export default function RackModel({ data, isSelected, telemetry = {} }: { data: 
 
     data.servers.forEach(server => {
         const sTel = pickTelemetry(telemetry, server.assetId, server.name);
-        if (sTel) {
-            // Updated to sync with dashboard thresholds
-            if (sTel.temperature > 55 || sTel.cpu_usage > 85) hasCriticalServer = true;
-            else if (sTel.temperature > 45 || sTel.cpu_usage > 60) hasWarningServer = true;
-        }
+        const status = getDeviceStatus(
+            { type: server.type, rackType: data.type },
+            sTel,
+        );
+        if (status === 'critical') hasCriticalServer = true;
+        else if (status === 'warning') hasWarningServer = true;
     });
 
     let frameColor = "#364152"; // charcoal gray frame
@@ -113,7 +115,7 @@ export default function RackModel({ data, isSelected, telemetry = {} }: { data: 
                 ref={groupRef}
                 onClick={(e) => {
                     e.stopPropagation();
-                    if (isEditMode) selectRack(data.id);
+                    selectRack(data.id);
                 }}
             >
                 {/* Immersion tank delegation */}

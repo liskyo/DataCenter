@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { v4 as uuidv4 } from 'uuid';
+import { normalizeNodeId } from '@/shared/nodeId';
 
 export type ServerData = {
     id: string;
@@ -11,13 +12,6 @@ export type ServerData = {
     powerKw: number;
     type: 'server' | 'switch' | 'storage';
     status: 'normal' | 'warning' | 'critical' | 'offline';
-};
-
-const normalizeNodeId = (value: string): string => {
-    const raw = (value || "").trim().toUpperCase().replace(/\s+/g, "").replace(/_/g, "-");
-    const m = raw.match(/^(SERVER|SW|IMM|CDU)-?(\d+)$/);
-    if (!m) return raw;
-    return `${m[1]}-${String(Number(m[2])).padStart(3, "0")}`;
 };
 
 export type EquipmentType = 'crac' | 'pdu' | 'cdu' | 'ups' | 'chiller' | 'dashboard';
@@ -125,6 +119,84 @@ const normalizeImportedRacks = (rawRacks: any[]): RackData[] => {
     });
 };
 
+/** 新增一般機櫃／浸沒槽時預設建立的伺服器台數（僅 addRack，不影響匯入／還原） */
+const NEW_RACK_DEFAULT_SERVER_COUNT = 10;
+/** 上述預設伺服器每台高度（U） */
+const NEW_RACK_DEFAULT_SERVER_U_HEIGHT = 2;
+
+function uRangeOverlap(aStart: number, aEnd: number, bStart: number, bEnd: number): boolean {
+    return Math.max(aStart, bStart) <= Math.min(aEnd, bEnd);
+}
+
+function slotFreeForU(
+    servers: ServerData[],
+    uPosition: number,
+    uHeight: number,
+    uCapacity: number,
+): boolean {
+    const targetEnd = uPosition + uHeight - 1;
+    if (uPosition < 1 || targetEnd > uCapacity) return false;
+    return !servers.some((s) => {
+        const sEnd = s.uPosition + s.uHeight - 1;
+        return uRangeOverlap(uPosition, targetEnd, s.uPosition, sEnd);
+    });
+}
+
+function allocateUniqueServerName(usedNames: Set<string>): string {
+    for (let n = 1; n < 10000; n++) {
+        const name = `SERVER-${String(n).padStart(3, "0")}`;
+        if (!usedNames.has(name)) {
+            usedNames.add(name);
+            return name;
+        }
+    }
+    const name = `SERVER-${uuidv4().slice(0, 8).toUpperCase()}`;
+    usedNames.add(name);
+    return name;
+}
+
+/**
+ * 僅供「新增機櫃／浸沒槽」：建立預設伺服器清單（名稱與場景既有設備不重複，每台 2U）。
+ * 匯入 JSON、localStorage 還原時不呼叫此函式。
+ */
+function buildDefaultServersForNewRack(
+    existingRacks: RackData[],
+    uCapacity: number,
+    count: number,
+): ServerData[] {
+    const uH = NEW_RACK_DEFAULT_SERVER_U_HEIGHT;
+    const usedNames = new Set<string>();
+    existingRacks.forEach((r) =>
+        r.servers.forEach((s) => {
+            usedNames.add(s.name);
+            if (s.assetId) usedNames.add(s.assetId);
+        }),
+    );
+    const servers: ServerData[] = [];
+    while (servers.length < count) {
+        let placed = false;
+        for (let u = 1; u <= uCapacity; u++) {
+            if (slotFreeForU(servers, u, uH, uCapacity)) {
+                const name = allocateUniqueServerName(usedNames);
+                servers.push({
+                    id: uuidv4(),
+                    assetId: normalizeNodeId(name),
+                    name,
+                    uPosition: u,
+                    uHeight: uH,
+                    powerKw: 1.5,
+                    type: "server",
+                    status: "normal",
+                });
+                placed = true;
+                break;
+            }
+        }
+        if (!placed) break;
+    }
+    return servers;
+}
+
 type DcimState = {
     isEditMode: boolean;
     setEditMode: (mode: boolean) => void;
@@ -219,22 +291,28 @@ export const useDcimStore = create<DcimState>()(
                     immersion_dual: `IMM-2P-${Math.floor(Math.random() * 1000)}`,
                 };
                 const isImmersion = type === 'immersion_single' || type === 'immersion_dual';
-                return {
-                    racks: [
-                        ...state.racks,
-                        {
-                            id: uuidv4(),
-                            name: nameMap[type],
-                            type,
-                            position,
-                            rotation: [0, 0, 0],
-                            uCapacity: isImmersion ? 20 : 42,
-                            maxPowerKw: isImmersion ? 30 : 15,
-                            servers: [],
-                            locationId: state.currentLocationId
-                        }
-                    ]
+                const isServerRack = type === 'server';
+                const uCapacity = isImmersion ? 20 : 42;
+                const servers =
+                    isImmersion || isServerRack
+                        ? buildDefaultServersForNewRack(
+                              state.racks,
+                              uCapacity,
+                              NEW_RACK_DEFAULT_SERVER_COUNT,
+                          )
+                        : [];
+                const newRack: RackData = {
+                    id: uuidv4(),
+                    name: nameMap[type],
+                    type,
+                    position,
+                    rotation: [0, 0, 0],
+                    uCapacity,
+                    maxPowerKw: isImmersion ? 30 : 15,
+                    servers,
+                    locationId: state.currentLocationId,
                 };
+                return { racks: [...state.racks, newRack] };
             }),
 
             updateRackConnection: (id, networkRackId, switchId = null) => set((state) => ({

@@ -11,6 +11,9 @@ import { ClientOnlyChart } from "@/components/ClientOnlyChart";
 import { useSSE } from "@/shared/hooks/useSSE";
 import { apiUrl } from "@/shared/api";
 import { useLanguage } from "@/shared/i18n/language";
+// 與 3D 視圖共用狀態判斷，閾值定義於 @/shared/status。
+import { getDeviceStatus } from "@/shared/status";
+import { normalizeNodeId } from "@/shared/nodeId";
 
 type ServerTelemetry = {
   server_id: string;
@@ -51,7 +54,8 @@ const TechPanel = ({ title, children, className = "" }: { title: string, childre
 
 const LiquidCoolingPanel = ({ title, cduData, className = "" }: { title: string, cduData: any[], className?: string }) => (
   <TechPanel title={title} className={className}>
-    <div className="flex flex-col gap-4">
+    <div className="h-full overflow-y-auto pr-2 custom-scrollbar">
+      <div className="flex flex-col gap-4">
       {cduData.length === 0 ? (
         <div className="flex items-center justify-center py-10 text-slate-600 italic text-xs font-mono tracking-widest">
           NO CDU DETECTED IN ZONE
@@ -112,13 +116,15 @@ const LiquidCoolingPanel = ({ title, cduData, className = "" }: { title: string,
           </div>
         ))
       )}
+      </div>
     </div>
   </TechPanel>
 );
 
 const ImmersionCoolingPanel = ({ title, immersionData, className = "" }: { title: string, immersionData: any[], className?: string }) => (
   <TechPanel title={title} className={className}>
-    <div className="flex flex-col gap-4">
+    <div className="h-full overflow-y-auto pr-2 custom-scrollbar">
+      <div className="flex flex-col gap-4">
       {immersionData.length === 0 ? (
         <div className="flex items-center justify-center py-10 text-slate-600 italic text-xs font-mono tracking-widest">
           NO DUAL-PHASE TANKS DETECTED
@@ -163,20 +169,16 @@ const ImmersionCoolingPanel = ({ title, immersionData, className = "" }: { title
           </div>
         ))
       )}
+      </div>
     </div>
   </TechPanel>
 );
 
 export default function Dashboard() {
-  const normalizeNodeId = (value: string): string => {
-    const raw = (value || "").trim().toUpperCase().replace(/\s+/g, "").replace(/_/g, "-");
-    const m = raw.match(/^(SERVER|SW|IMM|CDU)-?(\d+)$/);
-    if (!m) return raw;
-    return `${m[1]}-${String(Number(m[2])).padStart(3, "0")}`;
-  };
-
   const { language } = useLanguage();
-  const store = useDcimStore();
+  const racks = useDcimStore((s) => s.racks);
+  const equipments = useDcimStore((s) => s.equipments);
+  const currentLocationId = useDcimStore((s) => s.currentLocationId);
   const t = useMemo(() => {
     if (language === "en") {
       return {
@@ -304,41 +306,6 @@ export default function Dashboard() {
     updateIntervalMs: 250,
   });
 
-  // --- Unified Health Scoring Logic ---
-  const getDeviceStatus = (item: any, srv: ServerTelemetry | undefined) => {
-    if (!srv) return 'powered_off';
-    if (srv.power_state === 'off') return 'powered_off';
-
-    // CDU specific thresholds
-    if (item.type === 'cdu') {
-      const cdu = srv as any;
-      if (cdu.leak_detected) return 'critical';
-      const outTemp = cdu.outlet_temp || 0;
-      const flow = cdu.flow_rate_lpm || 0;
-      if (outTemp > 50 || (flow > 0 && flow < 3)) return 'critical';
-      if (outTemp > 45 || (flow > 0 && flow < 5)) return 'warning';
-      return 'normal';
-    }
-    // Switch specific thresholds (Dynamic)
-    if (item.type === 'switch' || item.rackType === 'network') {
-      const traffic = srv.traffic_gbps || 0;
-      const ports = srv.ports_active || 0;
-      const cpu = srv.cpu_usage || 0;
-      const temp = srv.temperature || 0;
-      if (traffic > 35 || ports > 42 || cpu > 85 || temp > 55) return 'critical';
-      if (traffic > 25 || ports > 35 || cpu > 60 || temp > 45) return 'warning';
-      return 'normal';
-    }
-    // Server thresholds
-    else {
-      const cpu = srv.cpu_usage || 0;
-      const temp = srv.temperature || 0;
-      if (cpu > 85 || temp > 55) return 'critical';
-      if (cpu > 60 || temp > 45) return 'warning';
-      return 'normal';
-    }
-  };
-
   const telemetryById = useMemo(() => {
     const m = new Map<string, ServerTelemetry>();
     data.forEach((d) => {
@@ -353,12 +320,12 @@ export default function Dashboard() {
   }, [data]);
 
   const locationRacks = useMemo(
-    () => store.racks.filter((r) => r.locationId === store.currentLocationId),
-    [store.racks, store.currentLocationId]
+    () => racks.filter((r) => r.locationId === currentLocationId),
+    [racks, currentLocationId]
   );
   const locationEquipments = useMemo(
-    () => store.equipments.filter((e) => e.locationId === store.currentLocationId),
-    [store.equipments, store.currentLocationId]
+    () => equipments.filter((e) => e.locationId === currentLocationId),
+    [equipments, currentLocationId]
   );
 
   // Calculate stats based on store servers (Filtered by location)
@@ -374,10 +341,20 @@ export default function Dashboard() {
 
   const totalServers = allGridItems.length;
 
+  // Precompute per-item telemetry + status once, reuse across panels.
+  const gridStatusRows = useMemo(
+    () =>
+      allGridItems.map((item) => {
+        const srv = telemetryById.get(item.assetId || item.name) || telemetryById.get(item.name);
+        const status = getDeviceStatus(item, srv);
+        return { item, srv, status };
+      }),
+    [allGridItems, telemetryById]
+  );
+
   const { healthData, pieData } = useMemo(() => {
-    const health = allGridItems.reduce((acc, item) => {
-      const srv = telemetryById.get(item.assetId || item.name) || telemetryById.get(item.name);
-      const status = getDeviceStatus(item, srv);
+    const health = gridStatusRows.reduce((acc, row) => {
+      const status = row.status;
       if (status === 'critical') acc.critical++;
       else if (status === 'warning') acc.warning++;
       else acc.normal++;
@@ -391,7 +368,7 @@ export default function Dashboard() {
     ].filter(d => d.value > 0);
 
     return { healthData: health, pieData: pie };
-  }, [allGridItems, telemetryById]);
+  }, [gridStatusRows]);
 
   const itemNameSet = useMemo(() => {
     const serverNames = allGridItems.map((i) => i.assetId || i.name);
@@ -463,13 +440,8 @@ export default function Dashboard() {
   }, [matrixPage, totalMatrixPages]);
 
   const alertDevices = useMemo(
-    () =>
-      allGridItems.filter((item) => {
-        const srv = telemetryById.get(item.assetId || item.name) || telemetryById.get(item.name);
-        const status = getDeviceStatus(item, srv);
-        return status === "critical" || status === "warning";
-      }),
-    [allGridItems, telemetryById]
+    () => gridStatusRows.filter((row) => row.status === "critical" || row.status === "warning"),
+    [gridStatusRows]
   );
   const visibleAlertDevices = useMemo(
     () => alertDevices.slice(0, MAX_ALARM_RENDER),
@@ -806,12 +778,9 @@ export default function Dashboard() {
                     警報列表僅顯示前 {MAX_ALARM_RENDER} 筆（共 {alertDevices.length} 筆）
                   </div>
                 )}
-                {visibleAlertDevices.map(item => {
-                  const srv =
-                    telemetryById.get(item.assetId || item.name) || telemetryById.get(item.name);
+                {visibleAlertDevices.map(({ item, srv, status }) => {
                   if (!srv) return null;
 
-                  const status = getDeviceStatus(item, srv);
                   const traffic = srv.traffic_gbps || 0;
                   const ports = srv.ports_active || 0;
                   const cpu = srv.cpu_usage || 0;
