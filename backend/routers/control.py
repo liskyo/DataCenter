@@ -78,13 +78,14 @@ def control_power(request: Request, server_id: str, payload: dict):
 
     # --- Safety Interlock Check ---
     container = _container(request)
-    interlock_reason = check_interlocks(container, server_id, action)
+    _, resolved_server_id = container.resolve_ids({"server_id": server_id})
+    interlock_reason = check_interlocks(container, resolved_server_id, action)
     if interlock_reason:
         raise HTTPException(
             status_code=423,
             detail={
                 "locked": True,
-                "server_id": server_id,
+                "server_id": resolved_server_id,
                 "action_requested": action,
                 "interlock_reason": interlock_reason,
             },
@@ -95,9 +96,9 @@ def control_power(request: Request, server_id: str, payload: dict):
 
     # 更新全域電源狀態 (持久化於記憶體)
     if action in ["on", "off"]:
-        container.power_states[server_id] = action
+        container.power_states[resolved_server_id] = action
     elif action == "reboot":
-        container.power_states[server_id] = "on"
+        container.power_states[resolved_server_id] = "on"
 
     """
     ===================================================================
@@ -120,7 +121,7 @@ def control_power(request: Request, server_id: str, payload: dict):
     # 回報假的成功狀態
     return {
         "status": "success", 
-        "server_id": server_id,
+        "server_id": resolved_server_id,
         "action_executed": action,
         "message": f"Hardware command '{action}' triggered via Redfish API stub."
     }

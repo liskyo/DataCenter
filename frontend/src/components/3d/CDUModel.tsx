@@ -3,6 +3,7 @@ import React, { useRef, useState, useMemo } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Text } from "@react-three/drei";
 import * as THREE from "three";
+import { CDU } from "./sceneScale";
 
 interface CDUTelemetry {
   inlet_temp?: number;
@@ -115,6 +116,7 @@ function useCDUCanvasTexture(t?: CDUTelemetry, status?: string): THREE.CanvasTex
       
       ctx.fillStyle = "#334155";
       ctx.font = "bold 13px monospace";
+
       ctx.textAlign = "center";
       ctx.fillText("● OFFLINE", 128, 370);
     } else if (t?.leak_detected) {
@@ -183,8 +185,8 @@ export default function CDUModel({ name, isSelected, telemetry }: CDUModelProps)
       onPointerLeave={() => setHovered(false)}
     >
       {/* ── Main Cabinet Body ───────────────────────────── */}
-      <mesh ref={bodyRef} position={[0, 1.2, 0]} castShadow receiveShadow>
-        <boxGeometry args={[0.7, 2.4, 1.1]} />
+      <mesh ref={bodyRef} position={[0, CDU.cy, 0]} castShadow receiveShadow>
+        <boxGeometry args={[CDU.w, CDU.h, CDU.d]} />
         <meshStandardMaterial
           color={isSelected ? "#2dd4bf" : colors.body}
           emissive={colors.emissive}
@@ -197,72 +199,75 @@ export default function CDUModel({ name, isSelected, telemetry }: CDUModelProps)
       </mesh>
 
       {/* ── Front Panel Canvas Screen ─────────────────── */}
-      <mesh position={[0, 1.2, 0.56]}>
-        <planeGeometry args={[0.58, 0.9]} />
+      <mesh position={[0, CDU.cy, CDU.d / 2 + 0.012]}>
+        <planeGeometry args={[CDU.w * 0.88, CDU.h * 0.78]} />
         <meshBasicMaterial map={canvasTexture} />
       </mesh>
 
       {/* ── Corner frame accent lines ─────────────────── */}
-      {[[-0.33, 2.39, 0], [0.33, 2.39, 0]].map(([x, y, z], i) => (
+      {[
+        [-CDU.w / 2 + 0.03, CDU.cy + CDU.h / 2 - 0.02, 0],
+        [CDU.w / 2 - 0.03, CDU.cy + CDU.h / 2 - 0.02, 0],
+      ].map(([x, y, z], i) => (
         <mesh key={i} position={[x as number, y as number, z as number]}>
-          <boxGeometry args={[0.04, 0.04, 1.1]} />
+          <boxGeometry args={[0.03, 0.03, CDU.d]} />
           <meshBasicMaterial color={colors.emissive} />
         </mesh>
       ))}
 
       {/* ── Coolant Pipe Stubs (Return = Red, Supply = Blue) */}
-      <mesh position={[0, 2.42, -0.22]}>
-        <cylinderGeometry args={[0.05, 0.05, 0.22]} />
+      <mesh position={[0, CDU.cy + CDU.h / 2 - 0.08, -CDU.d * 0.22]}>
+        <cylinderGeometry args={[0.04, 0.04, 0.18]} />
         <meshStandardMaterial color="#ef4444" emissive="#991b1b" emissiveIntensity={0.6} metalness={0.8} />
       </mesh>
-      <mesh position={[0, 2.42, 0.22]}>
-        <cylinderGeometry args={[0.05, 0.05, 0.22]} />
+      <mesh position={[0, CDU.cy + CDU.h / 2 - 0.08, CDU.d * 0.22]}>
+        <cylinderGeometry args={[0.04, 0.04, 0.18]} />
         <meshStandardMaterial color="#3b82f6" emissive="#1d4ed8" emissiveIntensity={0.6} metalness={0.8} />
       </mesh>
 
       {/* ── Internal Components (visible when X-ray / hovered) ── */}
       {/* Pump A */}
-      <mesh ref={pumpARef} position={[-0.15, 0.8, 0]} visible={hovered}>
-        <cylinderGeometry args={[0.12, 0.12, 0.3, 16]} />
+      <mesh ref={pumpARef} position={[-0.11, CDU.h * 0.38, 0]} visible={hovered}>
+        <cylinderGeometry args={[0.09, 0.09, 0.22, 16]} />
         <meshStandardMaterial color="#334155" emissive="#06b6d4" emissiveIntensity={0.5} metalness={0.9} />
       </mesh>
       {/* Pump A label */}
       {hovered && (
-        <Text position={[-0.15, 1.12, 0.56]} fontSize={0.06} color="#34d399" anchorX="center">
+        <Text position={[-0.11, CDU.h * 0.62, CDU.d / 2 + 0.02]} fontSize={0.05} color="#34d399" anchorX="center">
           PUMP A {telemetry?.pump_a_rpm ?? "---"} RPM
         </Text>
       )}
       {/* Pump B */}
-      <mesh ref={pumpBRef} position={[0.15, 0.8, 0]} visible={hovered}>
-        <cylinderGeometry args={[0.12, 0.12, 0.3, 16]} />
+      <mesh ref={pumpBRef} position={[0.11, CDU.h * 0.38, 0]} visible={hovered}>
+        <cylinderGeometry args={[0.09, 0.09, 0.22, 16]} />
         <meshStandardMaterial color="#334155" emissive="#06b6d4" emissiveIntensity={0.5} metalness={0.9} />
       </mesh>
       {hovered && (
-        <Text position={[0.15, 1.12, 0.56]} fontSize={0.06} color="#34d399" anchorX="center">
+        <Text position={[0.11, CDU.h * 0.62, CDU.d / 2 + 0.02]} fontSize={0.05} color="#34d399" anchorX="center">
           PUMP B {telemetry?.pump_b_rpm ?? "---"} RPM
         </Text>
       )}
       {/* Reservoir Tank */}
-      <mesh position={[0, 0.4, 0]} visible={hovered}>
-        <boxGeometry args={[0.3, 0.5, 0.6]} />
+      <mesh position={[0, CDU.h * 0.22, 0]} visible={hovered}>
+        <boxGeometry args={[0.22, 0.38, 0.48]} />
         <meshStandardMaterial color="#0ea5e9" transparent opacity={0.4} emissive="#0284c7" emissiveIntensity={0.5} />
       </mesh>
 
       {/* ── Status Label ───────────────────────────────── */}
-      <Text position={[0, 2.75, 0]} fontSize={0.13} color={colors.emissive} anchorX="center" anchorY="middle">
+      <Text position={[0, CDU.h + 0.1, 0]} fontSize={0.11} color={colors.emissive} anchorX="center" anchorY="middle">
         {name}
       </Text>
       {hovered && (
-        <Text position={[0, 2.95, 0]} fontSize={0.08} color="#94a3b8" anchorX="center" anchorY="middle">
+        <Text position={[0, CDU.h + 0.24, 0]} fontSize={0.06} color="#94a3b8" anchorX="center" anchorY="middle">
           ← HOVER: X-RAY MODE →
         </Text>
       )}
 
       {/* ── LEAK ALERT: Flashing Red Sphere + Warning Text */}
       {(status === "leak") && (
-        <group position={[0, 3.2, 0]}>
+        <group position={[0, CDU.h + 0.42, 0]}>
           <mesh ref={leakLightRef}>
-            <sphereGeometry args={[0.1, 16, 16]} />
+            <sphereGeometry args={[0.08, 16, 16]} />
             <meshStandardMaterial color="#ef4444" emissive="#ef4444" emissiveIntensity={2.5} />
           </mesh>
           <Text position={[0, 0.2, 0]} fontSize={0.12} color="#ef4444" anchorX="center">
@@ -273,8 +278,8 @@ export default function CDUModel({ name, isSelected, telemetry }: CDUModelProps)
 
       {/* ── Warning icon for non-normal status */}
       {(status === "warning" || status === "critical") && (
-        <mesh position={[0, 3.1, 0]}>
-          <sphereGeometry args={[0.07, 16, 16]} />
+        <mesh position={[0, CDU.h + 0.36, 0]}>
+          <sphereGeometry args={[0.055, 16, 16]} />
           <meshStandardMaterial
             color={status === "critical" ? "#ef4444" : "#f59e0b"}
             emissive={status === "critical" ? "#ef4444" : "#f59e0b"}

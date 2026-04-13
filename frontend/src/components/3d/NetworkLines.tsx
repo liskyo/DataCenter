@@ -18,7 +18,7 @@ export default function NetworkLines() {
 
     return (
         <group>
-            {racks.filter(r => r.type === 'server').map((rack, idx) => {
+            {racks.filter(r => r.type === 'server' || r.type === 'immersion_single' || r.type === 'immersion_dual').map((rack, idx) => {
                 // Determine target rack: specific connection or first available network rack (hub)
                 const targetRack = racks.find(r => r.id === rack.connectedNetworkRackId) || networkRacks[0];
 
@@ -39,7 +39,8 @@ export default function NetworkLines() {
                 }
 
                 const RACK_DEPTH = 1.0;
-                const start: [number, number, number] = [rack.position[0], 2.2, rack.position[2] - RACK_DEPTH / 2];
+                const sourceY = rack.type === 'server' ? 2.2 : 1.15;
+                const start: [number, number, number] = [rack.position[0], sourceY, rack.position[2] - RACK_DEPTH / 2];
                 const end: [number, number, number] = [targetRack.position[0], targetY, targetRack.position[2] - RACK_DEPTH / 2];
 
                 // Control point for curve (elevate it to look like overhead cabling)

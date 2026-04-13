@@ -1,20 +1,35 @@
 "use client";
-import React, { useRef, useState, useEffect } from "react";
-import { Canvas } from "@react-three/fiber";
-import { OrbitControls } from "@react-three/drei";
+import React, { useRef, useState, useEffect, useMemo, useCallback } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { useDcimStore, ServerData } from "@/store/useDcimStore";
-import RoomContext from "@/components/3d/RoomContext";
-import RackModel from "@/components/3d/RackModel";
-import EquipmentModel from "@/components/3d/EquipmentModel";
-import NetworkLines from "@/components/3d/NetworkLines";
-import CoolantFlow from "@/components/3d/CoolantFlow";
 import { apiUrl } from "@/shared/api";
+import { normalizeNodeId, buildTelemetryKeys } from "@/shared/nodeId";
+import { TwinsSceneCanvas } from "@/features/twins/TwinsSceneCanvas";
 import { Activity, Download, Upload, Server, Trash, Save, Edit, Lock, Thermometer, Zap, Box, MonitorIcon, Globe, Link2, Droplets } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
 import { useLanguage } from "@/shared/i18n/language";
 import { usePolling } from "@/shared/hooks/usePolling";
 
 export default function TwinsPage() {
+    useEffect(() => {
+        // three.js r183 emits this deprecation warning from internals; silence only this one in dev.
+        if (process.env.NODE_ENV !== "development") return;
+        const originalWarn = console.warn;
+        console.warn = (...args: unknown[]) => {
+            const first = args[0];
+            if (
+                typeof first === "string" &&
+                first.includes("THREE.THREE.Clock: This module has been deprecated. Please use THREE.Timer instead.")
+            ) {
+                return;
+            }
+            originalWarn(...args);
+        };
+        return () => {
+            console.warn = originalWarn;
+        };
+    }, []);
+
     const { language } = useLanguage();
     const t = language === "en"
         ? {
@@ -29,6 +44,8 @@ export default function TwinsPage() {
             equipmentSettings: "Equipment Settings",
             installedEquipment: "Installed Equipment",
             emptyRack: "EMPTY RACK",
+            connectionLinesShow: "Show network & CDU links",
+            connectionLinesHide: "Hide network & CDU links",
         }
         : {
             title: "3D 動態機房",
@@ -42,10 +59,89 @@ export default function TwinsPage() {
             equipmentSettings: "設備設定",
             installedEquipment: "已安裝設備",
             emptyRack: "空機櫃",
+            connectionLinesShow: "顯示連接線",
+            connectionLinesHide: "隱藏連接線",
         };
-    const store = useDcimStore();
-    const selectedRack = store.racks.find((r) => r.id === store.selectedRackId && r.locationId === store.currentLocationId);
-    const selectedEquipment = store.equipments.find((e) => e.id === store.selectedEquipmentId && e.locationId === store.currentLocationId);
+    const {
+        racks,
+        equipments,
+        locations,
+        currentLocationId,
+        selectedRackId,
+        selectedEquipmentId,
+        isEditMode,
+        setEditMode,
+        addRack,
+        addEquipment,
+        selectRack,
+        selectEquipment,
+        exportState,
+        importState,
+        addServerToRack,
+        removeRack,
+        updateRackName,
+        updateRackRotation,
+        updateRackConnection,
+        removeServerFromRack,
+        updateServerInRack,
+        updateLocationName,
+        updateLocationProps,
+        removeLocation,
+        removeEquipment,
+        updateEquipmentName,
+        updateEquipmentRotation,
+        updateEquipmentIp,
+        updateEquipmentConnectedRacks,
+    } = useDcimStore(
+        useShallow((s) => ({
+            racks: s.racks,
+            equipments: s.equipments,
+            locations: s.locations,
+            currentLocationId: s.currentLocationId,
+            selectedRackId: s.selectedRackId,
+            selectedEquipmentId: s.selectedEquipmentId,
+            isEditMode: s.isEditMode,
+            setEditMode: s.setEditMode,
+            addRack: s.addRack,
+            addEquipment: s.addEquipment,
+            selectRack: s.selectRack,
+            selectEquipment: s.selectEquipment,
+            exportState: s.exportState,
+            importState: s.importState,
+            addServerToRack: s.addServerToRack,
+            removeRack: s.removeRack,
+            updateRackName: s.updateRackName,
+            updateRackRotation: s.updateRackRotation,
+            updateRackConnection: s.updateRackConnection,
+            removeServerFromRack: s.removeServerFromRack,
+            updateServerInRack: s.updateServerInRack,
+            updateLocationName: s.updateLocationName,
+            updateLocationProps: s.updateLocationProps,
+            removeLocation: s.removeLocation,
+            removeEquipment: s.removeEquipment,
+            updateEquipmentName: s.updateEquipmentName,
+            updateEquipmentRotation: s.updateEquipmentRotation,
+            updateEquipmentIp: s.updateEquipmentIp,
+            updateEquipmentConnectedRacks: s.updateEquipmentConnectedRacks,
+        })),
+    );
+
+    const locationRacks = useMemo(
+        () => racks.filter((r) => r.locationId === currentLocationId),
+        [racks, currentLocationId],
+    );
+    const locationEquipments = useMemo(
+        () => equipments.filter((e) => e.locationId === currentLocationId),
+        [equipments, currentLocationId],
+    );
+
+    const selectedRack = racks.find((r) => r.id === selectedRackId && r.locationId === currentLocationId);
+    const selectedEquipment = equipments.find((e) => e.id === selectedEquipmentId && e.locationId === currentLocationId);
+
+    const clearSceneSelection = useCallback(() => {
+        selectRack(null);
+        selectEquipment(null);
+    }, [selectRack, selectEquipment]);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Form State for new server
@@ -66,6 +162,8 @@ export default function TwinsPage() {
     });
 
     const [telemetry, setTelemetry] = useState<Record<string, any>>({});
+    /** 網路線與 CDU 管路預設不顯示，由 HUD 按鈕切換 */
+    const [showConnectionLines, setShowConnectionLines] = useState(false);
 
     const [editingServerId, setEditingServerId] = useState<string | null>(null);
     const [editingDraft, setEditingDraft] = useState<{
@@ -79,7 +177,7 @@ export default function TwinsPage() {
     // Helper to find the next sequential name for a prefix
     const getNextName = (type: 'server' | 'switch' | 'storage') => {
         const prefix = type === 'switch' ? 'SW-' : type === 'storage' ? 'ST-' : 'SERVER-';
-        const allNames = store.racks.flatMap(r => r.servers.map(s => s.name));
+        const allNames = racks.flatMap(r => r.servers.map(s => s.name));
         const nums = allNames
             .filter(name => name.startsWith(prefix))
             .map(name => {
@@ -99,7 +197,7 @@ export default function TwinsPage() {
                 name: getNextName(nextType)
             }));
         }
-    }, [store.selectedRackId]);
+    }, [selectedRackId]);
 
     usePolling(async () => {
         try {
@@ -108,14 +206,59 @@ export default function TwinsPage() {
             const json = await res.json();
             const tMap: Record<string, any> = {};
             (json.data || []).forEach((d: any) => {
-                tMap[d.server_id] = d;
+                buildTelemetryKeys(d).forEach((key) => {
+                    tMap[key] = d;
+                });
             });
             setTelemetry(tMap);
         } catch (e) { }
     }, { intervalMs: 5000, immediate: true });
 
+    useEffect(() => {
+        const syncTargets = async () => {
+            try {
+                const modeRes = await fetch(apiUrl("/api/system/mode"), { cache: "no-store" });
+                if (!modeRes.ok) return;
+                const modeJson = await modeRes.json();
+                if (modeJson.mode !== "simulation") return;
+
+                const servers = racks
+                    .filter((r) => r.locationId === currentLocationId)
+                    .flatMap((r) => r.servers);
+                const targets = Array.from(new Set([
+                    ...servers.map((s) => normalizeNodeId(s.assetId || s.name)),
+                    ...equipments
+                        .filter((e) => e.locationId === currentLocationId)
+                        .map((e) => normalizeNodeId(e.name)),
+                ]));
+                if (targets.length === 0) return;
+
+                const bindingItems = servers.map((s) => ({
+                    asset_id: normalizeNodeId(s.assetId || s.name),
+                    display_name: normalizeNodeId(s.name),
+                }));
+                if (bindingItems.length > 0) {
+                    await fetch(apiUrl("/api/system/id_bindings/bulk_bind"), {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ items: bindingItems }),
+                    });
+                }
+
+                await fetch(apiUrl("/api/system/simulate_targets"), {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ targets }),
+                });
+            } catch {
+                // best effort only
+            }
+        };
+        syncTargets();
+    }, [racks, equipments, currentLocationId]);
+
     const handleExport = () => {
-        const json = store.exportState();
+        const json = exportState();
         const blob = new Blob([json], { type: "application/json" });
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
@@ -130,7 +273,7 @@ export default function TwinsPage() {
         const reader = new FileReader();
         reader.onload = (event) => {
             const content = event.target?.result as string;
-            if (store.importState(content)) {
+            if (importState(content)) {
                 alert("資料載入成功！ (Layout Imported)");
             } else {
                 alert("載入失敗！檔案格式錯誤！ (Invalid format)");
@@ -143,13 +286,13 @@ export default function TwinsPage() {
         if (!selectedRack) return;
 
         // Enforce unique server name globally
-        const allServers = store.racks.flatMap(r => r.servers);
+        const allServers = racks.flatMap(r => r.servers);
         if (allServers.some(s => s.name === newServer.name)) {
             alert(`❌ 無法新增！伺服器名稱 ${newServer.name} 已經存在於其他機櫃中，名稱不可重複！`);
             return;
         }
 
-        const success = store.addServerToRack(selectedRack.id, newServer);
+        const success = addServerToRack(selectedRack.id, newServer);
         if (success) {
             // Suggest the NEXT name immediately after success
             setNewServer(prev => ({
@@ -173,36 +316,36 @@ export default function TwinsPage() {
                     <Activity size={24} />
                 </button>
 
-                {store.isEditMode && (
+                {isEditMode && (
                     <div className="flex flex-col gap-3 mt-2 pt-4 border-t border-cyan-900/50 w-full items-center">
-                        <button onClick={() => store.addRack([Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)])} className="p-3 bg-[#020b1a] rounded-xl text-indigo-400 hover:text-indigo-300 hover:bg-[#0a1e3f] transition" title="Add RACK">
+                        <button onClick={() => addRack([Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)])} className="p-3 bg-[#020b1a] rounded-xl text-indigo-400 hover:text-indigo-300 hover:bg-[#0a1e3f] transition" title="Add RACK">
                             <Server size={24} />
                         </button>
-                        <button onClick={() => store.addEquipment('crac', [Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)])} className="p-3 bg-[#020b1a] rounded-xl text-teal-400 hover:text-teal-300 hover:bg-[#0a1e3f] transition" title="Add CRAC (Cooling)">
+                        <button onClick={() => addEquipment('crac', [Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)])} className="p-3 bg-[#020b1a] rounded-xl text-teal-400 hover:text-teal-300 hover:bg-[#0a1e3f] transition" title="Add CRAC (Cooling)">
                             <Thermometer size={24} />
                         </button>
-                        <button onClick={() => store.addEquipment('pdu', [Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)])} className="p-3 bg-[#020b1a] rounded-xl text-orange-400 hover:text-orange-300 hover:bg-[#0a1e3f] transition" title="Add PDU (Power)">
+                        <button onClick={() => addEquipment('pdu', [Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)])} className="p-3 bg-[#020b1a] rounded-xl text-orange-400 hover:text-orange-300 hover:bg-[#0a1e3f] transition" title="Add PDU (Power)">
                             <Zap size={24} />
                         </button>
-                        <button onClick={() => store.addEquipment('cdu', [Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)])} className="p-3 bg-[#020b1a] rounded-xl text-cyan-300 hover:text-cyan-200 hover:bg-[#0a1e3f] transition" title="Add CDU (Liquid Cooling)">
+                        <button onClick={() => addEquipment('cdu', [Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)])} className="p-3 bg-[#020b1a] rounded-xl text-cyan-300 hover:text-cyan-200 hover:bg-[#0a1e3f] transition" title="Add CDU (Liquid Cooling)">
                             <Box size={24} />
                         </button>
-                        <button onClick={() => store.addEquipment('ups', [Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)])} className="p-3 bg-[#020b1a] rounded-xl text-yellow-500 hover:text-yellow-400 hover:bg-[#0a1e3f] transition" title="Add UPS (Power Backup)">
+                        <button onClick={() => addEquipment('ups', [Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)])} className="p-3 bg-[#020b1a] rounded-xl text-yellow-500 hover:text-yellow-400 hover:bg-[#0a1e3f] transition" title="Add UPS (Power Backup)">
                             <Zap size={24} />
                         </button>
-                        <button onClick={() => store.addEquipment('chiller', [Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)])} className="p-3 bg-[#020b1a] rounded-xl text-blue-500 hover:text-blue-400 hover:bg-[#0a1e3f] transition" title="Add Chiller (Water Cooling)">
+                        <button onClick={() => addEquipment('chiller', [Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)])} className="p-3 bg-[#020b1a] rounded-xl text-blue-500 hover:text-blue-400 hover:bg-[#0a1e3f] transition" title="Add Chiller (Water Cooling)">
                             <Activity size={24} />
                         </button>
-                        <button onClick={() => store.addEquipment('dashboard', [Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)])} className="p-3 bg-[#020b1a] rounded-xl text-emerald-500 hover:text-emerald-400 hover:bg-[#0a1e3f] transition" title="Add Dashboard PC">
+                        <button onClick={() => addEquipment('dashboard', [Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)])} className="p-3 bg-[#020b1a] rounded-xl text-emerald-500 hover:text-emerald-400 hover:bg-[#0a1e3f] transition" title="Add Dashboard PC">
                             <MonitorIcon size={24} />
                         </button>
-                        <button onClick={() => store.addRack([Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)], 'network')} className="p-3 bg-[#020b1a] rounded-xl text-purple-500 hover:text-purple-400 hover:bg-[#0a1e3f] transition" title="Add Network Rack (Switch)">
+                        <button onClick={() => addRack([Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)], 'network')} className="p-3 bg-[#020b1a] rounded-xl text-purple-500 hover:text-purple-400 hover:bg-[#0a1e3f] transition" title="Add Network Rack (Switch)">
                             <Globe size={24} />
                         </button>
-                        <button onClick={() => store.addRack([Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)], 'immersion_single')} className="p-3 bg-[#020b1a] rounded-xl text-sky-400 hover:text-sky-300 hover:bg-[#0a1e3f] transition" title="Add Single-Phase Immersion Tank (單相浸沒式)">
+                        <button onClick={() => addRack([Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)], 'immersion_single')} className="p-3 bg-[#020b1a] rounded-xl text-sky-400 hover:text-sky-300 hover:bg-[#0a1e3f] transition" title="Add Single-Phase Immersion Tank (單相浸沒式)">
                             <Droplets size={24} />
                         </button>
-                        <button onClick={() => store.addRack([Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)], 'immersion_dual')} className="p-3 bg-[#020b1a] rounded-xl text-violet-400 hover:text-violet-300 hover:bg-[#0a1e3f] transition" title="Add Dual-Phase Immersion Tank (雙相浸沒式)">
+                        <button onClick={() => addRack([Math.floor(Math.random() * 5), 0, Math.floor(Math.random() * 5)], 'immersion_dual')} className="p-3 bg-[#020b1a] rounded-xl text-violet-400 hover:text-violet-300 hover:bg-[#0a1e3f] transition" title="Add Dual-Phase Immersion Tank (雙相浸沒式)">
                             <Droplets size={24} />
                         </button>
                     </div>
@@ -221,78 +364,51 @@ export default function TwinsPage() {
             <div className="flex-1 relative overflow-hidden min-w-0 min-h-0">
                 {/* HUD Overlay */}
                 <div className="absolute top-4 left-4 z-10 pointer-events-none">
-                    <h1 className="text-2xl font-black italic tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 drop-shadow-[0_0_8px_rgba(6,182,212,0.8)] flex items-center gap-3">
+                    <h1 className="-ml-9 text-2xl font-black italic tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 drop-shadow-[0_0_8px_rgba(6,182,212,0.8)] flex items-center gap-3">
                         <Server /> {t.title}
                         <span className="text-white/20 mx-2 text-sm">|</span>
                         <span className="text-cyan-200 text-lg not-italic tracking-normal">
-                            {store.locations.find(l => l.id === store.currentLocationId)?.name || t.unknownSite}
+                            {locations.find(l => l.id === currentLocationId)?.name || t.unknownSite}
                         </span>
                     </h1>
                     <p className="text-xs text-cyan-700 font-mono mt-1 uppercase">
-                        {t.realtime} • {store.locations.find(l => l.id === store.currentLocationId)?.type === 'region' ? t.regionView : t.floorView}
+                        {t.realtime} • {locations.find(l => l.id === currentLocationId)?.type === 'region' ? t.regionView : t.floorView}
                     </p>
                 </div>
 
-                {/* Edit Mode HUD */}
-                <div className="absolute top-4 right-4 z-10 flex gap-4">
+                {/* Edit Mode HUD：編輯／檢視 + 其下連接線開關 */}
+                <div className="absolute top-4 right-4 z-10 flex flex-col items-end gap-2">
                     <button
-                        onClick={() => store.setEditMode(!store.isEditMode)}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold tracking-widest transition-all border ${store.isEditMode ? 'bg-cyan-600 border-cyan-400 text-white shadow-[0_0_15px_rgba(6,182,212,0.5)]' : 'bg-[#0a1e3f]/80 border-[#1e3a8a] text-slate-400 hover:text-white'}`}
+                        type="button"
+                        onClick={() => setEditMode(!isEditMode)}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold tracking-widest transition-all border ${isEditMode ? 'bg-cyan-600 border-cyan-400 text-white shadow-[0_0_15px_rgba(6,182,212,0.5)]' : 'bg-[#0a1e3f]/80 border-[#1e3a8a] text-slate-400 hover:text-white'}`}
                     >
-                        {store.isEditMode ? <Edit size={16} /> : <Lock size={16} />}
-                        {store.isEditMode ? t.editMode : t.viewOnly}
+                        {isEditMode ? <Edit size={16} /> : <Lock size={16} />}
+                        {isEditMode ? t.editMode : t.viewOnly}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setShowConnectionLines((v) => !v)}
+                        title={showConnectionLines ? t.connectionLinesHide : t.connectionLinesShow}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold tracking-wide transition-all border pointer-events-auto ${showConnectionLines ? 'bg-emerald-900/70 border-emerald-500/60 text-emerald-200' : 'bg-[#0a1e3f]/80 border-[#1e3a8a] text-slate-500 hover:text-slate-200'}`}
+                    >
+                        <Link2 size={14} />
+                        {showConnectionLines ? t.connectionLinesHide : t.connectionLinesShow}
                     </button>
                 </div>
 
-                <Canvas
-                    camera={{ position: [5, 4, 8], fov: 45 }}
-                    className="w-full h-full outline-none"
-                    onPointerMissed={() => {
-                        store.selectRack(null);
-                        store.selectEquipment(null);
-                    }}
-                >
-                    <RoomContext />
-                    {store.racks.filter(r => r.locationId === store.currentLocationId).map((rack) => (
-                        <RackModel key={rack.id} data={rack} isSelected={rack.id === store.selectedRackId} telemetry={telemetry} />
-                    ))}
-                    {store.equipments.filter(e => e.locationId === store.currentLocationId).map((eq) => (
-                        <EquipmentModel key={eq.id} data={eq} telemetry={telemetry} />
-                    ))}
-                    <NetworkLines />
-                    {/* Coolant flow particle streams: CDU ↔ Server Racks */}
-                    {store.equipments
-                        .filter(eq => eq.locationId === store.currentLocationId && eq.type === 'cdu')
-                        .flatMap(cdu => {
-                            const cduPos: [number, number, number] = [cdu.position[0], 0, cdu.position[2]];
-                            const cduTelem = (telemetry as any)[cdu.name];
-                            const flowRate = cduTelem?.flow_rate_lpm ?? 8.0;
-
-                            // Use manually configured racks if set, else auto-find 3 nearest
-                            const allServerRacks = store.racks.filter(r => r.locationId === store.currentLocationId && (r.type === 'server' || r.type === 'immersion_single'));
-                            const targetRacks = cdu.connectedRackIds && cdu.connectedRackIds.length > 0
-                                ? allServerRacks.filter(r => cdu.connectedRackIds!.includes(r.id))
-                                : allServerRacks
-                                    .map(r => ({ rack: r, dist: Math.hypot(r.position[0] - cdu.position[0], r.position[2] - cdu.position[2]) }))
-                                    .sort((a, b) => a.dist - b.dist)
-                                    .slice(0, 3)
-                                    .map(x => x.rack);
-
-                            return targetRacks.flatMap(rack => {
-                                const rackPos: [number, number, number] = [rack.position[0], 0, rack.position[2]];
-                                return [
-                                    <CoolantFlow key={`supply-${cdu.id}-${rack.id}`} from={cduPos} to={rackPos} type="supply" flowRate={flowRate} />,
-                                    <CoolantFlow key={`return-${rack.id}-${cdu.id}`} from={rackPos} to={cduPos} type="return" flowRate={flowRate} />,
-                                ];
-                            });
-                        })
-                    }
-                    <OrbitControls makeDefault minPolarAngle={0} maxPolarAngle={Math.PI / 2 - 0.05} />
-                </Canvas>
+                <TwinsSceneCanvas
+                    locationRacks={locationRacks}
+                    locationEquipments={locationEquipments}
+                    selectedRackId={selectedRackId}
+                    telemetry={telemetry}
+                    showConnectionLines={showConnectionLines}
+                    onPointerMissed={clearSceneSelection}
+                />
             </div>
 
             {/* 右側屬性面板 (Room) */}
-            {store.isEditMode && !selectedRack && !selectedEquipment && (
+            {isEditMode && !selectedRack && !selectedEquipment && (
                 <div className="w-80 bg-[#020b1a] border-l border-[#1e3a8a] flex flex-col z-10 shadow-[-2px_0_15px_rgba(6,182,212,0.1)]">
                     <div className="p-4 border-b border-[#1e3a8a] flex justify-between items-center bg-gradient-to-r from-transparent to-[#0a1e3f]">
                         <h2 className="text-cyan-400 font-bold tracking-widest uppercase text-xs">Room Settings</h2>
@@ -302,8 +418,8 @@ export default function TwinsPage() {
                             <label className="text-[10px] text-slate-500 uppercase tracking-[0.2em] mb-2 block">Room Name</label>
                             <input
                                 type="text"
-                                value={store.locations.find(l => l.id === store.currentLocationId)?.name || ''}
-                                onChange={(e) => store.updateLocationName(store.currentLocationId, e.target.value)}
+                                value={locations.find(l => l.id === currentLocationId)?.name || ''}
+                                onChange={(e) => updateLocationName(currentLocationId, e.target.value)}
                                 className="w-full bg-[#010613] border border-cyan-900/30 p-2 rounded text-cyan-100 text-sm outline-none focus:border-cyan-400 transition-colors mb-4"
                             />
                             
@@ -314,8 +430,8 @@ export default function TwinsPage() {
                                         <div className="flex items-center gap-2">
                                             <input
                                                 type="number" step="0.6"
-                                                value={store.locations.find(l => l.id === store.currentLocationId)?.xMin ?? -10}
-                                                onChange={(e) => store.updateLocationProps(store.currentLocationId, { xMin: Number(e.target.value) })}
+                                                value={locations.find(l => l.id === currentLocationId)?.xMin ?? -10}
+                                                onChange={(e) => updateLocationProps(currentLocationId, { xMin: Number(e.target.value) })}
                                                 className="w-full bg-[#010613] border border-cyan-900/30 p-2 rounded text-cyan-100 text-sm outline-none focus:border-cyan-400 transition-colors"
                                             />
                                             <span className="text-[10px] text-slate-600">m</span>
@@ -326,8 +442,8 @@ export default function TwinsPage() {
                                         <div className="flex items-center gap-2">
                                             <input
                                                 type="number" step="0.6"
-                                                value={store.locations.find(l => l.id === store.currentLocationId)?.xMax ?? 10}
-                                                onChange={(e) => store.updateLocationProps(store.currentLocationId, { xMax: Number(e.target.value) })}
+                                                value={locations.find(l => l.id === currentLocationId)?.xMax ?? 10}
+                                                onChange={(e) => updateLocationProps(currentLocationId, { xMax: Number(e.target.value) })}
                                                 className="w-full bg-[#010613] border border-cyan-900/30 p-2 rounded text-cyan-100 text-sm outline-none focus:border-cyan-400 transition-colors"
                                             />
                                             <span className="text-[10px] text-slate-600">m</span>
@@ -340,8 +456,8 @@ export default function TwinsPage() {
                                         <div className="flex items-center gap-2">
                                             <input
                                                 type="number" step="0.6"
-                                                value={store.locations.find(l => l.id === store.currentLocationId)?.zMin ?? -7.5}
-                                                onChange={(e) => store.updateLocationProps(store.currentLocationId, { zMin: Number(e.target.value) })}
+                                                value={locations.find(l => l.id === currentLocationId)?.zMin ?? -7.5}
+                                                onChange={(e) => updateLocationProps(currentLocationId, { zMin: Number(e.target.value) })}
                                                 className="w-full bg-[#010613] border border-cyan-900/30 p-2 rounded text-cyan-100 text-sm outline-none focus:border-cyan-400 transition-colors"
                                             />
                                             <span className="text-[10px] text-slate-600">m</span>
@@ -352,8 +468,8 @@ export default function TwinsPage() {
                                         <div className="flex items-center gap-2">
                                             <input
                                                 type="number" step="0.6"
-                                                value={store.locations.find(l => l.id === store.currentLocationId)?.zMax ?? 7.5}
-                                                onChange={(e) => store.updateLocationProps(store.currentLocationId, { zMax: Number(e.target.value) })}
+                                                value={locations.find(l => l.id === currentLocationId)?.zMax ?? 7.5}
+                                                onChange={(e) => updateLocationProps(currentLocationId, { zMax: Number(e.target.value) })}
                                                 className="w-full bg-[#010613] border border-cyan-900/30 p-2 rounded text-cyan-100 text-sm outline-none focus:border-cyan-400 transition-colors"
                                             />
                                             <span className="text-[10px] text-slate-600">m</span>
@@ -364,8 +480,8 @@ export default function TwinsPage() {
 
                             <label className="text-[10px] text-slate-500 uppercase tracking-[0.2em] mb-2 block">Door Position</label>
                             <select
-                                value={store.locations.find(l => l.id === store.currentLocationId)?.doorPosition || 'right'}
-                                onChange={(e) => store.updateLocationProps(store.currentLocationId, { doorPosition: e.target.value as any })}
+                                value={locations.find(l => l.id === currentLocationId)?.doorPosition || 'right'}
+                                onChange={(e) => updateLocationProps(currentLocationId, { doorPosition: e.target.value as any })}
                                 className="w-full bg-[#010613] border border-cyan-900/30 p-2 rounded text-cyan-100 text-sm outline-none focus:border-cyan-400 transition-colors"
                             >
                                 <option value="back">Back Wall (-Z)</option>
@@ -377,13 +493,13 @@ export default function TwinsPage() {
                         <div className="mt-8 pt-4">
                             <button
                                 onClick={() => {
-                                    if (store.locations.length <= 1) {
+                                    if (locations.length <= 1) {
                                         alert("❌ 無法刪除！必須至少保留一個機房！");
                                         return;
                                     }
                                     const pwd = window.prompt("⚠️ 警告：這將會永久刪除此機房與內含的所有設備！\\n請輸入管理員密碼(admin)以確認：");
                                     if (pwd === "admin") {
-                                        store.removeLocation(store.currentLocationId);
+removeLocation(currentLocationId);
                                     } else if (pwd !== null) {
                                         alert("❌ 密碼錯誤！刪除已取消。");
                                     }
@@ -402,9 +518,11 @@ export default function TwinsPage() {
                 <div className="w-80 bg-[#020b1a] border-l border-[#1e3a8a] flex flex-col z-10 shadow-[-2px_0_15px_rgba(6,182,212,0.1)]">
                     <div className="p-4 border-b border-[#1e3a8a] flex justify-between items-center bg-gradient-to-r from-transparent to-[#0a1e3f]">
                         <h2 className="text-cyan-400 font-bold tracking-widest uppercase text-xs">{t.rackSettings}</h2>
-                        <button onClick={() => store.removeRack(selectedRack.id)} className="text-red-500 hover:text-red-400 transition" title="Delete Rack">
-                            <Trash size={16} />
-                        </button>
+                        {isEditMode && (
+                            <button onClick={() => removeRack(selectedRack.id)} className="text-red-500 hover:text-red-400 transition" title="Delete Rack">
+                                <Trash size={16} />
+                            </button>
+                        )}
                     </div>
 
                     <div className="p-4 flex flex-col gap-6 overflow-y-auto flex-1">
@@ -414,19 +532,19 @@ export default function TwinsPage() {
                             <input
                                 type="text"
                                 value={selectedRack.name}
-                                onChange={(e) => store.updateRackName(selectedRack.id, e.target.value)}
+                                onChange={(e) => updateRackName(selectedRack.id, e.target.value)}
                                 className="w-full bg-[#010613] border border-cyan-900/30 p-2 rounded text-cyan-100 text-sm outline-none focus:border-cyan-400 transition-colors"
                             />
 
                             {/* 旋轉控制 */}
-                            {store.isEditMode && (
+                            {isEditMode && (
                                 <div className="mt-4 border-t border-slate-800/50 pt-3">
                                     <label className="text-[10px] text-slate-500 uppercase tracking-[0.2em] mb-2 block">Direction Control</label>
                                     <div className="flex gap-2">
-                                        <button onClick={() => store.updateRackRotation(selectedRack.id, [0, selectedRack.rotation[1] + Math.PI / 2, 0])} className="flex-1 bg-[#0a1e3f] hover:bg-cyan-900 border border-cyan-800 text-cyan-400 p-2 rounded transition text-xs font-bold tracking-widest flex items-center justify-center gap-1">
+                                        <button onClick={() => updateRackRotation(selectedRack.id, [0, selectedRack.rotation[1] + Math.PI / 2, 0])} className="flex-1 bg-[#0a1e3f] hover:bg-cyan-900 border border-cyan-800 text-cyan-400 p-2 rounded transition text-xs font-bold tracking-widest flex items-center justify-center gap-1">
                                             ↺ 左轉 90°
                                         </button>
-                                        <button onClick={() => store.updateRackRotation(selectedRack.id, [0, selectedRack.rotation[1] - Math.PI / 2, 0])} className="flex-1 bg-[#0a1e3f] hover:bg-cyan-900 border border-cyan-800 text-cyan-400 p-2 rounded transition text-xs font-bold tracking-widest flex items-center justify-center gap-1">
+                                        <button onClick={() => updateRackRotation(selectedRack.id, [0, selectedRack.rotation[1] - Math.PI / 2, 0])} className="flex-1 bg-[#0a1e3f] hover:bg-cyan-900 border border-cyan-800 text-cyan-400 p-2 rounded transition text-xs font-bold tracking-widest flex items-center justify-center gap-1">
                                             ↻ 右轉 90°
                                         </button>
                                     </div>
@@ -460,7 +578,7 @@ export default function TwinsPage() {
                         </div>
 
                         {/* Network Uplink Selection */}
-                        {selectedRack.type === 'server' && (
+                        {(selectedRack.type === 'server' || selectedRack.type === 'immersion_single' || selectedRack.type === 'immersion_dual') && (
                             <div className="bg-[#03112b] p-4 rounded-lg border border-purple-900/30">
                                 <div className="flex items-center gap-2 mb-3">
                                     <Link2 size={14} className="text-purple-400" />
@@ -469,10 +587,10 @@ export default function TwinsPage() {
                                 <select
                                     className="w-full bg-[#0a1e3f] border border-purple-800 p-2 rounded text-white text-[11px] outline-none mb-3"
                                     value={selectedRack.connectedNetworkRackId || ""}
-                                    onChange={(e) => store.updateRackConnection(selectedRack.id, e.target.value)}
+                                    onChange={(e) => updateRackConnection(selectedRack.id, e.target.value)}
                                 >
                                     <option value="">Auto-Hub (Default)</option>
-                                    {store.racks.filter(r => r.type === 'network').map(netRack => (
+                                    {racks.filter(r => r.type === 'network').map(netRack => (
                                         <option key={netRack.id} value={netRack.id}>{netRack.name}</option>
                                     ))}
                                 </select>
@@ -483,10 +601,10 @@ export default function TwinsPage() {
                                         <select
                                             className="w-full bg-[#0a1e3f] border border-purple-800 p-2 rounded text-white text-[11px] outline-none"
                                             value={selectedRack.connectedSwitchId || ""}
-                                            onChange={(e) => store.updateRackConnection(selectedRack.id, selectedRack.connectedNetworkRackId || null, e.target.value)}
+                                            onChange={(e) => updateRackConnection(selectedRack.id, selectedRack.connectedNetworkRackId || null, e.target.value)}
                                         >
                                             <option value="">Automatic (Top-most)</option>
-                                            {(store.racks.find(r => r.id === selectedRack.connectedNetworkRackId)?.servers || [])
+                                            {(racks.find(r => r.id === selectedRack.connectedNetworkRackId)?.servers || [])
                                                 .filter(s => s.type === 'switch')
                                                 .map(sw => (
                                                     <option key={sw.id} value={sw.id}>{sw.name} (U{sw.uPosition})</option>
@@ -502,9 +620,15 @@ export default function TwinsPage() {
                         <div>
                             <h3 className="text-xs font-bold text-slate-500 mb-3 tracking-widest uppercase border-b border-slate-800 pb-1">{t.installedEquipment}</h3>
                             <div className="flex flex-col gap-2">
-                                {[...selectedRack.servers].sort((a, b) => b.uPosition - a.uPosition).map(server => {
+                                {[...selectedRack.servers].sort((a, b) => b.uPosition - a.uPosition).map((server, idx) => {
                                     let liveStatus = server.status;
-                                    const sTel = telemetry[server.name];
+                                    const sTel =
+                                        telemetry[server.assetId || ""] ||
+                                        telemetry[normalizeNodeId(server.assetId || "")] ||
+                                        telemetry[server.name] ||
+                                        telemetry[normalizeNodeId(server.name)] ||
+                                        telemetry[selectedRack.name] ||
+                                        telemetry[normalizeNodeId(selectedRack.name)];
                                     const metricsText = sTel
                                         ? (server.type === 'switch'
                                             ? `Traffic: ${(sTel.traffic_gbps || (Math.random() * 10)).toFixed(1)} Gbps | Ports: ${Math.floor((sTel.port_usage || Math.random()) * 48)}/48`
@@ -512,7 +636,7 @@ export default function TwinsPage() {
                                         : "";
 
                                     return (
-                                        <div key={server.id} className="flex flex-col gap-2 text-xs bg-[#0a1e3f] p-2 rounded border border-slate-700">
+                                        <div key={`${selectedRack.id}-${server.id}-${idx}`} className="flex flex-col gap-2 text-xs bg-[#0a1e3f] p-2 rounded border border-slate-700">
                                             {editingServerId === server.id && editingDraft ? (
                                                 <div className="flex flex-col gap-2">
                                                     <div className="text-slate-200 font-bold">
@@ -593,7 +717,7 @@ export default function TwinsPage() {
                                                     <div className="flex gap-2 justify-end pt-1">
                                                         <button
                                                             onClick={() => {
-                                                                const ok = store.updateServerInRack(selectedRack.id, server.id, editingDraft);
+                                                                const ok = updateServerInRack(selectedRack.id, server.id, editingDraft);
                                                                 if (!ok) {
                                                                     alert("更新失敗：請確認 U 區間是否越界/重疊。");
                                                                     return;
@@ -634,7 +758,7 @@ export default function TwinsPage() {
                                                     </div>
 
                                                     <div className="flex items-center gap-2">
-                                                        {store.isEditMode && (
+                                                        {isEditMode && (
                                                             <button
                                                                 onClick={() => {
                                                                     setEditingServerId(server.id);
@@ -652,13 +776,15 @@ export default function TwinsPage() {
                                                                 <Edit size={14} />
                                                             </button>
                                                         )}
-                                                        <button
-                                                            onClick={() => store.removeServerFromRack(selectedRack.id, server.id)}
-                                                            className="text-red-400 hover:bg-red-900/30 p-1 rounded transition"
-                                                            title="Remove Server"
-                                                        >
-                                                            <Trash size={14} />
-                                                        </button>
+                                                        {isEditMode && (
+                                                            <button
+                                                                onClick={() => removeServerFromRack(selectedRack.id, server.id)}
+                                                                className="text-red-400 hover:bg-red-900/30 p-1 rounded transition"
+                                                                title="Remove Server"
+                                                            >
+                                                                <Trash size={14} />
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 </div>
                                             )}
@@ -672,7 +798,7 @@ export default function TwinsPage() {
                         </div>
 
                         {/* 新增設備表單 */}
-                        <div className="bg-[#010613] p-4 rounded-lg border border-cyan-900/50 mb-10">
+                        {isEditMode && <div className="bg-[#010613] p-4 rounded-lg border border-cyan-900/50 mb-10">
                             <h3 className="text-xs font-bold text-cyan-600 mb-3 tracking-widest uppercase">
                                 {selectedRack.type === 'network' ? 'Install New Switch/Core' : 'Install New Server'}
                             </h3>
@@ -735,7 +861,7 @@ export default function TwinsPage() {
                                     <Save size={16} /> {selectedRack.type === 'network' ? 'MOUNT SWITCH' : 'MOUNT DEVICE'}
                                 </button>
                             </div>
-                        </div>
+                        </div>}
                     </div>
                 </div>
             )}
@@ -745,8 +871,8 @@ export default function TwinsPage() {
                 <div className="w-80 bg-[#020b1a] border-l border-[#1e3a8a] flex flex-col z-10 shadow-[-2px_0_15px_rgba(6,182,212,0.1)]">
                     <div className="p-4 border-b border-[#1e3a8a] flex justify-between items-center bg-gradient-to-r from-transparent to-[#0a1e3f]">
                         <h2 className="text-cyan-400 font-bold tracking-widest uppercase text-xs">{t.equipmentSettings}</h2>
-                        {store.isEditMode && (
-                            <button onClick={() => store.removeEquipment(selectedEquipment.id)} className="text-red-500 hover:text-red-400 transition" title="Delete Equipment">
+                        {isEditMode && (
+                            <button onClick={() => removeEquipment(selectedEquipment.id)} className="text-red-500 hover:text-red-400 transition" title="Delete Equipment">
                                 <Trash size={16} />
                             </button>
                         )}
@@ -757,7 +883,7 @@ export default function TwinsPage() {
                             <input
                                 type="text"
                                 value={selectedEquipment.name}
-                                onChange={(e) => store.updateEquipmentName(selectedEquipment.id, e.target.value)}
+                                onChange={(e) => updateEquipmentName(selectedEquipment.id, e.target.value)}
                                 className="w-full bg-[#010613] border border-cyan-900/30 p-2 rounded text-cyan-100 text-sm outline-none focus:border-cyan-400 transition-colors mb-4"
                             />
                             <div className="text-xs text-slate-400 mb-1 uppercase tracking-widest">Facility Type</div>
@@ -771,14 +897,14 @@ export default function TwinsPage() {
                             </div>
 
                             {/* 旋轉控制 */}
-                            {store.isEditMode && (
+                            {isEditMode && (
                                 <div className="mt-4 border-t border-slate-800/50 pt-3">
                                     <label className="text-[10px] text-slate-500 uppercase tracking-[0.2em] mb-2 block">Direction Control</label>
                                     <div className="flex gap-2">
-                                        <button onClick={() => store.updateEquipmentRotation(selectedEquipment.id, [0, selectedEquipment.rotation[1] + Math.PI / 2, 0])} className="flex-1 bg-[#0a1e3f] hover:bg-cyan-900 border border-cyan-800 text-cyan-400 p-2 rounded transition text-xs font-bold tracking-widest flex items-center justify-center gap-1">
+                                        <button onClick={() => updateEquipmentRotation(selectedEquipment.id, [0, selectedEquipment.rotation[1] + Math.PI / 2, 0])} className="flex-1 bg-[#0a1e3f] hover:bg-cyan-900 border border-cyan-800 text-cyan-400 p-2 rounded transition text-xs font-bold tracking-widest flex items-center justify-center gap-1">
                                             ↺ 左轉 90°
                                         </button>
-                                        <button onClick={() => store.updateEquipmentRotation(selectedEquipment.id, [0, selectedEquipment.rotation[1] - Math.PI / 2, 0])} className="flex-1 bg-[#0a1e3f] hover:bg-cyan-900 border border-cyan-800 text-cyan-400 p-2 rounded transition text-xs font-bold tracking-widest flex items-center justify-center gap-1">
+                                        <button onClick={() => updateEquipmentRotation(selectedEquipment.id, [0, selectedEquipment.rotation[1] - Math.PI / 2, 0])} className="flex-1 bg-[#0a1e3f] hover:bg-cyan-900 border border-cyan-800 text-cyan-400 p-2 rounded transition text-xs font-bold tracking-widest flex items-center justify-center gap-1">
                                             ↻ 右轉 90°
                                         </button>
                                     </div>
@@ -793,7 +919,7 @@ export default function TwinsPage() {
                                     <input
                                         type="text"
                                         value={selectedEquipment.ipAddress || ""}
-                                        onChange={(e) => store.updateEquipmentIp(selectedEquipment.id, e.target.value)}
+                                        onChange={(e) => updateEquipmentIp(selectedEquipment.id, e.target.value)}
                                         placeholder="e.g. 192.168.1.100"
                                         className="w-full bg-[#010613] border border-cyan-900 p-2 rounded text-cyan-100 text-xs outline-none focus:border-cyan-400 transition-colors"
                                     />
@@ -807,12 +933,12 @@ export default function TwinsPage() {
                                     <div className="grid grid-cols-2 gap-2 text-[10px]">
                                         <div className="bg-[#0a1e3f] p-2 rounded">
                                             <div className="text-slate-500 mb-1">Total Switches</div>
-                                            <div className="text-purple-300 font-bold text-lg">{store.racks.flatMap(r => r.servers).filter(s => s.type === 'switch').length}</div>
+                                            <div className="text-purple-300 font-bold text-lg">{racks.flatMap(r => r.servers).filter(s => s.type === 'switch').length}</div>
                                         </div>
                                         <div className="bg-[#0a1e3f] p-2 rounded">
                                             <div className="text-slate-500 mb-1">Total Traffic</div>
                                             <div className="text-purple-300 font-bold text-lg">
-                                                {(store.racks.flatMap(r => r.servers).filter(s => s.type === 'switch').length * 4.2).toFixed(1)} <span className="text-[8px]">Gbps</span>
+                                                {(racks.flatMap(r => r.servers).filter(s => s.type === 'switch').length * 4.2).toFixed(1)} <span className="text-[8px]">Gbps</span>
                                             </div>
                                         </div>
                                     </div>
@@ -825,14 +951,14 @@ export default function TwinsPage() {
                         {/* CDU: Rack Connection Selector + Live Telemetry */}
                         {selectedEquipment.type === 'cdu' && (() => {
                             const cduTelem = (telemetry as any)[selectedEquipment.name];
-                            const serverRacks = store.racks.filter(r => r.locationId === store.currentLocationId && (r.type === 'server' || r.type === 'immersion_single'));
+                            const serverRacks = racks.filter(r => r.locationId === currentLocationId && (r.type === 'server' || r.type === 'immersion_single'));
                             const connectedIds: string[] = selectedEquipment.connectedRackIds ?? [];
 
                             const toggleRack = (rackId: string) => {
                                 const updated = connectedIds.includes(rackId)
                                     ? connectedIds.filter(id => id !== rackId)
                                     : [...connectedIds, rackId];
-                                store.updateEquipmentConnectedRacks(selectedEquipment.id, updated);
+updateEquipmentConnectedRacks(selectedEquipment.id, updated);
                             };
 
                             return (
@@ -864,7 +990,7 @@ export default function TwinsPage() {
                                         </div>
                                         {connectedIds.length > 0 && (
                                             <button
-                                                onClick={() => store.updateEquipmentConnectedRacks(selectedEquipment.id, [])}
+                                                onClick={() => updateEquipmentConnectedRacks(selectedEquipment.id, [])}
                                                 className="mt-3 text-[10px] text-slate-500 hover:text-red-400 transition underline"
                                             >
                                                 清除 → 恢復自動模式

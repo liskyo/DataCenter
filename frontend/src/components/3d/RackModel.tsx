@@ -6,10 +6,24 @@ import * as THREE from 'three';
 import { RackData, useDcimStore } from '@/store/useDcimStore';
 import ServerModel from './ServerModel';
 import ImmersionTankModel from './ImmersionTankModel';
+import { U_HEIGHT, RACK_WIDTH, RACK_DEPTH } from './sceneScale';
+import { getDeviceStatus } from '@/shared/status';
 
-const U_HEIGHT = 0.04445;
-const RACK_WIDTH = 0.6;
-const RACK_DEPTH = 1.0;
+function normalizeNodeId(value: string): string {
+    const raw = (value || "").trim().toUpperCase().replace(/\s+/g, "").replace(/_/g, "-");
+    const m = raw.match(/^(SERVER|SW|IMM|CDU)-?(\d+)$/);
+    if (!m) return raw;
+    return `${m[1]}-${String(Number(m[2])).padStart(3, "0")}`;
+}
+
+function pickTelemetry(telemetry: Record<string, any>, assetId: string | undefined, name: string) {
+    const keys = [assetId, name, normalizeNodeId(name)].filter((k): k is string => Boolean(k && k.length));
+    for (const k of keys) {
+        const hit = telemetry[k];
+        if (hit) return hit;
+    }
+    return undefined;
+}
 
 export default function RackModel({ data, isSelected, telemetry = {} }: { data: RackData, isSelected: boolean, telemetry?: Record<string, any> }) {
     const rackHeight = data.uCapacity * U_HEIGHT + 0.2; // Add 0.1 bottom + 0.1 top margins
@@ -27,23 +41,20 @@ export default function RackModel({ data, isSelected, telemetry = {} }: { data: 
     let hasWarningServer = false;
 
     data.servers.forEach(server => {
-        const sTel = telemetry[server.name];
-        if (sTel) {
-            // Updated to sync with dashboard thresholds
-            if (sTel.temperature > 55 || sTel.cpu_usage > 85) hasCriticalServer = true;
-            else if (sTel.temperature > 45 || sTel.cpu_usage > 60) hasWarningServer = true;
-        }
+        const sTel = pickTelemetry(telemetry, server.assetId, server.name);
+        const status = getDeviceStatus(
+            { type: server.type, rackType: data.type },
+            sTel,
+        );
+        if (status === 'critical') hasCriticalServer = true;
+        else if (status === 'warning') hasWarningServer = true;
     });
 
-    let frameColor = "#1e3a8a"; // normal blue frame
-    if (powerUsagePercent > 90) {
-        frameColor = "#ef4444"; // Red (Only for Power > 90%)
-    } else if (powerUsagePercent > 70) {
-        frameColor = "#f59e0b"; // Yellow (Only for Power > 70%)
-    }
-
-    if (data.type === 'network') {
-        frameColor = "#a855f7"; // Purple for Network Rack
+    let frameColor = "#364152"; // charcoal gray frame
+    if (powerUsagePercent > 95) {
+        frameColor = "#ef4444"; // Red (Only for Power > 95%)
+    } else if (powerUsagePercent > 90) {
+        frameColor = "#f59e0b"; // Yellow (Only for Power > 90%)
     }
 
     if (isSelected) {
@@ -51,7 +62,9 @@ export default function RackModel({ data, isSelected, telemetry = {} }: { data: 
     }
 
     // Heatmap data: average temp of servers in this rack
-    const temps = data.servers.map(s => telemetry[s.name]?.temperature).filter(t => t !== undefined);
+    const temps = data.servers
+        .map(s => pickTelemetry(telemetry, s.assetId, s.name)?.temperature)
+        .filter(t => t !== undefined);
     const avgTemp = temps.length > 0 ? temps.reduce((a, b) => a + b, 0) / temps.length : 22;
 
     const getHeatColor = (t: number) => {
@@ -102,7 +115,7 @@ export default function RackModel({ data, isSelected, telemetry = {} }: { data: 
                 ref={groupRef}
                 onClick={(e) => {
                     e.stopPropagation();
-                    if (isEditMode) selectRack(data.id);
+                    selectRack(data.id);
                 }}
             >
                 {/* Immersion tank delegation */}
@@ -115,10 +128,10 @@ export default function RackModel({ data, isSelected, telemetry = {} }: { data: 
                     <meshStandardMaterial
                         color={frameColor}
                         transparent
-                        opacity={isSelected ? (data.type === 'network' ? 0.4 : 0.3) : 0.15}
-                        wireframe={!isSelected && data.type !== 'network'}
-                        emissive={data.type === 'network' ? "#a855f7" : "#000"}
-                        emissiveIntensity={data.type === 'network' ? 0.2 : 0}
+                        opacity={isSelected ? 0.3 : 0.15}
+                        wireframe={!isSelected}
+                        emissive="#000"
+                        emissiveIntensity={0}
                     />
                 </mesh>
 
@@ -133,7 +146,7 @@ export default function RackModel({ data, isSelected, telemetry = {} }: { data: 
                         ].map((pos, i) => (
                             <mesh key={i} position={[pos[0], rackHeight / 2, pos[2]]}>
                                 <boxGeometry args={[0.04, rackHeight, 0.04]} />
-                                <meshStandardMaterial color="#4c1d95" emissive="#a855f7" emissiveIntensity={0.5} />
+                                <meshStandardMaterial color="#57534e" metalness={0.65} roughness={0.35} />
                             </mesh>
                         ))}
                     </group>
@@ -184,8 +197,12 @@ export default function RackModel({ data, isSelected, telemetry = {} }: { data: 
                 </mesh>
 
                 {/* Render Servers inside */}
-                {data.servers.map(server => (
-                    <ServerModel key={server.id} data={server} telemetry={telemetry[server.name]} />
+                {data.servers.map((server, idx) => (
+                    <ServerModel
+                        key={`${data.id}-${server.id}-${idx}`}
+                        data={server}
+                        telemetry={pickTelemetry(telemetry, server.assetId, server.name)}
+                    />
                 ))}
 
                 {/* Heatmap Environmental Sensor Nodes (Front) */}

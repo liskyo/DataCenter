@@ -1,13 +1,181 @@
 "use client";
 
-import { Globe, Server, Activity, ShieldAlert } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Globe, Save, RotateCcw } from "lucide-react";
 import { useLanguage } from "@/shared/i18n/language";
+
+type DeviceType = "server" | "rack" | "tank" | "cdu" | "switch";
+type CommMethod =
+  | "agent_active_pull"
+  | "redfish_poll"
+  | "streaming_telemetry_gnmi_openconfig"
+  | "bmc"
+  | "snmp_poll_trap"
+  ;
+
+type CommProfile = Record<
+  DeviceType,
+  {
+    method: CommMethod;
+    endpoint: string;
+    enabled: boolean;
+    notes: string;
+  }
+>;
+
+const STORAGE_KEY = "dcim.network.comm.profile.v1";
+
+const DEFAULT_PROFILE: CommProfile = {
+  server: {
+    method: "agent_active_pull",
+    endpoint: "http://127.0.0.1:9000/ingest",
+    enabled: true,
+    notes: "",
+  },
+  rack: {
+    method: "streaming_telemetry_gnmi_openconfig",
+    endpoint: "kafka://localhost:29093/telemetry",
+    enabled: true,
+    notes: "",
+  },
+  tank: {
+    method: "streaming_telemetry_gnmi_openconfig",
+    endpoint: "kafka://localhost:29093/telemetry",
+    enabled: true,
+    notes: "",
+  },
+  cdu: {
+    method: "streaming_telemetry_gnmi_openconfig",
+    endpoint: "kafka://localhost:29093/telemetry",
+    enabled: true,
+    notes: "",
+  },
+  switch: {
+    method: "snmp_poll_trap",
+    endpoint: "snmp://10.10.10.30",
+    enabled: true,
+    notes: "",
+  },
+};
+
+function mergeProfile(raw: unknown): CommProfile {
+  if (!raw || typeof raw !== "object") return DEFAULT_PROFILE;
+  const input = raw as Partial<CommProfile>;
+  return {
+    server: { ...DEFAULT_PROFILE.server, ...(input.server || {}) },
+    rack: { ...DEFAULT_PROFILE.rack, ...(input.rack || {}) },
+    tank: { ...DEFAULT_PROFILE.tank, ...(input.tank || {}) },
+    cdu: { ...DEFAULT_PROFILE.cdu, ...(input.cdu || {}) },
+    switch: { ...DEFAULT_PROFILE.switch, ...(input.switch || {}) },
+  };
+}
 
 export default function NetworkPage() {
   const { language } = useLanguage();
-  const t = language === "en"
-    ? { title: "NETWORK TOPOLOGY", subtitle: "Data routing and interconnect latency" }
-    : { title: "網路拓撲", subtitle: "資料路由與互連延遲監控" };
+  const isEn = language === "en";
+  const [profile, setProfile] = useState<CommProfile>(DEFAULT_PROFILE);
+  const [savedAt, setSavedAt] = useState<string>("");
+
+  const t = useMemo(
+    () =>
+      isEn
+        ? {
+            title: "Network Communication",
+            subtitle: "Configure how each facility device connects to DCIM",
+            save: "Save Local Profile",
+            reset: "Restore Defaults",
+            saved: "Saved",
+            method: "Method",
+            endpoint: "Endpoint / Path",
+            enabled: "Enabled",
+            notes: "Notes",
+            section: "Direct Device-to-DCIM Settings",
+            rows: {
+              server: "Server",
+              rack: "Rack",
+              tank: "Tank",
+              cdu: "CDU",
+              switch: "Switch",
+            },
+            methods: {
+              agent_active_pull: "Agent active pull (current default)",
+              redfish_poll: "Redfish poll",
+              streaming_telemetry_gnmi_openconfig: "Streaming Telemetry (gNMI / OpenConfig)",
+              bmc: "BMC",
+              snmp_poll_trap: "SNMP poll + trap",
+            },
+          }
+        : {
+            title: "網路通訊設定",
+            subtitle: "設定資料中心設備如何連接到 DCIM 系統",
+            save: "儲存本機設定",
+            reset: "還原預設",
+            saved: "已儲存",
+            method: "通訊方式",
+            endpoint: "端點 / 路徑",
+            enabled: "啟用",
+            notes: "備註",
+            section: "設備連線設定",
+            rows: {
+              server: "伺服器",
+              rack: "機櫃",
+              tank: "液冷槽",
+              cdu: "CDU",
+              switch: "交換器",
+            },
+            methods: {
+              agent_active_pull: "Agent 主動 pull（現行預設）",
+              redfish_poll: "Redfish 輪詢",
+              streaming_telemetry_gnmi_openconfig: "Streaming Telemetry（gNMI / OpenConfig）",
+              bmc: "BMC",
+              snmp_poll_trap: "SNMP 輪詢 + Trap",
+            },
+          },
+    [isEn],
+  );
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      if (raw) setProfile(mergeProfile(JSON.parse(raw)));
+    } catch {
+      setProfile(DEFAULT_PROFILE);
+    }
+  }, []);
+
+  const saveProfile = () => {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
+    setSavedAt(new Date().toLocaleTimeString());
+  };
+
+  const resetProfile = () => {
+    setProfile(DEFAULT_PROFILE);
+    setSavedAt("");
+  };
+
+  const update = <K extends keyof CommProfile[DeviceType]>(
+    device: DeviceType,
+    key: K,
+    value: CommProfile[DeviceType][K],
+  ) => {
+    setProfile((prev) => ({
+      ...prev,
+      [device]: {
+        ...prev[device],
+        [key]: value,
+      },
+    }));
+  };
+
+  const deviceOrder: DeviceType[] = ["server", "rack", "tank", "cdu", "switch"];
+  const methodOptions: CommMethod[] = [
+    "agent_active_pull",
+    "redfish_poll",
+    "streaming_telemetry_gnmi_openconfig",
+    "bmc",
+    "snmp_poll_trap",
+  ];
+
   return (
     <div className="p-8 pb-20 max-w-7xl mx-auto">
       <header className="mb-6 flex items-center gap-4 bg-[#0a1e3f]/30 p-4 rounded-xl border border-[#1e3a8a]">
@@ -20,49 +188,84 @@ export default function NetworkPage() {
         </div>
       </header>
 
-      <div className="bg-[#020b1a] border border-[#1e3a8a] aspect-[21/9] w-full relative flex items-center justify-center overflow-hidden">
-         {/* 背景網格 */}
-         <div className="absolute inset-0 bg-[linear-gradient(rgba(30,58,138,0.2)_1px,transparent_1px),linear-gradient(90deg,rgba(30,58,138,0.2)_1px,transparent_1px)] bg-[size:40px_40px]"></div>
-         
-         <div className="relative z-10 flex flex-col items-center">
-             <div className="w-16 h-16 rounded border-2 border-cyan-500 bg-cyan-950/80 flex items-center justify-center animate-pulse shadow-[0_0_20px_rgba(6,182,212,0.5)]">
-               <Globe className="text-cyan-400" size={32} />
-             </div>
-             <span className="mt-2 text-cyan-400 font-bold tracking-widest text-sm">EXTERNAL ISP</span>
-             
-             {/* 垂直連線 */}
-             <div className="h-16 w-1 bg-gradient-to-b from-cyan-500 to-emerald-500"></div>
-             
-             <div className="w-20 h-16 rounded border-2 border-emerald-500 bg-emerald-950/80 flex items-center justify-center shadow-[0_0_15px_rgba(16,185,129,0.3)]">
-               <ShieldAlert className="text-emerald-400" size={32} />
-             </div>
-             <span className="mt-2 text-emerald-400 font-bold tracking-widest text-sm">MAIN FIREWALL</span>
+      <section className="rounded-xl border border-[#1e3a8a] bg-[#020b1a] p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <h2 className="text-lg font-bold text-[#7dd3fc]">{t.section}</h2>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={resetProfile}
+              className="inline-flex items-center gap-1 rounded border border-slate-600 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-800"
+            >
+              <RotateCcw size={14} />
+              {t.reset}
+            </button>
+            <button
+              onClick={saveProfile}
+              className="inline-flex items-center gap-1 rounded border border-cyan-600 bg-cyan-700/30 px-3 py-1.5 text-xs text-cyan-200 hover:bg-cyan-700/50"
+            >
+              <Save size={14} />
+              {t.save}
+            </button>
+          </div>
+        </div>
+        {savedAt ? <p className="mb-3 text-xs text-emerald-400">{t.saved}: {savedAt}</p> : null}
 
-             {/* 垂直連線與分支 */}
-             <div className="h-10 w-1 bg-emerald-500"></div>
-             <div className="w-[600px] h-1 bg-emerald-500"></div>
-             <div className="flex justify-between w-[600px]">
-                <div className="w-1 h-10 bg-emerald-500"></div>
-                <div className="w-1 h-10 bg-emerald-500"></div>
-                <div className="w-1 h-10 bg-emerald-500"></div>
-             </div>
-
-             <div className="flex justify-between w-[640px]">
-                 <div className="flex flex-col items-center">
-                    <div className="w-12 h-12 rounded border-2 border-slate-500 bg-slate-900 flex items-center justify-center"><Server className="text-slate-400" size={24}/></div>
-                    <span className="mt-2 text-slate-400 font-mono text-[10px]">AZURE CLUSTER</span>
-                 </div>
-                 <div className="flex flex-col items-center">
-                    <div className="w-12 h-12 rounded border-2 border-cyan-500 bg-cyan-900 flex items-center justify-center"><Activity className="text-cyan-400" size={24}/></div>
-                    <span className="mt-2 text-cyan-400 font-mono text-[10px]">LOCAL KAFKA</span>
-                 </div>
-                 <div className="flex flex-col items-center">
-                    <div className="w-12 h-12 rounded border-2 border-slate-500 bg-slate-900 flex items-center justify-center"><Server className="text-slate-400" size={24}/></div>
-                    <span className="mt-2 text-slate-400 font-mono text-[10px]">BACKUP NAS</span>
-                 </div>
-             </div>
-         </div>
+        <div className="overflow-x-auto">
+          <table className="min-w-[1024px] w-full text-sm border-collapse">
+            <thead>
+              <tr className="text-slate-300 border-b border-slate-700">
+                <th className="py-2 px-2 text-left">Device</th>
+                <th className="py-2 px-2 text-left">{t.enabled}</th>
+                <th className="py-2 px-2 text-left">{t.method}</th>
+                <th className="py-2 px-2 text-left">{t.endpoint}</th>
+                <th className="py-2 px-2 text-left">{t.notes}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {deviceOrder.map((device) => (
+                <tr key={device} className="border-b border-slate-800">
+                  <td className="py-2 px-2 font-semibold text-slate-100">{t.rows[device]}</td>
+                  <td className="py-2 px-2">
+                    <input
+                      type="checkbox"
+                      checked={profile[device].enabled}
+                      onChange={(e) => update(device, "enabled", e.target.checked)}
+                      className="h-4 w-4 accent-cyan-500"
+                    />
+                  </td>
+                  <td className="py-2 px-2">
+                    <select
+                      value={profile[device].method}
+                      onChange={(e) => update(device, "method", e.target.value as CommMethod)}
+                      className="w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-slate-100"
+                    >
+                      {methodOptions.map((method) => (
+                        <option key={method} value={method}>
+                          {t.methods[method]}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="py-2 px-2">
+                    <input
+                      value={profile[device].endpoint}
+                      onChange={(e) => update(device, "endpoint", e.target.value)}
+                      className="w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-slate-100"
+                    />
+                  </td>
+                  <td className="py-2 px-2">
+                    <input
+                      value={profile[device].notes}
+                      onChange={(e) => update(device, "notes", e.target.value)}
+                      className="w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-slate-100"
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
       </div>
-    </div>
   );
 }

@@ -34,8 +34,61 @@ def set_simulate_targets(payload: dict, request: Request):
     container = _container(request)
     targets = payload.get("targets", [])
     if isinstance(targets, list) and targets:
-        container.kafka.simulation_targets = targets
+        normalized_targets: list[str] = []
+        for t in targets:
+            if not isinstance(t, str):
+                continue
+            n = container.normalize_node_id(t)
+            if not n:
+                continue
+            container.bind_asset(n, n)
+            normalized_targets.append(n)
+        container.kafka.simulation_targets = normalized_targets
     return {"status": "success", "targets_count": len(container.kafka.simulation_targets)}
+
+
+@router.get("/id_bindings")
+def list_id_bindings(request: Request):
+    container = _container(request)
+    rows = [{"asset_id": a, "display_name": d} for a, d in container.asset_to_display.items()]
+    rows.sort(key=lambda x: x["display_name"])
+    return {"data": rows}
+
+
+@router.post("/id_bindings/bind")
+def bind_id(payload: dict, request: Request):
+    container = _container(request)
+    asset_id = payload.get("asset_id")
+    display_name = payload.get("display_name")
+    if not isinstance(asset_id, str) or not isinstance(display_name, str):
+        return {"status": "error", "message": "asset_id and display_name are required"}
+    try:
+        mapped = container.bind_asset(asset_id, display_name)
+    except ValueError as exc:
+        return {"status": "error", "message": str(exc)}
+    return {"status": "success", "data": mapped}
+
+
+@router.post("/id_bindings/bulk_bind")
+def bulk_bind_id(payload: dict, request: Request):
+    container = _container(request)
+    items = payload.get("items", [])
+    if not isinstance(items, list):
+        return {"status": "error", "message": "items must be a list"}
+
+    bound = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        asset_id = item.get("asset_id")
+        display_name = item.get("display_name")
+        if not isinstance(asset_id, str) or not isinstance(display_name, str):
+            continue
+        try:
+            bound.append(container.bind_asset(asset_id, display_name))
+        except ValueError:
+            continue
+    return {"status": "success", "bound_count": len(bound), "data": bound}
 
 
 @ops_router.get("/health")

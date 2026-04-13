@@ -3,8 +3,7 @@ import React, { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { ServerData } from '@/store/useDcimStore';
 import * as THREE from 'three';
-
-const U_HEIGHT = 0.04445; // 1U = 1.75 inches = 0.04445 meters
+import { U_HEIGHT } from './sceneScale';
 const SERVER_WIDTH = 0.44; // 19 inch rack internal
 const SERVER_DEPTH = 0.8;
 

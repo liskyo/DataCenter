@@ -1,5 +1,3 @@
-import threading
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -30,12 +28,6 @@ app.include_router(auth_router)
 async def startup_event():
     container: AppContainer = app.state.container
     container.startup()
-    threading.Thread(target=container.kafka.kafka_consumer_worker, args=(container.process_message,), daemon=True).start()
-    threading.Thread(
-        target=container.kafka.simulation_worker,
-        args=(lambda: container.system_mode,),
-        daemon=True,
-    ).start()
 
 
 @app.on_event("shutdown")

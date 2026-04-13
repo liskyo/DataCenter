@@ -1,9 +1,11 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { v4 as uuidv4 } from 'uuid';
+import { normalizeNodeId } from '@/shared/nodeId';
 
 export type ServerData = {
     id: string;
+    assetId?: string; // Stable telemetry identity, independent from display name
     name: string;
     uPosition: number; // 0 ~ 41 (Assuming 42U rack)
     uHeight: number;   // 1U, 2U, 4U etc.
@@ -54,6 +56,147 @@ export type RackData = {
     locationId: string; // Associated location
 };
 
+const normalizeImportedRacks = (rawRacks: any[]): RackData[] => {
+    const usedServerIds = new Set<string>();
+    const perRackIdRemap = new Map<string, Map<string, string>>();
+
+    const normalized: RackData[] = rawRacks
+        .filter((r): r is RackData => !!r && typeof r.id === "string" && Array.isArray(r.servers))
+        .map((rack: any) => {
+            const idRemap = new Map<string, string>();
+            const safeServers: ServerData[] = (Array.isArray(rack.servers) ? rack.servers : []).map((server: any) => {
+                const rawId = typeof server?.id === "string" ? server.id : "";
+                let nextId = rawId;
+                if (!nextId || usedServerIds.has(nextId)) {
+                    nextId = uuidv4();
+                }
+                usedServerIds.add(nextId);
+                if (rawId && rawId !== nextId) {
+                    idRemap.set(rawId, nextId);
+                }
+
+                return {
+                    id: nextId,
+                    assetId: typeof server?.assetId === "string" && server.assetId
+                        ? normalizeNodeId(server.assetId)
+                        : normalizeNodeId(typeof server?.name === "string" ? server.name : nextId),
+                    name: typeof server?.name === "string" ? server.name : `SERVER-${Math.floor(Math.random() * 1000)}`,
+                    uPosition: Number.isFinite(server?.uPosition) ? Math.max(1, Math.floor(server.uPosition)) : 1,
+                    uHeight: Number.isFinite(server?.uHeight) ? Math.max(1, Math.floor(server.uHeight)) : 1,
+                    powerKw: Number.isFinite(server?.powerKw) ? Number(server.powerKw) : 0.5,
+                    type: server?.type === "switch" || server?.type === "storage" ? server.type : "server",
+                    status: server?.status === "warning" || server?.status === "critical" || server?.status === "offline"
+                        ? server.status
+                        : "normal",
+                };
+            });
+
+            if (idRemap.size > 0) {
+                perRackIdRemap.set(rack.id, idRemap);
+            }
+
+            return {
+                ...rack,
+                servers: safeServers,
+            };
+        });
+
+    // Keep rack-to-switch links valid after server.id dedupe/rebuild.
+    return normalized.map((rack) => {
+        const targetNetworkRackId = rack.connectedNetworkRackId;
+        if (!targetNetworkRackId || !rack.connectedSwitchId) return rack;
+
+        const targetRemap = perRackIdRemap.get(targetNetworkRackId);
+        if (!targetRemap) return rack;
+
+        const mappedSwitchId = targetRemap.get(rack.connectedSwitchId);
+        if (!mappedSwitchId) return rack;
+
+        return {
+            ...rack,
+            connectedSwitchId: mappedSwitchId,
+        };
+    });
+};
+
+/** 新增一般機櫃／浸沒槽時預設建立的伺服器台數（僅 addRack，不影響匯入／還原） */
+const NEW_RACK_DEFAULT_SERVER_COUNT = 10;
+/** 上述預設伺服器每台高度（U） */
+const NEW_RACK_DEFAULT_SERVER_U_HEIGHT = 2;
+
+function uRangeOverlap(aStart: number, aEnd: number, bStart: number, bEnd: number): boolean {
+    return Math.max(aStart, bStart) <= Math.min(aEnd, bEnd);
+}
+
+function slotFreeForU(
+    servers: ServerData[],
+    uPosition: number,
+    uHeight: number,
+    uCapacity: number,
+): boolean {
+    const targetEnd = uPosition + uHeight - 1;
+    if (uPosition < 1 || targetEnd > uCapacity) return false;
+    return !servers.some((s) => {
+        const sEnd = s.uPosition + s.uHeight - 1;
+        return uRangeOverlap(uPosition, targetEnd, s.uPosition, sEnd);
+    });
+}
+
+function allocateUniqueServerName(usedNames: Set<string>): string {
+    for (let n = 1; n < 10000; n++) {
+        const name = `SERVER-${String(n).padStart(3, "0")}`;
+        if (!usedNames.has(name)) {
+            usedNames.add(name);
+            return name;
+        }
+    }
+    const name = `SERVER-${uuidv4().slice(0, 8).toUpperCase()}`;
+    usedNames.add(name);
+    return name;
+}
+
+/**
+ * 僅供「新增機櫃／浸沒槽」：建立預設伺服器清單（名稱與場景既有設備不重複，每台 2U）。
+ * 匯入 JSON、localStorage 還原時不呼叫此函式。
+ */
+function buildDefaultServersForNewRack(
+    existingRacks: RackData[],
+    uCapacity: number,
+    count: number,
+): ServerData[] {
+    const uH = NEW_RACK_DEFAULT_SERVER_U_HEIGHT;
+    const usedNames = new Set<string>();
+    existingRacks.forEach((r) =>
+        r.servers.forEach((s) => {
+            usedNames.add(s.name);
+            if (s.assetId) usedNames.add(s.assetId);
+        }),
+    );
+    const servers: ServerData[] = [];
+    while (servers.length < count) {
+        let placed = false;
+        for (let u = 1; u <= uCapacity; u++) {
+            if (slotFreeForU(servers, u, uH, uCapacity)) {
+                const name = allocateUniqueServerName(usedNames);
+                servers.push({
+                    id: uuidv4(),
+                    assetId: normalizeNodeId(name),
+                    name,
+                    uPosition: u,
+                    uHeight: uH,
+                    powerKw: 1.5,
+                    type: "server",
+                    status: "normal",
+                });
+                placed = true;
+                break;
+            }
+        }
+        if (!placed) break;
+    }
+    return servers;
+}
+
 type DcimState = {
     isEditMode: boolean;
     setEditMode: (mode: boolean) => void;
@@ -79,9 +222,9 @@ type DcimState = {
     updateRackConnection: (id: string, networkRackId: string | null, switchId?: string | null) => void;
     updateRackName: (id: string, name: string) => void;
     removeRack: (id: string) => void;
-    addServerToRack: (rackId: string, server: Omit<ServerData, 'id'>) => boolean; // Returns false if no space
+    addServerToRack: (rackId: string, server: Omit<ServerData, 'id' | 'assetId'>) => boolean; // Returns false if no space
     removeServerFromRack: (rackId: string, serverId: string) => void;
-    updateServerInRack: (rackId: string, serverId: string, patch: Partial<Omit<ServerData, 'id'>>) => boolean;
+    updateServerInRack: (rackId: string, serverId: string, patch: Partial<Omit<ServerData, 'id' | 'assetId'>>) => boolean;
     selectRack: (id: string | null) => void;
 
     addEquipment: (type: EquipmentType, position: [number, number, number]) => void;
@@ -121,20 +264,20 @@ export const useDcimStore = create<DcimState>()(
                 {
                     id: uuidv4(), name: 'RACK-A01', type: 'server', position: [-2.4, 0, -1.2], rotation: [0, 0, 0], uCapacity: 42, maxPowerKw: 15, locationId: 'default-loc',
                     servers: [
-                        { id: uuidv4(), name: 'SERVER-001', uPosition: 2, uHeight: 1, powerKw: 0.8, type: 'server', status: 'normal' },
-                        { id: uuidv4(), name: 'SERVER-002', uPosition: 4, uHeight: 1, powerKw: 0.8, type: 'server', status: 'normal' },
-                        { id: uuidv4(), name: 'SERVER-003', uPosition: 6, uHeight: 2, powerKw: 1.5, type: 'server', status: 'normal' }
+                        { id: uuidv4(), assetId: 'SERVER-001', name: 'SERVER-001', uPosition: 2, uHeight: 1, powerKw: 0.8, type: 'server', status: 'normal' },
+                        { id: uuidv4(), assetId: 'SERVER-002', name: 'SERVER-002', uPosition: 4, uHeight: 1, powerKw: 0.8, type: 'server', status: 'normal' },
+                        { id: uuidv4(), assetId: 'SERVER-003', name: 'SERVER-003', uPosition: 6, uHeight: 2, powerKw: 1.5, type: 'server', status: 'normal' }
                     ]
                 },
                 {
                     id: uuidv4(), name: 'RACK-A02', type: 'server', position: [-1.2, 0, -1.2], rotation: [0, 0, 0], uCapacity: 42, maxPowerKw: 15, locationId: 'default-loc',
                     servers: [
-                        { id: uuidv4(), name: 'SERVER-004', uPosition: 2, uHeight: 2, powerKw: 2.0, type: 'server', status: 'normal' },
-                        { id: uuidv4(), name: 'SERVER-005', uPosition: 6, uHeight: 2, powerKw: 2.0, type: 'server', status: 'normal' }
+                        { id: uuidv4(), assetId: 'SERVER-004', name: 'SERVER-004', uPosition: 2, uHeight: 2, powerKw: 2.0, type: 'server', status: 'normal' },
+                        { id: uuidv4(), assetId: 'SERVER-005', name: 'SERVER-005', uPosition: 6, uHeight: 2, powerKw: 2.0, type: 'server', status: 'normal' }
                     ]
                 },
                 {
-                    id: uuidv4(), name: 'NET-RACK-01', type: 'network', position: [0, 0, -4.5], rotation: [0, 0, 0], uCapacity: 42, maxPowerKw: 10, locationId: 'default-loc',
+                    id: uuidv4(), name: 'NET-RACK-01', type: 'network', position: [0, 0, -4.5], rotation: [0, 0, 0], uCapacity: 42, maxPowerKw: 15, locationId: 'default-loc',
                     servers: []
                 }
             ],
@@ -148,22 +291,28 @@ export const useDcimStore = create<DcimState>()(
                     immersion_dual: `IMM-2P-${Math.floor(Math.random() * 1000)}`,
                 };
                 const isImmersion = type === 'immersion_single' || type === 'immersion_dual';
-                return {
-                    racks: [
-                        ...state.racks,
-                        {
-                            id: uuidv4(),
-                            name: nameMap[type],
-                            type,
-                            position,
-                            rotation: [0, 0, 0],
-                            uCapacity: isImmersion ? 20 : 42,
-                            maxPowerKw: isImmersion ? 30 : (type === 'server' ? 15 : 10),
-                            servers: [],
-                            locationId: state.currentLocationId
-                        }
-                    ]
+                const isServerRack = type === 'server';
+                const uCapacity = isImmersion ? 20 : 42;
+                const servers =
+                    isImmersion || isServerRack
+                        ? buildDefaultServersForNewRack(
+                              state.racks,
+                              uCapacity,
+                              NEW_RACK_DEFAULT_SERVER_COUNT,
+                          )
+                        : [];
+                const newRack: RackData = {
+                    id: uuidv4(),
+                    name: nameMap[type],
+                    type,
+                    position,
+                    rotation: [0, 0, 0],
+                    uCapacity,
+                    maxPowerKw: isImmersion ? 30 : 15,
+                    servers,
+                    locationId: state.currentLocationId,
                 };
+                return { racks: [...state.racks, newRack] };
             }),
 
             updateRackConnection: (id, networkRackId, switchId = null) => set((state) => ({
@@ -213,7 +362,7 @@ export const useDcimStore = create<DcimState>()(
                     return {
                         racks: state.racks.map((r: any) => r.id === rackId ? {
                             ...r,
-                            servers: [...r.servers, { ...serverData, id: uuidv4() }]
+                            servers: [...r.servers, { ...serverData, id: uuidv4(), assetId: normalizeNodeId(serverData.name) }]
                         } : r)
                     };
                 });
@@ -275,6 +424,7 @@ export const useDcimStore = create<DcimState>()(
                                     return {
                                         ...s,
                                         ...next,
+                                        assetId: s.assetId || normalizeNodeId(next.name),
                                         uPosition: nextUPosition,
                                         uHeight: nextUHeight,
                                     };
@@ -380,8 +530,9 @@ export const useDcimStore = create<DcimState>()(
                 try {
                     const parsed = JSON.parse(jsonConfig);
                     if (parsed && Array.isArray(parsed.racks)) {
+                        const normalizedRacks = normalizeImportedRacks(parsed.racks);
                         set({
-                            racks: parsed.racks,
+                            racks: normalizedRacks,
                             equipments: Array.isArray(parsed.equipments) ? parsed.equipments : get().equipments,
                             locations: Array.isArray(parsed.locations) ? parsed.locations : get().locations,
                             currentLocationId: parsed.currentLocationId || get().currentLocationId,
@@ -452,7 +603,7 @@ export const useDcimStore = create<DcimState>()(
                     ...currentState,
                     ...persisted,
                     racks: Array.isArray(persisted.racks)
-                        ? persisted.racks.filter((r): r is RackData => !!r && typeof r.id === "string" && Array.isArray(r.servers))
+                        ? normalizeImportedRacks(persisted.racks)
                         : currentState.racks,
                     equipments: Array.isArray(persisted.equipments)
                         ? persisted.equipments.filter((e): e is EquipmentData => !!e && typeof e.id === "string" && Array.isArray(e.position))

@@ -1,0 +1,4829 @@
+{
+  "racks": [
+    {
+      "id": "4e671841-b8db-4a74-8d3c-55ee86c53157",
+      "name": "R-21",
+      "type": "server",
+      "position": [
+        -2.4,
+        0,
+        -1.7999999999999998
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 42,
+      "maxPowerKw": 15,
+      "locationId": "default-loc",
+      "servers": [
+        {
+          "id": "823490c7-1f54-4301-8353-44e9cfd1a3f9",
+          "assetId": "SERVER-211",
+          "name": "SERVER-211",
+          "uPosition": 9,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "e5b3a0f5-078e-47f4-9229-682da0c2e5ba",
+          "assetId": "SERVER-212",
+          "name": "SERVER-212",
+          "uPosition": 12,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "d41632cc-f663-4822-95de-0a755279da21",
+          "assetId": "SERVER-213",
+          "name": "SERVER-213",
+          "uPosition": 15,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "c24965c7-ecaa-409d-ac78-2b776cff4c59",
+          "assetId": "SERVER-214",
+          "name": "SERVER-214",
+          "uPosition": 18,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "40b1ab4b-390c-45eb-8545-cc0cf6f11a1b",
+          "assetId": "SERVER-215",
+          "name": "SERVER-215",
+          "uPosition": 21,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "32a8f5a3-5616-4e2a-9f24-03093bb9327b",
+          "assetId": "SERVER-216",
+          "name": "SERVER-216",
+          "uPosition": 24,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "599259fd-d945-41da-b644-d9cc2ea80eff",
+          "assetId": "SERVER-217",
+          "name": "SERVER-217",
+          "uPosition": 27,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "f9a3b595-4ef2-41af-9d9b-a10dde088285",
+          "assetId": "SERVER-218",
+          "name": "SERVER-218",
+          "uPosition": 30,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "9e23a6b0-0a63-4333-8077-1b325c37dab4",
+          "assetId": "SERVER-219",
+          "name": "SERVER-219",
+          "uPosition": 33,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        }
+      ],
+      "connectedNetworkRackId": "50e6595e-59aa-429e-b131-f0a8e95e0354",
+      "connectedSwitchId": "db38fd2c-a2cb-47bb-88e2-22db918fc76f"
+    },
+    {
+      "id": "22881901-9dcc-4255-af01-b8c6a6168ef4",
+      "name": "R-22",
+      "type": "server",
+      "position": [
+        -1.7999999999999998,
+        0,
+        -1.7999999999999998
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 42,
+      "maxPowerKw": 15,
+      "locationId": "default-loc",
+      "servers": [
+        {
+          "id": "dda66005-4d3b-4363-bf44-c48fd93e39dd",
+          "assetId": "SERVER-221",
+          "name": "SERVER-221",
+          "uPosition": 9,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "f42934d7-21e8-42ab-a2ff-b8549006da63",
+          "assetId": "SERVER-222",
+          "name": "SERVER-222",
+          "uPosition": 12,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "e45c8070-928e-4062-8a64-61c5d0f4a963",
+          "assetId": "SERVER-223",
+          "name": "SERVER-223",
+          "uPosition": 15,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "3d9c9ada-4db2-451a-8d89-ee4c4f19d093",
+          "assetId": "SERVER-224",
+          "name": "SERVER-224",
+          "uPosition": 18,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "e84b2cb3-f248-4247-8537-ea9cc21376d8",
+          "assetId": "SERVER-225",
+          "name": "SERVER-225",
+          "uPosition": 21,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "eee9eb7e-fcb9-4cc8-b477-1415fa70de60",
+          "assetId": "SERVER-226",
+          "name": "SERVER-226",
+          "uPosition": 24,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "9ed31d63-bb70-43e5-8387-605b8e55ab7d",
+          "assetId": "SERVER-227",
+          "name": "SERVER-227",
+          "uPosition": 27,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "0ab40142-45e8-47b7-8410-0b8584b9ca06",
+          "assetId": "SERVER-228",
+          "name": "SERVER-228",
+          "uPosition": 30,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "55a2f66d-38dc-4fb3-b0dc-8afa88b3e42b",
+          "assetId": "SERVER-229",
+          "name": "SERVER-229",
+          "uPosition": 33,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        }
+      ],
+      "connectedNetworkRackId": "50e6595e-59aa-429e-b131-f0a8e95e0354",
+      "connectedSwitchId": "db38fd2c-a2cb-47bb-88e2-22db918fc76f"
+    },
+    {
+      "id": "50e6595e-59aa-429e-b131-f0a8e95e0354",
+      "name": "NET-RACK-01",
+      "type": "network",
+      "position": [
+        -3,
+        0,
+        -1.7999999999999998
+      ],
+      "rotation": [
+        0,
+        -2.4492935982947064e-16,
+        0
+      ],
+      "uCapacity": 42,
+      "maxPowerKw": 10,
+      "locationId": "default-loc",
+      "servers": [
+        {
+          "id": "db38fd2c-a2cb-47bb-88e2-22db918fc76f",
+          "assetId": "SW-001",
+          "name": "SW-001",
+          "uPosition": 14,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "switch",
+          "status": "offline"
+        }
+      ]
+    },
+    {
+      "id": "6b1553d5-2bcd-47d1-86ce-a8069b4a987c",
+      "name": "Tank 1",
+      "type": "immersion_dual",
+      "position": [
+        1.7999999999999998,
+        0,
+        -1.7999999999999998
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 20,
+      "maxPowerKw": 30,
+      "servers": [
+        {
+          "id": "09d9ed2c-8c6d-4806-9541-f6cdcd7f7704",
+          "assetId": "SERVER-006",
+          "name": "SERVER-006",
+          "uPosition": 1,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "0fff386d-4c53-430e-b80d-718b27861a8e",
+          "assetId": "SERVER-007",
+          "name": "SERVER-007",
+          "uPosition": 14,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        }
+      ],
+      "locationId": "default-loc",
+      "connectedNetworkRackId": "50e6595e-59aa-429e-b131-f0a8e95e0354",
+      "connectedSwitchId": "db38fd2c-a2cb-47bb-88e2-22db918fc76f"
+    },
+    {
+      "id": "af6a207d-597b-40ee-bd3a-21ccbd7bbc33",
+      "name": "R-23",
+      "type": "server",
+      "position": [
+        -1.2,
+        0,
+        -1.7999999999999998
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 42,
+      "maxPowerKw": 15,
+      "servers": [
+        {
+          "id": "3ea7c7e5-00be-4335-837c-eb91a315f3b2",
+          "assetId": "SERVER-231",
+          "name": "SERVER-231",
+          "uPosition": 9,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "30f5e953-9d97-4e83-8327-cb11d78e782b",
+          "assetId": "SERVER-232",
+          "name": "SERVER-232",
+          "uPosition": 12,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "34609630-9246-48b8-86a4-9d5c2c771561",
+          "assetId": "SERVER-233",
+          "name": "SERVER-233",
+          "uPosition": 15,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "fc719fed-1a17-48f3-9c67-6db4e7fad6d5",
+          "assetId": "SERVER-234",
+          "name": "SERVER-234",
+          "uPosition": 18,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "d02fc43d-b730-459b-a52e-2877e301308e",
+          "assetId": "SERVER-235",
+          "name": "SERVER-235",
+          "uPosition": 21,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "9b03c2e4-864e-48cb-b225-0445ae80a131",
+          "assetId": "SERVER-236",
+          "name": "SERVER-236",
+          "uPosition": 24,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "b9db0f8a-c538-41e2-bbd5-0790c001348f",
+          "assetId": "SERVER-237",
+          "name": "SERVER-237",
+          "uPosition": 27,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "d4be71af-bacc-45e1-a827-9264e038390c",
+          "assetId": "SERVER-238",
+          "name": "SERVER-238",
+          "uPosition": 30,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "e1b5e899-dc75-470e-86c4-b43fb9d00b4a",
+          "assetId": "SERVER-239",
+          "name": "SERVER-239",
+          "uPosition": 33,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        }
+      ],
+      "locationId": "default-loc"
+    },
+    {
+      "id": "61964291-ee17-40b6-bc60-efe204374bae",
+      "name": "R-13",
+      "type": "server",
+      "position": [
+        -1.7999999999999998,
+        0,
+        1.2
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 42,
+      "maxPowerKw": 15,
+      "servers": [
+        {
+          "id": "09728351-b8d4-402c-8ad6-01688e153c79",
+          "assetId": "SERVER-131",
+          "name": "SERVER-131",
+          "uPosition": 9,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "1bbe7b96-ee2b-4f83-ba54-b00fb11f4bfa",
+          "assetId": "SERVER-132",
+          "name": "SERVER-132",
+          "uPosition": 12,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "607da038-dbc1-4bd1-b7ca-f12e14273b55",
+          "assetId": "SERVER-133",
+          "name": "SERVER-133",
+          "uPosition": 15,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "548ac8bc-1efe-4fa2-867e-096a1600ddae",
+          "assetId": "SERVER-134",
+          "name": "SERVER-134",
+          "uPosition": 18,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "744d10fb-8125-46d8-9e89-71c8fa193cf5",
+          "assetId": "SERVER-135",
+          "name": "SERVER-135",
+          "uPosition": 21,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "f5bcdff2-6ef6-43db-a484-a1a95725d73d",
+          "assetId": "SERVER-136",
+          "name": "SERVER-136",
+          "uPosition": 24,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "76874b1d-1cb2-4dae-9214-66ed82ab4cb5",
+          "assetId": "SERVER-137",
+          "name": "SERVER-137",
+          "uPosition": 27,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "070afd30-3959-49e2-9436-eb3a0fe885d9",
+          "assetId": "SERVER-138",
+          "name": "SERVER-138",
+          "uPosition": 30,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "f648ade3-d19e-4f2b-b545-34ff0fb0bbda",
+          "assetId": "SERVER-139",
+          "name": "SERVER-139",
+          "uPosition": 33,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        }
+      ],
+      "locationId": "default-loc"
+    },
+    {
+      "id": "60d9f7cf-e713-4284-ad34-65633f0525c4",
+      "name": "R-25",
+      "type": "server",
+      "position": [
+        0,
+        0,
+        -1.7999999999999998
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 42,
+      "maxPowerKw": 15,
+      "servers": [
+        {
+          "id": "a59abb26-f4e2-47bf-ae6c-d57f70a90bc8",
+          "assetId": "SERVER-251",
+          "name": "SERVER-251",
+          "uPosition": 9,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "c40e60a5-2ab8-4942-b0e3-a1a526c5ee5e",
+          "assetId": "SERVER-252",
+          "name": "SERVER-252",
+          "uPosition": 12,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "6b4dcb20-07d5-4374-9774-5ab1168db8d3",
+          "assetId": "SERVER-253",
+          "name": "SERVER-253",
+          "uPosition": 15,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "cacd2348-dc57-4e98-bf6b-c2c55c70508b",
+          "assetId": "SERVER-254",
+          "name": "SERVER-254",
+          "uPosition": 18,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "e1b7a9e3-908c-4d0a-b087-91d9da818276",
+          "assetId": "SERVER-255",
+          "name": "SERVER-255",
+          "uPosition": 21,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "71e5daf6-b833-4ad6-92ad-965c13ac7617",
+          "assetId": "SERVER-256",
+          "name": "SERVER-256",
+          "uPosition": 24,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "26608c6e-1cf7-47b9-ad29-2b7542db57f0",
+          "assetId": "SERVER-257",
+          "name": "SERVER-257",
+          "uPosition": 27,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "23d245a0-b443-4b05-8965-394228d6e6cc",
+          "assetId": "SERVER-258",
+          "name": "SERVER-258",
+          "uPosition": 30,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "1fc6aff5-4194-43ca-95c6-28c054f73fd6",
+          "assetId": "SERVER-259",
+          "name": "SERVER-259",
+          "uPosition": 33,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        }
+      ],
+      "locationId": "default-loc"
+    },
+    {
+      "id": "dcdea220-1f73-4b7d-bb6f-f64cba338d07",
+      "name": "R-24",
+      "type": "server",
+      "position": [
+        -0.6,
+        0,
+        -1.7999999999999998
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 42,
+      "maxPowerKw": 15,
+      "servers": [
+        {
+          "id": "59a45473-6e20-400f-b8ca-553832003fa2",
+          "assetId": "SERVER-241",
+          "name": "SERVER-241",
+          "uPosition": 9,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "26ef4bfa-d469-4fab-9c46-d716e7e75792",
+          "assetId": "SERVER-242",
+          "name": "SERVER-242",
+          "uPosition": 12,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "aeaea30e-62ba-4145-a3cc-706266e69a58",
+          "assetId": "SERVER-243",
+          "name": "SERVER-243",
+          "uPosition": 15,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "7d6479ef-e959-4341-8780-a9eb007f3f87",
+          "assetId": "SERVER-244",
+          "name": "SERVER-244",
+          "uPosition": 18,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "bf423c82-7f12-4e89-9133-17b502b1185d",
+          "assetId": "SERVER-245",
+          "name": "SERVER-245",
+          "uPosition": 21,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "38df653b-2f65-493f-adbf-0d9a56f75c69",
+          "assetId": "SERVER-246",
+          "name": "SERVER-246",
+          "uPosition": 24,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "9b3273c0-4f38-4253-be43-d05958ba6c7c",
+          "assetId": "SERVER-247",
+          "name": "SERVER-247",
+          "uPosition": 27,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "57277bda-dc2b-4453-b36e-2bf62a55c58a",
+          "assetId": "SERVER-248",
+          "name": "SERVER-248",
+          "uPosition": 30,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "a3e77bd9-7d75-4537-b28e-554e64f5a9d0",
+          "assetId": "SERVER-249",
+          "name": "SERVER-249",
+          "uPosition": 33,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        }
+      ],
+      "locationId": "default-loc"
+    },
+    {
+      "id": "e7fd344a-c4a8-4142-bebe-e08a3a170f82",
+      "name": "R-12",
+      "type": "server",
+      "position": [
+        -2.4,
+        0,
+        1.2
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 42,
+      "maxPowerKw": 15,
+      "servers": [
+        {
+          "id": "425e7dcb-70ef-46ff-a153-6316295102e8",
+          "assetId": "SERVER-121",
+          "name": "SERVER-121",
+          "uPosition": 9,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "eae34fdb-aeab-4c7d-a98c-5553e453b310",
+          "assetId": "SERVER-122",
+          "name": "SERVER-122",
+          "uPosition": 12,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "6b57b536-0ee6-4631-bf97-1a375c1175da",
+          "assetId": "SERVER-123",
+          "name": "SERVER-123",
+          "uPosition": 15,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "c2546c20-9b01-47cb-b727-8007d80d5de0",
+          "assetId": "SERVER-124",
+          "name": "SERVER-124",
+          "uPosition": 18,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "8aec7e8c-b7ce-4a47-b423-edfadaa83700",
+          "assetId": "SERVER-125",
+          "name": "SERVER-125",
+          "uPosition": 21,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "675386d4-d804-44ef-96b3-bf7196e21e2f",
+          "assetId": "SERVER-126",
+          "name": "SERVER-126",
+          "uPosition": 24,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "aae01ae2-5ee6-44a0-92d0-b736a1e40f76",
+          "assetId": "SERVER-127",
+          "name": "SERVER-127",
+          "uPosition": 27,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "1dbc5462-04c6-4cf2-84dc-89f3a93f953a",
+          "assetId": "SERVER-128",
+          "name": "SERVER-128",
+          "uPosition": 30,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "e49b0209-1d94-4a7d-9349-225bef1b4772",
+          "assetId": "SERVER-129",
+          "name": "SERVER-129",
+          "uPosition": 33,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        }
+      ],
+      "locationId": "default-loc"
+    },
+    {
+      "id": "cf34e7f1-601a-4aa5-8466-72c31c8d82d7",
+      "name": "R-14",
+      "type": "server",
+      "position": [
+        -1.2,
+        0,
+        1.2
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 42,
+      "maxPowerKw": 15,
+      "servers": [
+        {
+          "id": "964c0136-9e1e-430b-8178-5c57fb14f975",
+          "assetId": "SERVER-141",
+          "name": "SERVER-141",
+          "uPosition": 9,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "6812726e-9c9e-4e84-b732-d117b6fb3396",
+          "assetId": "SERVER-142",
+          "name": "SERVER-142",
+          "uPosition": 12,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "449e2a51-f60c-4e13-8600-019a0d1038e7",
+          "assetId": "SERVER-143",
+          "name": "SERVER-143",
+          "uPosition": 15,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "6b863721-00b0-49d4-8ad5-a0850d7d5a1a",
+          "assetId": "SERVER-144",
+          "name": "SERVER-144",
+          "uPosition": 18,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "27aea5b9-6809-4254-9378-cf699d22b591",
+          "assetId": "SERVER-145",
+          "name": "SERVER-145",
+          "uPosition": 21,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "3c337fe7-5d8a-4c8e-ba76-5de6301be5b0",
+          "assetId": "SERVER-146",
+          "name": "SERVER-146",
+          "uPosition": 24,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "0902c5ba-d167-4068-80a9-0d7995a6c56a",
+          "assetId": "SERVER-147",
+          "name": "SERVER-147",
+          "uPosition": 27,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "8cedb5e4-b79d-447e-9363-4e436fe85c05",
+          "assetId": "SERVER-148",
+          "name": "SERVER-148",
+          "uPosition": 30,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "bda60c0c-78ec-4e76-ad62-dd11ce0086f2",
+          "assetId": "SERVER-149",
+          "name": "SERVER-149",
+          "uPosition": 33,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        }
+      ],
+      "locationId": "default-loc"
+    },
+    {
+      "id": "e8f01889-b079-4273-a5b3-752bcde825e9",
+      "name": "R-16",
+      "type": "server",
+      "position": [
+        0,
+        0,
+        1.2
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 42,
+      "maxPowerKw": 15,
+      "servers": [
+        {
+          "id": "6290adce-8b7f-4dcd-8eed-748d9846773d",
+          "assetId": "SERVER-161",
+          "name": "SERVER-161",
+          "uPosition": 9,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "f9a33db0-8fcb-47f8-9702-78878cb85db5",
+          "assetId": "SERVER-162",
+          "name": "SERVER-162",
+          "uPosition": 12,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "b815f72b-3c41-4785-a4f4-31411b736e43",
+          "assetId": "SERVER-163",
+          "name": "SERVER-163",
+          "uPosition": 15,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "f2f6b2d8-766d-49e8-a01b-5fd9a3cdf06d",
+          "assetId": "SERVER-164",
+          "name": "SERVER-164",
+          "uPosition": 18,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "62cab3f8-43eb-4c9f-bc93-49b286391401",
+          "assetId": "SERVER-165",
+          "name": "SERVER-165",
+          "uPosition": 21,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "7d52113b-4c21-45c5-aa74-a49598ba3355",
+          "assetId": "SERVER-166",
+          "name": "SERVER-166",
+          "uPosition": 24,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "1260128f-2735-4704-8814-820861965e9e",
+          "assetId": "SERVER-167",
+          "name": "SERVER-167",
+          "uPosition": 27,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "8a6ce40a-8bec-4bf0-8d67-32f8d414b356",
+          "assetId": "SERVER-168",
+          "name": "SERVER-168",
+          "uPosition": 30,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "aea60d65-a780-44d0-8391-6623e72ec4e9",
+          "assetId": "SERVER-169",
+          "name": "SERVER-169",
+          "uPosition": 33,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        }
+      ],
+      "locationId": "default-loc"
+    },
+    {
+      "id": "8452a024-c56b-4e0a-adef-a41ce46b4795",
+      "name": "R-15",
+      "type": "server",
+      "position": [
+        -0.6,
+        0,
+        1.2
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 42,
+      "maxPowerKw": 15,
+      "servers": [
+        {
+          "id": "34e4baa8-b024-4e4a-8442-d07fe9bbce38",
+          "assetId": "SERVER-151",
+          "name": "SERVER-151",
+          "uPosition": 9,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "19cdee50-1057-4b40-91da-c434b29a9623",
+          "assetId": "SERVER-152",
+          "name": "SERVER-152",
+          "uPosition": 12,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "03ea969f-0be3-45f1-970d-04142f88ca6a",
+          "assetId": "SERVER-153",
+          "name": "SERVER-153",
+          "uPosition": 15,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "c545f3aa-b071-412d-977b-110b6555edcf",
+          "assetId": "SERVER-154",
+          "name": "SERVER-154",
+          "uPosition": 18,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "c41b6179-4ee0-4c93-a601-b4074ae71bde",
+          "assetId": "SERVER-155",
+          "name": "SERVER-155",
+          "uPosition": 21,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "e16117da-656e-41b9-8409-abbbb610b74f",
+          "assetId": "SERVER-156",
+          "name": "SERVER-156",
+          "uPosition": 24,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "c166c9cf-9e6b-4b1a-8f32-9961b35eb6e1",
+          "assetId": "SERVER-157",
+          "name": "SERVER-157",
+          "uPosition": 27,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "f02b789a-a5a6-477b-8ef2-6e12e1061ed4",
+          "assetId": "SERVER-158",
+          "name": "SERVER-158",
+          "uPosition": 30,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "e490820d-2d4c-404e-8668-59b081c07e32",
+          "assetId": "SERVER-159",
+          "name": "SERVER-159",
+          "uPosition": 33,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        }
+      ],
+      "locationId": "default-loc"
+    },
+    {
+      "id": "fdaf071d-14f3-46a2-8d2c-457eb63c34d1",
+      "name": "R-11",
+      "type": "server",
+      "position": [
+        -3,
+        0,
+        1.2
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 42,
+      "maxPowerKw": 15,
+      "servers": [
+        {
+          "id": "69bbfcc7-6d19-4266-81c2-b1a8c01523c0",
+          "assetId": "SERVER-111",
+          "name": "SERVER-111",
+          "uPosition": 9,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "3d249d97-b20d-4297-9522-1cfa7254909c",
+          "assetId": "SERVER-112",
+          "name": "SERVER-112",
+          "uPosition": 12,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "e8e0ddea-6875-4336-a5b7-609cbe6d4882",
+          "assetId": "SERVER-113",
+          "name": "SERVER-113",
+          "uPosition": 15,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "317c043f-54e0-4240-a5fd-57b264fa8f6d",
+          "assetId": "SERVER-114",
+          "name": "SERVER-114",
+          "uPosition": 18,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "85c69081-7f7f-4ed3-82d9-7e13abc77c3a",
+          "assetId": "SERVER-115",
+          "name": "SERVER-115",
+          "uPosition": 21,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "2d877eb2-c376-4fd6-a9bf-170c8bc45ef9",
+          "assetId": "SERVER-116",
+          "name": "SERVER-116",
+          "uPosition": 24,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "64f58aa1-94a2-43f9-a828-520f64096cff",
+          "assetId": "SERVER-117",
+          "name": "SERVER-117",
+          "uPosition": 27,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "51030d68-2237-4b09-a30e-d3495749b243",
+          "assetId": "SERVER-118",
+          "name": "SERVER-118",
+          "uPosition": 30,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "de1ceda0-2da2-4003-95e2-375e620eea67",
+          "assetId": "SERVER-119",
+          "name": "SERVER-119",
+          "uPosition": 33,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        }
+      ],
+      "locationId": "default-loc"
+    },
+    {
+      "id": "42491467-a161-445d-bb5a-1845d6e6570a",
+      "name": "Tank 3",
+      "type": "immersion_single",
+      "position": [
+        3,
+        0,
+        -1.7999999999999998
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 20,
+      "maxPowerKw": 30,
+      "servers": [],
+      "locationId": "default-loc"
+    },
+    {
+      "id": "f96fb64a-be33-431b-8687-1c8cf07032a2",
+      "name": "Tank 2",
+      "type": "immersion_single",
+      "position": [
+        2.4,
+        0,
+        -1.7999999999999998
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 20,
+      "maxPowerKw": 30,
+      "servers": [],
+      "locationId": "default-loc"
+    },
+    {
+      "id": "8fafb837-1045-4b94-b9d3-e2cd5941bc44",
+      "name": "R-18",
+      "type": "server",
+      "position": [
+        1.2,
+        0,
+        1.2
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 42,
+      "maxPowerKw": 15,
+      "servers": [
+        {
+          "id": "521b3c23-e020-4881-ab6e-5773945d3ae6",
+          "assetId": "SERVER-181",
+          "name": "SERVER-181",
+          "uPosition": 9,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "31326c6d-830d-4855-a1ff-12e7a59e427e",
+          "assetId": "SERVER-182",
+          "name": "SERVER-182",
+          "uPosition": 12,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "3996153e-61dd-46f4-8a51-c822ea541f4e",
+          "assetId": "SERVER-183",
+          "name": "SERVER-183",
+          "uPosition": 15,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "4bfad65a-8c49-49e6-a1f4-ca9a5d0d1e7a",
+          "assetId": "SERVER-184",
+          "name": "SERVER-184",
+          "uPosition": 18,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "1ee5b517-f632-47fe-b246-755338b27708",
+          "assetId": "SERVER-185",
+          "name": "SERVER-185",
+          "uPosition": 21,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "1dc72dac-f42b-4397-a16f-b2d7f478e32b",
+          "assetId": "SERVER-186",
+          "name": "SERVER-186",
+          "uPosition": 24,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "b7a4eda4-9e1f-4d28-8bd6-aa41767af099",
+          "assetId": "SERVER-187",
+          "name": "SERVER-187",
+          "uPosition": 27,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "109d923f-e137-4220-8bd3-d3830e73a728",
+          "assetId": "SERVER-188",
+          "name": "SERVER-188",
+          "uPosition": 30,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "d80c8473-32d8-4b6f-9ca0-19fcc59663e9",
+          "assetId": "SERVER-189",
+          "name": "SERVER-189",
+          "uPosition": 33,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        }
+      ],
+      "locationId": "default-loc"
+    },
+    {
+      "id": "98a8fe09-a541-45df-a7cc-d82f790a7a23",
+      "name": "R-17",
+      "type": "server",
+      "position": [
+        0.6,
+        0,
+        1.2
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 42,
+      "maxPowerKw": 15,
+      "servers": [
+        {
+          "id": "bc77fb8b-5a9b-4374-a939-6ca1009d6acf",
+          "assetId": "SERVER-171",
+          "name": "SERVER-171",
+          "uPosition": 9,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "9af38d5b-73dc-4375-b1b2-ccf182c801d4",
+          "assetId": "SERVER-172",
+          "name": "SERVER-172",
+          "uPosition": 12,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "f697f4cc-8e63-4485-8334-994276345dc7",
+          "assetId": "SERVER-173",
+          "name": "SERVER-173",
+          "uPosition": 15,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "0cef66e4-1d9c-4aae-ae00-82396e74f67f",
+          "assetId": "SERVER-174",
+          "name": "SERVER-174",
+          "uPosition": 18,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "591e3b9e-58b6-46a8-b2d9-2348c268827a",
+          "assetId": "SERVER-175",
+          "name": "SERVER-175",
+          "uPosition": 21,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "797137b3-8bb3-4219-94d3-1a4e630a729e",
+          "assetId": "SERVER-176",
+          "name": "SERVER-176",
+          "uPosition": 24,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "b6be98ef-517c-461a-8e1a-7e7bc0c70cd6",
+          "assetId": "SERVER-177",
+          "name": "SERVER-177",
+          "uPosition": 27,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "b1e8f32d-0590-4c41-9ed5-e843a0497a5c",
+          "assetId": "SERVER-178",
+          "name": "SERVER-178",
+          "uPosition": 30,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "248c3a49-5d71-46be-b996-72bede53d737",
+          "assetId": "SERVER-179",
+          "name": "SERVER-179",
+          "uPosition": 33,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        }
+      ],
+      "locationId": "default-loc"
+    },
+    {
+      "id": "e819eda0-2a10-4ac5-b1ab-a24bf20b3e91",
+      "name": "R-19",
+      "type": "server",
+      "position": [
+        1.7999999999999998,
+        0,
+        1.2
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 42,
+      "maxPowerKw": 15,
+      "servers": [
+        {
+          "id": "3a52abb5-0bfb-47d2-86c8-966bbe247a2a",
+          "assetId": "SERVER-191",
+          "name": "SERVER-191",
+          "uPosition": 9,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "f75d3012-21aa-4270-bfe1-5a0275631b53",
+          "assetId": "SERVER-192",
+          "name": "SERVER-192",
+          "uPosition": 12,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "8f8ff5bc-af19-41ba-bae4-cf3917a0feb5",
+          "assetId": "SERVER-193",
+          "name": "SERVER-193",
+          "uPosition": 15,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "28a94f35-aa7f-4797-96ee-39d54fe9103d",
+          "assetId": "SERVER-194",
+          "name": "SERVER-194",
+          "uPosition": 18,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "38bb822a-2b21-4afa-808e-a5279c0068ae",
+          "assetId": "SERVER-195",
+          "name": "SERVER-195",
+          "uPosition": 21,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "67e9184a-ee31-48cd-a473-a28e5b8988c4",
+          "assetId": "SERVER-196",
+          "name": "SERVER-196",
+          "uPosition": 24,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "6d010053-c97b-4f90-90d0-786260fb186c",
+          "assetId": "SERVER-197",
+          "name": "SERVER-197",
+          "uPosition": 27,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "77a86bdf-c7ee-486c-8cc2-78af51981298",
+          "assetId": "SERVER-198",
+          "name": "SERVER-198",
+          "uPosition": 30,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "768520a4-75a0-4543-b612-d08627ff61e1",
+          "assetId": "SERVER-199",
+          "name": "SERVER-199",
+          "uPosition": 33,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        }
+      ],
+      "locationId": "default-loc"
+    },
+    {
+      "id": "0b151636-9ee5-43fc-9116-47a5aba2d790",
+      "name": "R-20",
+      "type": "server",
+      "position": [
+        2.4,
+        0,
+        1.2
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 42,
+      "maxPowerKw": 15,
+      "servers": [
+        {
+          "id": "02c0a346-e0e4-4131-9cd8-89e0d0ab3358",
+          "assetId": "SERVER-201",
+          "name": "SERVER-201",
+          "uPosition": 9,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "d79a333e-681e-4de6-bf05-b9db6463299a",
+          "assetId": "SERVER-202",
+          "name": "SERVER-202",
+          "uPosition": 12,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "ba35473c-4160-41bc-85dc-319865588923",
+          "assetId": "SERVER-203",
+          "name": "SERVER-203",
+          "uPosition": 15,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "9bc60e42-b0cf-4afb-90a7-3e4aede26810",
+          "assetId": "SERVER-204",
+          "name": "SERVER-204",
+          "uPosition": 18,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "5e3a18f6-ca50-4995-9706-ddc9fc9c1bf9",
+          "assetId": "SERVER-205",
+          "name": "SERVER-205",
+          "uPosition": 21,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "3e6d17bf-8040-4f2f-aeb6-9db5f2e44948",
+          "assetId": "SERVER-206",
+          "name": "SERVER-206",
+          "uPosition": 24,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "6ab0f315-8d6f-42ac-9735-c0100993724f",
+          "assetId": "SERVER-207",
+          "name": "SERVER-207",
+          "uPosition": 27,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "68b434f6-0fc4-40ae-9987-233bf09f5e00",
+          "assetId": "SERVER-208",
+          "name": "SERVER-208",
+          "uPosition": 30,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "4d219ffe-3a10-4d6b-a240-f66b32a7e2a3",
+          "assetId": "SERVER-209",
+          "name": "SERVER-209",
+          "uPosition": 33,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        }
+      ],
+      "locationId": "default-loc"
+    },
+    {
+      "id": "a4c2866a-97dc-4dbf-bbee-bfd126c104a2",
+      "name": "R-01",
+      "type": "server",
+      "position": [
+        -3,
+        0,
+        4.2
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 42,
+      "maxPowerKw": 15,
+      "servers": [
+        {
+          "id": "17530cec-52c6-490b-982c-24750b01e26f",
+          "assetId": "SERVER-001",
+          "name": "SERVER-01",
+          "uPosition": 9,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "43c46e51-4046-4e62-ac85-de577731fcc7",
+          "assetId": "SERVER-002",
+          "name": "SERVER-02",
+          "uPosition": 12,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "3e591179-f44e-4b43-ba45-908a438edfff",
+          "assetId": "SERVER-003",
+          "name": "SERVER-03",
+          "uPosition": 15,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "362e4754-08e8-4168-82cd-2a25f319aba4",
+          "assetId": "SERVER-004",
+          "name": "SERVER-04",
+          "uPosition": 18,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "d02c75b1-f0e8-4823-bb17-4dbfdeabc5c6",
+          "assetId": "SERVER-005",
+          "name": "SERVER-05",
+          "uPosition": 21,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "5fc76899-c02e-45e8-a07c-329d4ec38f35",
+          "assetId": "SERVER-006",
+          "name": "SERVER-06",
+          "uPosition": 24,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "0cd414e7-e300-43b1-987e-19cd4bcf494f",
+          "assetId": "SERVER-007",
+          "name": "SERVER-07",
+          "uPosition": 27,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "95cacf6f-dfd0-433f-8fed-a7b1c6cf6e52",
+          "assetId": "SERVER-008",
+          "name": "SERVER-08",
+          "uPosition": 30,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "4193759d-8f8c-4acd-900c-e1f2d73e1006",
+          "assetId": "SERVER-009",
+          "name": "SERVER-09",
+          "uPosition": 33,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        }
+      ],
+      "locationId": "default-loc"
+    },
+    {
+      "id": "21187c60-1148-4a58-ac20-f7473892f0e4",
+      "name": "R-02",
+      "type": "server",
+      "position": [
+        -2.4,
+        0,
+        4.2
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 42,
+      "maxPowerKw": 15,
+      "servers": [
+        {
+          "id": "8843fab0-6a5f-4c00-8505-8773aadc222f",
+          "assetId": "SERVER-021",
+          "name": "SERVER-021",
+          "uPosition": 9,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "28299c4d-7819-4088-9bd3-c309e20a5887",
+          "assetId": "SERVER-022",
+          "name": "SERVER-022",
+          "uPosition": 12,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "099d08a1-8445-47ad-8d7c-eccfea0cbc5e",
+          "assetId": "SERVER-023",
+          "name": "SERVER-023",
+          "uPosition": 15,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "76c9b822-94dd-4e6b-a2bc-0e3a2b755a46",
+          "assetId": "SERVER-024",
+          "name": "SERVER-024",
+          "uPosition": 18,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "f371d097-7549-4298-8f41-5ed18f7c4aaf",
+          "assetId": "SERVER-025",
+          "name": "SERVER-025",
+          "uPosition": 21,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "95ac73c3-2114-4767-ab74-d350d07ecf80",
+          "assetId": "SERVER-026",
+          "name": "SERVER-026",
+          "uPosition": 24,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "25ba1f43-7922-4a5f-9a57-336851cb1307",
+          "assetId": "SERVER-027",
+          "name": "SERVER-027",
+          "uPosition": 27,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "31afcc8c-8a31-489e-8504-4469326b03ae",
+          "assetId": "SERVER-028",
+          "name": "SERVER-028",
+          "uPosition": 30,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "fd4e9f42-66b7-414f-bee7-969e54c43660",
+          "assetId": "SERVER-029",
+          "name": "SERVER-029",
+          "uPosition": 33,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        }
+      ],
+      "locationId": "default-loc"
+    },
+    {
+      "id": "cd26390f-1362-4b02-bbe0-2367d7236995",
+      "name": "R-03",
+      "type": "server",
+      "position": [
+        -1.7999999999999998,
+        0,
+        4.2
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 42,
+      "maxPowerKw": 15,
+      "servers": [
+        {
+          "id": "5d63c2e8-b819-40a2-b6a3-d78f47a49466",
+          "assetId": "SERVER-031",
+          "name": "SERVER-031",
+          "uPosition": 9,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "208f63f2-acfb-4ac6-8963-e18cb961cbd8",
+          "assetId": "SERVER-032",
+          "name": "SERVER-032",
+          "uPosition": 12,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "bbf52574-6291-41ef-8c82-0c360d3b00c7",
+          "assetId": "SERVER-033",
+          "name": "SERVER-033",
+          "uPosition": 15,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "e6709ddc-a8e1-4f7f-aa61-6e1d3b0d5498",
+          "assetId": "SERVER-034",
+          "name": "SERVER-034",
+          "uPosition": 18,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "c1bd9851-871f-4631-8240-c8d461d453ca",
+          "assetId": "SERVER-035",
+          "name": "SERVER-035",
+          "uPosition": 21,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "598d8920-36ac-4d8c-a350-654d993bc626",
+          "assetId": "SERVER-036",
+          "name": "SERVER-036",
+          "uPosition": 24,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "d6649838-a274-4b78-ab99-c905f891c923",
+          "assetId": "SERVER-037",
+          "name": "SERVER-037",
+          "uPosition": 27,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "10cccda6-10b8-4d0b-9534-4066def7a07c",
+          "assetId": "SERVER-038",
+          "name": "SERVER-038",
+          "uPosition": 30,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "cf504aa5-318c-4e36-ac11-41c609f60cf7",
+          "assetId": "SERVER-039",
+          "name": "SERVER-039",
+          "uPosition": 33,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        }
+      ],
+      "locationId": "default-loc"
+    },
+    {
+      "id": "726a8273-6731-45de-8698-7595700f1acd",
+      "name": "R-04",
+      "type": "server",
+      "position": [
+        -1.2,
+        0,
+        4.2
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 42,
+      "maxPowerKw": 15,
+      "servers": [
+        {
+          "id": "3e05109e-c91c-43ad-9904-866ad68e8b3d",
+          "assetId": "SERVER-041",
+          "name": "SERVER-041",
+          "uPosition": 9,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "27f26f8e-21e5-46cd-9512-ce3468b8d14c",
+          "assetId": "SERVER-042",
+          "name": "SERVER-042",
+          "uPosition": 12,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "3349a089-7e6a-4c38-84ca-24a99d85a3b9",
+          "assetId": "SERVER-043",
+          "name": "SERVER-043",
+          "uPosition": 15,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "3cd6f3cd-ffaa-4462-92d0-ff18d33e83df",
+          "assetId": "SERVER-044",
+          "name": "SERVER-044",
+          "uPosition": 18,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "9ce10d41-4466-403a-a163-a6a779353a74",
+          "assetId": "SERVER-045",
+          "name": "SERVER-045",
+          "uPosition": 21,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "b27db811-abef-4807-bd58-edfa8e4572e4",
+          "assetId": "SERVER-046",
+          "name": "SERVER-046",
+          "uPosition": 24,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "8f4279df-872a-4a98-98d1-670e152ea6d1",
+          "assetId": "SERVER-047",
+          "name": "SERVER-047",
+          "uPosition": 27,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "afc7607f-7506-4b3a-9038-dce8cf42b40f",
+          "assetId": "SERVER-048",
+          "name": "SERVER-048",
+          "uPosition": 30,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "1df30472-54e8-4959-8f1c-5dcda9ca8adc",
+          "assetId": "SERVER-049",
+          "name": "SERVER-049",
+          "uPosition": 33,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        }
+      ],
+      "locationId": "default-loc"
+    },
+    {
+      "id": "5137c3de-4985-4c05-a383-4a365d7f3f30",
+      "name": "R-05",
+      "type": "server",
+      "position": [
+        -0.6,
+        0,
+        4.2
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 42,
+      "maxPowerKw": 15,
+      "servers": [
+        {
+          "id": "abb11ea5-439d-4c86-9bfd-ac864e5164cc",
+          "assetId": "SERVER-051",
+          "name": "SERVER-051",
+          "uPosition": 9,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "d4da8bae-683f-4064-b1dd-8832a3a88c63",
+          "assetId": "SERVER-052",
+          "name": "SERVER-052",
+          "uPosition": 12,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "355ce123-7dc4-4452-a4ba-008ca4454b95",
+          "assetId": "SERVER-053",
+          "name": "SERVER-053",
+          "uPosition": 15,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "e5c5514e-45ab-4453-86ec-fe2c7c8bf833",
+          "assetId": "SERVER-054",
+          "name": "SERVER-054",
+          "uPosition": 18,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "1cc49ee8-6703-43f9-88d1-6c87b7799ef7",
+          "assetId": "SERVER-055",
+          "name": "SERVER-055",
+          "uPosition": 21,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "f57eba9b-f45a-43b3-85df-e9def5e82ead",
+          "assetId": "SERVER-056",
+          "name": "SERVER-056",
+          "uPosition": 24,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "bc822d09-c95b-4691-ad86-5f5bce1fa86d",
+          "assetId": "SERVER-057",
+          "name": "SERVER-057",
+          "uPosition": 27,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "f016d8b7-915b-4f3b-8341-f63c755c880c",
+          "assetId": "SERVER-058",
+          "name": "SERVER-058",
+          "uPosition": 30,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "e2434cea-c1cf-4d6e-a423-7170b303bc28",
+          "assetId": "SERVER-059",
+          "name": "SERVER-059",
+          "uPosition": 33,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        }
+      ],
+      "locationId": "default-loc"
+    },
+    {
+      "id": "010bafa7-aae3-4ad8-b32b-26a0292bfec6",
+      "name": "R-06",
+      "type": "server",
+      "position": [
+        0,
+        0,
+        4.2
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 42,
+      "maxPowerKw": 15,
+      "servers": [
+        {
+          "id": "08746d15-5783-4859-af39-0dfee5f95daa",
+          "assetId": "SERVER-061",
+          "name": "SERVER-061",
+          "uPosition": 9,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "f0b01ca1-bfce-4d64-bb8c-1535d106ec79",
+          "assetId": "SERVER-062",
+          "name": "SERVER-062",
+          "uPosition": 12,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "353eff5a-7fbd-4ae0-bd36-3ec8310e2600",
+          "assetId": "SERVER-063",
+          "name": "SERVER-063",
+          "uPosition": 15,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "18e86959-d3b9-4f84-83fe-184e1a5f2f44",
+          "assetId": "SERVER-064",
+          "name": "SERVER-064",
+          "uPosition": 18,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "c12a74f1-95ca-494b-92e8-a015200b54b3",
+          "assetId": "SERVER-065",
+          "name": "SERVER-065",
+          "uPosition": 21,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "9d94d6ce-a347-48bd-b285-c6f3405ebbe0",
+          "assetId": "SERVER-066",
+          "name": "SERVER-066",
+          "uPosition": 24,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "dcaa7f67-3b1b-458b-9fd5-1d2357f89424",
+          "assetId": "SERVER-067",
+          "name": "SERVER-067",
+          "uPosition": 27,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "d1e561d0-2e7c-462b-99bf-160528b1e18b",
+          "assetId": "SERVER-068",
+          "name": "SERVER-068",
+          "uPosition": 30,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "2f127ca2-e8c7-4ab0-ad15-c10e0dd7e4c9",
+          "assetId": "SERVER-069",
+          "name": "SERVER-069",
+          "uPosition": 33,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        }
+      ],
+      "locationId": "default-loc"
+    },
+    {
+      "id": "7780d1b0-df2f-43a0-9605-6e64410baf3d",
+      "name": "R-09",
+      "type": "server",
+      "position": [
+        1.7999999999999998,
+        0,
+        4.2
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 42,
+      "maxPowerKw": 15,
+      "servers": [
+        {
+          "id": "b1a62cdf-1ae8-4e1e-a2f5-a7c636ab1755",
+          "assetId": "SERVER-091",
+          "name": "SERVER-091",
+          "uPosition": 9,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "f56e68e8-39db-4f0f-add5-55691bc760dc",
+          "assetId": "SERVER-092",
+          "name": "SERVER-092",
+          "uPosition": 12,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "23368bbc-8b4d-41cf-9234-6d11c58b6e08",
+          "assetId": "SERVER-093",
+          "name": "SERVER-093",
+          "uPosition": 15,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "a747d350-14ec-4238-bbc7-62cd4620a584",
+          "assetId": "SERVER-094",
+          "name": "SERVER-094",
+          "uPosition": 18,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "812e864e-dc46-4baf-b490-b398dfa7cc2b",
+          "assetId": "SERVER-095",
+          "name": "SERVER-095",
+          "uPosition": 21,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "5f2b5873-cd73-4464-b412-2c26efb268fd",
+          "assetId": "SERVER-096",
+          "name": "SERVER-096",
+          "uPosition": 24,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "afa93200-2baf-48de-b6ed-2a04638a35c2",
+          "assetId": "SERVER-097",
+          "name": "SERVER-097",
+          "uPosition": 27,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "22b953da-d72d-48f1-8607-b422b3c99e39",
+          "assetId": "SERVER-098",
+          "name": "SERVER-098",
+          "uPosition": 30,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "edc4c302-5e93-4ebf-9231-e6efd2bc335e",
+          "assetId": "SERVER-099",
+          "name": "SERVER-099",
+          "uPosition": 33,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        }
+      ],
+      "locationId": "default-loc"
+    },
+    {
+      "id": "e04eb79f-72fa-49c5-8669-844f7ed5e021",
+      "name": "R-07",
+      "type": "server",
+      "position": [
+        0.6,
+        0,
+        4.2
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 42,
+      "maxPowerKw": 15,
+      "servers": [
+        {
+          "id": "dc15affe-c14a-4dff-980a-f126efe4f710",
+          "assetId": "SERVER-071",
+          "name": "SERVER-071",
+          "uPosition": 9,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "c67b0ef4-f3ed-41c5-89f4-53fc7d6b7d47",
+          "assetId": "SERVER-072",
+          "name": "SERVER-072",
+          "uPosition": 12,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "92c7fe94-119c-4004-aa74-263ded37853e",
+          "assetId": "SERVER-074",
+          "name": "SERVER-074",
+          "uPosition": 18,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "e1697741-e8bf-4280-8d62-7ba77494b28f",
+          "assetId": "SERVER-075",
+          "name": "SERVER-075",
+          "uPosition": 21,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "32d45070-6cf6-4629-bc7b-a5b15b0c64a3",
+          "assetId": "SERVER-076",
+          "name": "SERVER-076",
+          "uPosition": 24,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "8f03e562-cbe6-4044-bfe5-d6d7f9dbcc7a",
+          "assetId": "SERVER-077",
+          "name": "SERVER-077",
+          "uPosition": 27,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "02e30bd6-52e2-4638-9171-5a4b8056c743",
+          "assetId": "SERVER-078",
+          "name": "SERVER-078",
+          "uPosition": 30,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "89bb5eab-ccbd-4be1-840b-fbecac9c5a70",
+          "assetId": "SERVER-079",
+          "name": "SERVER-079",
+          "uPosition": 33,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "354949df-d394-40c0-8b53-3ed4772af188",
+          "assetId": "SERVER-073",
+          "name": "SERVER-073",
+          "uPosition": 15,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        }
+      ],
+      "locationId": "default-loc"
+    },
+    {
+      "id": "d539d3ed-5700-469e-bdbb-e4e3725b2b02",
+      "name": "R-08",
+      "type": "server",
+      "position": [
+        1.2,
+        0,
+        4.2
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 42,
+      "maxPowerKw": 15,
+      "servers": [
+        {
+          "id": "5737e37e-54b4-4aff-8eb5-2093eba326b7",
+          "assetId": "SERVER-081",
+          "name": "SERVER-081",
+          "uPosition": 9,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "1dd062cc-0ffb-42bd-bcfe-55a9ea2ea574",
+          "assetId": "SERVER-082",
+          "name": "SERVER-082",
+          "uPosition": 12,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "771edfee-2d90-4207-9560-381a04a943c9",
+          "assetId": "SERVER-083",
+          "name": "SERVER-083",
+          "uPosition": 15,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "9854cd6f-8e20-4e8f-a002-fff0bc208d31",
+          "assetId": "SERVER-084",
+          "name": "SERVER-084",
+          "uPosition": 18,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "eced72bf-8aa4-431d-9c09-55e54d7c4cac",
+          "assetId": "SERVER-085",
+          "name": "SERVER-085",
+          "uPosition": 21,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "0fe78a04-a851-4c95-80c2-c54387973b50",
+          "assetId": "SERVER-086",
+          "name": "SERVER-086",
+          "uPosition": 24,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "da79050a-502a-4fc4-9b73-51f4909d386d",
+          "assetId": "SERVER-087",
+          "name": "SERVER-087",
+          "uPosition": 27,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "18a9ad41-875d-4ecb-9479-311bd6e4fadf",
+          "assetId": "SERVER-088",
+          "name": "SERVER-088",
+          "uPosition": 30,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "85810e54-2ceb-4301-afe3-76e4d7a3985a",
+          "assetId": "SERVER-089",
+          "name": "SERVER-089",
+          "uPosition": 33,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        }
+      ],
+      "locationId": "default-loc"
+    },
+    {
+      "id": "e0d69bee-650b-4f23-9afb-8f5e8d402550",
+      "name": "R-10",
+      "type": "server",
+      "position": [
+        2.4,
+        0,
+        4.2
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 42,
+      "maxPowerKw": 15,
+      "servers": [
+        {
+          "id": "3ecd8cb3-3592-42ad-8aa8-ed6d366580a5",
+          "assetId": "SERVER-101",
+          "name": "SERVER-101",
+          "uPosition": 9,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "387ecdf9-c053-4a14-b349-aa0e801359ac",
+          "assetId": "SERVER-102",
+          "name": "SERVER-102",
+          "uPosition": 12,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "8a24c7f3-456c-41b4-847a-0ed044c2d33c",
+          "assetId": "SERVER-103",
+          "name": "SERVER-103",
+          "uPosition": 15,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "36bcfa11-029d-42d3-8ecf-b5abb32bbba0",
+          "assetId": "SERVER-104",
+          "name": "SERVER-104",
+          "uPosition": 18,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "bb0708b6-3b6d-4daa-9e45-7fec475d50f9",
+          "assetId": "SERVER-105",
+          "name": "SERVER-105",
+          "uPosition": 21,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "c0e565c1-33e6-40bd-9dd4-a8e2e33ce5a3",
+          "assetId": "SERVER-106",
+          "name": "SERVER-106",
+          "uPosition": 24,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "b359cc5a-3d5b-4662-a49f-34c23ca53139",
+          "assetId": "SERVER-107",
+          "name": "SERVER-107",
+          "uPosition": 27,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "33d7e3df-bb6d-42ce-b07d-c1d8c9501625",
+          "assetId": "SERVER-108",
+          "name": "SERVER-108",
+          "uPosition": 30,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "dd336a8e-d7cc-429d-b06f-09c37d3d3b23",
+          "assetId": "SERVER-109",
+          "name": "SERVER-109",
+          "uPosition": 33,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        }
+      ],
+      "locationId": "default-loc"
+    },
+    {
+      "id": "6289cc71-8990-4d79-bd5b-e07bd09a0855",
+      "name": "IMM-2P-856",
+      "type": "immersion_dual",
+      "position": [
+        -2.4,
+        0,
+        -3.5999999999999996
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 20,
+      "maxPowerKw": 30,
+      "servers": [],
+      "locationId": "b992789c-868e-4210-a3a9-bc5bd7995d75"
+    },
+    {
+      "id": "900ac993-43b9-490a-8080-9eb5ed05e4e0",
+      "name": "Tank-01",
+      "type": "immersion_single",
+      "position": [
+        -3,
+        0,
+        3.5999999999999996
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 20,
+      "maxPowerKw": 30,
+      "servers": [
+        {
+          "id": "f1e8866c-c18a-4a8d-91c5-6a9154b1a439",
+          "assetId": "ST-011",
+          "name": "ST_011",
+          "uPosition": 1,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "ebd8d400-47da-4f86-93dd-1ee8f269acb9",
+          "assetId": "ST-012",
+          "name": "ST_012",
+          "uPosition": 3,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "9ef0e9d6-d6de-4492-98cc-98ecc628302d",
+          "assetId": "ST-013",
+          "name": "ST_013",
+          "uPosition": 5,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "6abca089-ba8e-473b-a112-617e4674dd28",
+          "assetId": "ST-014",
+          "name": "ST_014",
+          "uPosition": 7,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "05933ef6-0416-4201-b40c-c9a3cf4445d0",
+          "assetId": "ST-015",
+          "name": "ST_015",
+          "uPosition": 9,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "f57b7b0b-1ee1-429a-a35f-52db1ab6ce0b",
+          "assetId": "ST-016",
+          "name": "ST_016",
+          "uPosition": 11,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "8617c3bb-155d-40da-8ea9-0b6dac2e88df",
+          "assetId": "ST-017",
+          "name": "ST_017",
+          "uPosition": 13,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "2521d84e-f679-4404-b714-f0a41ac66cd0",
+          "assetId": "ST-018",
+          "name": "ST_018",
+          "uPosition": 15,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "a8d7d8d4-7518-4139-b0a2-7ccdac64b321",
+          "assetId": "ST-019",
+          "name": "ST_019",
+          "uPosition": 17,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "9365b23f-fcdb-4123-8943-77d5efd5a0a7",
+          "assetId": "ST-020",
+          "name": "ST_020",
+          "uPosition": 19,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        }
+      ],
+      "locationId": "b992789c-868e-4210-a3a9-bc5bd7995d75"
+    },
+    {
+      "id": "5ed615b5-b957-4c89-9807-b8b4eaa74ba6",
+      "name": "IMM-1P-42",
+      "type": "immersion_single",
+      "position": [
+        -1.2,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 20,
+      "maxPowerKw": 30,
+      "servers": [],
+      "locationId": "b992789c-868e-4210-a3a9-bc5bd7995d75"
+    },
+    {
+      "id": "b95a56b5-c313-4b03-8ac2-5ca9bb06a853",
+      "name": "IMM-1P-843",
+      "type": "immersion_single",
+      "position": [
+        -2.4,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 20,
+      "maxPowerKw": 30,
+      "servers": [],
+      "locationId": "b992789c-868e-4210-a3a9-bc5bd7995d75"
+    },
+    {
+      "id": "5bca96a8-664c-4249-a0dd-3e91f102f53f",
+      "name": "IMM-1P-5",
+      "type": "immersion_single",
+      "position": [
+        -1.7999999999999998,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 20,
+      "maxPowerKw": 30,
+      "servers": [],
+      "locationId": "b992789c-868e-4210-a3a9-bc5bd7995d75"
+    },
+    {
+      "id": "346164fe-da54-4dfd-9b15-20835a46133b",
+      "name": "IMM-2P-628",
+      "type": "immersion_dual",
+      "position": [
+        -3,
+        0,
+        -3.5999999999999996
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 20,
+      "maxPowerKw": 30,
+      "servers": [],
+      "locationId": "b992789c-868e-4210-a3a9-bc5bd7995d75"
+    },
+    {
+      "id": "a7d9efe4-b329-4d4a-9d6f-942d5e2dda13",
+      "name": "IMM-2P-108",
+      "type": "immersion_dual",
+      "position": [
+        -1.7999999999999998,
+        0,
+        -3.5999999999999996
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 20,
+      "maxPowerKw": 30,
+      "servers": [],
+      "locationId": "b992789c-868e-4210-a3a9-bc5bd7995d75"
+    },
+    {
+      "id": "fd982c69-b1a8-4c90-9067-aa9809ec108f",
+      "name": "IMM-2P-101",
+      "type": "immersion_dual",
+      "position": [
+        -1.2,
+        0,
+        -3.5999999999999996
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 20,
+      "maxPowerKw": 30,
+      "servers": [],
+      "locationId": "b992789c-868e-4210-a3a9-bc5bd7995d75"
+    },
+    {
+      "id": "e89cdee8-494b-4642-83de-452c94ee625b",
+      "name": "IMM-2P-767",
+      "type": "immersion_dual",
+      "position": [
+        -0.6,
+        0,
+        -3.5999999999999996
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 20,
+      "maxPowerKw": 30,
+      "servers": [],
+      "locationId": "b992789c-868e-4210-a3a9-bc5bd7995d75"
+    },
+    {
+      "id": "2bd9ee82-4d72-4aa8-8c60-a6e171adac09",
+      "name": "IMM-2P-368",
+      "type": "immersion_dual",
+      "position": [
+        0,
+        0,
+        -3.5999999999999996
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 20,
+      "maxPowerKw": 30,
+      "servers": [],
+      "locationId": "b992789c-868e-4210-a3a9-bc5bd7995d75"
+    },
+    {
+      "id": "3c8edec6-c3b5-4ca4-b6c6-dfcd27436325",
+      "name": "IMM-2P-828",
+      "type": "immersion_dual",
+      "position": [
+        0.6,
+        0,
+        -3.5999999999999996
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 20,
+      "maxPowerKw": 30,
+      "servers": [],
+      "locationId": "b992789c-868e-4210-a3a9-bc5bd7995d75"
+    },
+    {
+      "id": "61487a31-f847-4b86-a87d-47914d755bb2",
+      "name": "IMM-2P-387",
+      "type": "immersion_dual",
+      "position": [
+        1.7999999999999998,
+        0,
+        -3.5999999999999996
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 20,
+      "maxPowerKw": 30,
+      "servers": [],
+      "locationId": "b992789c-868e-4210-a3a9-bc5bd7995d75"
+    },
+    {
+      "id": "ebf3c5bb-ca8c-4ed1-8406-e3d9f5bc70a6",
+      "name": "IMM-2P-208",
+      "type": "immersion_dual",
+      "position": [
+        1.2,
+        0,
+        -3.5999999999999996
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 20,
+      "maxPowerKw": 30,
+      "servers": [],
+      "locationId": "b992789c-868e-4210-a3a9-bc5bd7995d75"
+    },
+    {
+      "id": "a6d8da05-c67a-410e-b3cf-45a64f48833e",
+      "name": "IMM-2P-47",
+      "type": "immersion_dual",
+      "position": [
+        2.4,
+        0,
+        -3.5999999999999996
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 20,
+      "maxPowerKw": 30,
+      "servers": [],
+      "locationId": "b992789c-868e-4210-a3a9-bc5bd7995d75"
+    },
+    {
+      "id": "a392b9a1-dd0b-4a27-9422-2e4a527033cd",
+      "name": "IMM-1P-887",
+      "type": "immersion_single",
+      "position": [
+        -3,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 20,
+      "maxPowerKw": 30,
+      "servers": [],
+      "locationId": "b992789c-868e-4210-a3a9-bc5bd7995d75"
+    },
+    {
+      "id": "ace8b4cb-509f-4e4f-bfe4-3f6d01190b41",
+      "name": "IMM-1P-271",
+      "type": "immersion_single",
+      "position": [
+        0.6,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 20,
+      "maxPowerKw": 30,
+      "servers": [],
+      "locationId": "b992789c-868e-4210-a3a9-bc5bd7995d75"
+    },
+    {
+      "id": "66a761ea-39bd-46ed-b30d-d374d290e900",
+      "name": "Tank-03",
+      "type": "immersion_single",
+      "position": [
+        -1.7999999999999998,
+        0,
+        3.5999999999999996
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 20,
+      "maxPowerKw": 30,
+      "servers": [
+        {
+          "id": "03721ab7-7c09-45ad-aaec-fc5a6e106356",
+          "assetId": "ST-031",
+          "name": "ST_031",
+          "uPosition": 1,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "8af31be2-4b3f-4124-aa8c-7566dd0815ee",
+          "assetId": "ST-032",
+          "name": "ST_032",
+          "uPosition": 3,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "a60228de-5290-4427-923f-c0c7c17d6a53",
+          "assetId": "ST-033",
+          "name": "ST_033",
+          "uPosition": 5,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "ee20a2f7-578d-4a6b-9aa6-c6bc3ec31fa9",
+          "assetId": "ST-034",
+          "name": "ST_034",
+          "uPosition": 7,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "765e4082-5f9d-45c0-b42e-8bbbb5152c78",
+          "assetId": "ST-035",
+          "name": "ST_035",
+          "uPosition": 9,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "57f5edac-3d35-41e5-85ed-a31cbce4c228",
+          "assetId": "ST-036",
+          "name": "ST_036",
+          "uPosition": 11,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "483d4a06-426b-4bc4-80d6-acb17c69b461",
+          "assetId": "ST-037",
+          "name": "ST_037",
+          "uPosition": 13,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "297c816d-06bc-4911-b15b-8a15d3117b33",
+          "assetId": "ST-038",
+          "name": "ST_038",
+          "uPosition": 15,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "9104fb1b-4640-4fe5-a56b-1f6db0ddd079",
+          "assetId": "ST-039",
+          "name": "ST_039",
+          "uPosition": 17,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "f75a542c-8b8c-487c-bf4a-81606e85a960",
+          "assetId": "ST-040",
+          "name": "ST_040",
+          "uPosition": 19,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        }
+      ],
+      "locationId": "b992789c-868e-4210-a3a9-bc5bd7995d75"
+    },
+    {
+      "id": "4d2ce89b-bc70-48b2-b8df-ea9d302cd500",
+      "name": "Tank-02",
+      "type": "immersion_single",
+      "position": [
+        -2.4,
+        0,
+        3.5999999999999996
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 20,
+      "maxPowerKw": 30,
+      "servers": [
+        {
+          "id": "6d8810ee-88fb-496d-963d-5aedd6997c1e",
+          "assetId": "ST-021",
+          "name": "ST_021",
+          "uPosition": 1,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "27a2c722-6fb4-4354-a6aa-1319459b8b23",
+          "assetId": "ST-022",
+          "name": "ST_022",
+          "uPosition": 3,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "5842dcec-9ac6-49b2-9719-e7565074ddd9",
+          "assetId": "ST-023",
+          "name": "ST_023",
+          "uPosition": 5,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "f67ed36b-b298-475c-83c9-ea79540e58a8",
+          "assetId": "ST-024",
+          "name": "ST_024",
+          "uPosition": 7,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "61832e06-8f92-4abd-a94a-05c7bdcfab0b",
+          "assetId": "ST-025",
+          "name": "ST_025",
+          "uPosition": 9,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "dbe1af60-bb1a-431a-9398-f37145afe77d",
+          "assetId": "ST-026",
+          "name": "ST_026",
+          "uPosition": 11,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "31ec81a6-8340-4d4a-84ae-44c00c91fad8",
+          "assetId": "ST-027",
+          "name": "ST_027",
+          "uPosition": 13,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "be03389b-a9ec-47f4-9eb4-6261a4d4f4ba",
+          "assetId": "ST-028",
+          "name": "ST_028",
+          "uPosition": 15,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "f0032b8a-9f33-425f-aa96-20b5b8b50388",
+          "assetId": "ST-029",
+          "name": "ST_029",
+          "uPosition": 17,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "28b3ea2a-5ae7-4df9-aac5-2c85946d357b",
+          "assetId": "ST-030",
+          "name": "ST_030",
+          "uPosition": 19,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        }
+      ],
+      "locationId": "b992789c-868e-4210-a3a9-bc5bd7995d75"
+    },
+    {
+      "id": "9232fce9-7b82-40f1-9626-feb09126d133",
+      "name": "IMM-1P-938",
+      "type": "immersion_single",
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 20,
+      "maxPowerKw": 30,
+      "servers": [],
+      "locationId": "b992789c-868e-4210-a3a9-bc5bd7995d75"
+    },
+    {
+      "id": "19bf5b20-cc85-4fa0-9787-f7773add6dd0",
+      "name": "IMM-1P-74",
+      "type": "immersion_single",
+      "position": [
+        -0.6,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 20,
+      "maxPowerKw": 30,
+      "servers": [],
+      "locationId": "b992789c-868e-4210-a3a9-bc5bd7995d75"
+    },
+    {
+      "id": "371aca67-5a0e-40dc-8284-2b243fc04920",
+      "name": "IMM-1P-912",
+      "type": "immersion_single",
+      "position": [
+        1.2,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 20,
+      "maxPowerKw": 30,
+      "servers": [],
+      "locationId": "b992789c-868e-4210-a3a9-bc5bd7995d75"
+    },
+    {
+      "id": "925b0372-4b96-4dad-a661-cc8852fb9ddc",
+      "name": "IMM-1P-695",
+      "type": "immersion_single",
+      "position": [
+        1.7999999999999998,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 20,
+      "maxPowerKw": 30,
+      "servers": [],
+      "locationId": "b992789c-868e-4210-a3a9-bc5bd7995d75"
+    },
+    {
+      "id": "96dd0b3a-f2af-421a-a36e-2a069eac57d5",
+      "name": "IMM-1P-152",
+      "type": "immersion_single",
+      "position": [
+        2.4,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 20,
+      "maxPowerKw": 30,
+      "servers": [],
+      "locationId": "b992789c-868e-4210-a3a9-bc5bd7995d75"
+    },
+    {
+      "id": "ad9cea1f-410b-465e-b7b4-3168058ad3e1",
+      "name": "Tank-04",
+      "type": "immersion_single",
+      "position": [
+        -1.2,
+        0,
+        3.5999999999999996
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 20,
+      "maxPowerKw": 30,
+      "servers": [
+        {
+          "id": "6b33eab4-50ff-4b66-8169-01deaaefbe81",
+          "assetId": "ST-041",
+          "name": "ST_041",
+          "uPosition": 1,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "37347021-948f-4ac1-9460-cb9773e928ea",
+          "assetId": "ST-042",
+          "name": "ST_042",
+          "uPosition": 3,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "678243bb-9a5c-45ab-a381-a19c76e6a4ad",
+          "assetId": "ST-043",
+          "name": "ST_043",
+          "uPosition": 5,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "c0f4ef24-633b-4d11-9c6d-5e26de9eb52d",
+          "assetId": "ST-044",
+          "name": "ST_044",
+          "uPosition": 7,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "a99f0533-81d1-4718-b6ff-e5226147c887",
+          "assetId": "ST-045",
+          "name": "ST_045",
+          "uPosition": 9,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "5531eca2-98af-4fe2-934b-0b5185847bba",
+          "assetId": "ST-046",
+          "name": "ST_046",
+          "uPosition": 11,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "15dc2f19-f9a2-4cd0-b172-546f9a7079ae",
+          "assetId": "ST-047",
+          "name": "ST_047",
+          "uPosition": 13,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "b7c5234a-0abe-4fd1-a4da-9d3afc656700",
+          "assetId": "ST-048",
+          "name": "ST_048",
+          "uPosition": 15,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "d1f84ff4-8ec2-41de-ab9e-fe994ce55729",
+          "assetId": "ST-049",
+          "name": "ST_049",
+          "uPosition": 17,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "be339782-6694-487d-bec9-431ed4b317ba",
+          "assetId": "ST-050",
+          "name": "ST_050",
+          "uPosition": 19,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        }
+      ],
+      "locationId": "b992789c-868e-4210-a3a9-bc5bd7995d75"
+    },
+    {
+      "id": "fcf7f6a2-ff8f-4ac5-890b-ec6b2c472c86",
+      "name": "Tank-06",
+      "type": "immersion_single",
+      "position": [
+        0,
+        0,
+        3.5999999999999996
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 20,
+      "maxPowerKw": 30,
+      "servers": [
+        {
+          "id": "3e996463-cbd4-440f-8a7d-6a813e888c63",
+          "assetId": "ST-061",
+          "name": "ST_061",
+          "uPosition": 1,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "c2963662-ed43-423d-acc9-30bfa56016a9",
+          "assetId": "ST-062",
+          "name": "ST_062",
+          "uPosition": 3,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "c7f07452-de1d-448a-8948-4afaa2c00518",
+          "assetId": "ST-063",
+          "name": "ST_063",
+          "uPosition": 5,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "0f7ba21c-af7b-4617-ba74-0019780fa658",
+          "assetId": "ST-064",
+          "name": "ST_064",
+          "uPosition": 7,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "4c086c96-e469-40eb-ac0b-ca3bc903774a",
+          "assetId": "ST-065",
+          "name": "ST_065",
+          "uPosition": 9,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "8622311c-493e-4686-90dd-2eb3e3051cd4",
+          "assetId": "ST-066",
+          "name": "ST_066",
+          "uPosition": 11,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "e2a6b085-6f1a-496c-a52b-70479b024401",
+          "assetId": "ST-067",
+          "name": "ST_067",
+          "uPosition": 13,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "1f9d0f20-9a0d-48e2-9e9d-b93571c53ba1",
+          "assetId": "ST-068",
+          "name": "ST_068",
+          "uPosition": 15,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "770cefb8-bbb6-403f-95d8-1f682bf08ec4",
+          "assetId": "ST-069",
+          "name": "ST_069",
+          "uPosition": 17,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "9b21539e-f337-4074-9790-e97f9f3a96ec",
+          "assetId": "ST-070",
+          "name": "ST_070",
+          "uPosition": 19,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        }
+      ],
+      "locationId": "b992789c-868e-4210-a3a9-bc5bd7995d75"
+    },
+    {
+      "id": "2cfef307-f8f4-46f8-bcdc-63c473caccba",
+      "name": "Tank-05",
+      "type": "immersion_single",
+      "position": [
+        -0.6,
+        0,
+        3.5999999999999996
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 20,
+      "maxPowerKw": 30,
+      "servers": [
+        {
+          "id": "806ee7d7-5051-433e-bff0-b81626f427e8",
+          "assetId": "ST-051",
+          "name": "ST_051",
+          "uPosition": 1,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "76348b1c-5b8f-4e36-b332-8ed93f98e9d1",
+          "assetId": "ST-052",
+          "name": "ST_052",
+          "uPosition": 3,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "61f79170-5ee8-451f-add5-ce7911d52489",
+          "assetId": "ST-053",
+          "name": "ST_053",
+          "uPosition": 5,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "dd324b05-69d6-4323-b5cc-e2ffc7531ed9",
+          "assetId": "ST-054",
+          "name": "ST_054",
+          "uPosition": 7,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "2c77ae1d-f1c3-467c-a146-eee172bcde18",
+          "assetId": "ST-055",
+          "name": "ST_055",
+          "uPosition": 9,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "8f4b0b72-bfca-404a-9767-8deedcd85a13",
+          "assetId": "ST-056",
+          "name": "ST_056",
+          "uPosition": 11,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "3bc4a852-bf7e-45ef-8a49-511fb970e131",
+          "assetId": "ST-057",
+          "name": "ST_057",
+          "uPosition": 13,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "9ef58f32-8d0d-42a0-9650-02ab373221ce",
+          "assetId": "ST-058",
+          "name": "ST_058",
+          "uPosition": 15,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "9cb0a8d5-b99f-4434-8d69-b8942e954628",
+          "assetId": "ST-059",
+          "name": "ST_059",
+          "uPosition": 17,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "f67bd517-808f-48f4-93c7-7427224d9642",
+          "assetId": "ST-060",
+          "name": "ST_060",
+          "uPosition": 19,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        }
+      ],
+      "locationId": "b992789c-868e-4210-a3a9-bc5bd7995d75"
+    },
+    {
+      "id": "ff2d1488-4059-4e65-82fc-8e9b72e1648f",
+      "name": "Tank-07",
+      "type": "immersion_single",
+      "position": [
+        0.6,
+        0,
+        3.5999999999999996
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 20,
+      "maxPowerKw": 30,
+      "servers": [
+        {
+          "id": "ace8bfc9-b9db-4ccd-8ca8-2383125e1114",
+          "assetId": "ST-071",
+          "name": "ST_071",
+          "uPosition": 1,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "a84374f3-3c0e-4de0-a898-8776d1c6b066",
+          "assetId": "ST-072",
+          "name": "ST_072",
+          "uPosition": 3,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "e8491ac9-b233-438e-8194-60f2e3e302eb",
+          "assetId": "ST-073",
+          "name": "ST_073",
+          "uPosition": 5,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "862254e0-f09c-4b96-b83f-06cad3c1edd8",
+          "assetId": "ST-074",
+          "name": "ST_074",
+          "uPosition": 7,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "57f6a08a-e4e8-4148-9e83-a0f5dcdcd1d7",
+          "assetId": "ST-075",
+          "name": "ST_075",
+          "uPosition": 9,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "91b265d6-06db-454c-b721-17bcea05e590",
+          "assetId": "ST-076",
+          "name": "ST_076",
+          "uPosition": 11,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "817106c4-22e7-4c6c-b822-22ee5e1c4d93",
+          "assetId": "ST-077",
+          "name": "ST_077",
+          "uPosition": 13,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "609c9af4-25b9-4997-a153-d1eae1794e93",
+          "assetId": "ST-078",
+          "name": "ST_078",
+          "uPosition": 15,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "ac98d57d-dd99-4512-9503-8810009c5389",
+          "assetId": "ST-079",
+          "name": "ST_079",
+          "uPosition": 17,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "8e495be0-9b7d-4ab7-9e84-31419d5798da",
+          "assetId": "ST-080",
+          "name": "ST_080",
+          "uPosition": 19,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        }
+      ],
+      "locationId": "b992789c-868e-4210-a3a9-bc5bd7995d75"
+    },
+    {
+      "id": "8b1b2efd-d093-4b01-8075-e7d0085a3e00",
+      "name": "Tank-08",
+      "type": "immersion_single",
+      "position": [
+        1.2,
+        0,
+        3.5999999999999996
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 20,
+      "maxPowerKw": 30,
+      "servers": [
+        {
+          "id": "1788408a-d053-47ad-8d02-c2fdf55daa1b",
+          "assetId": "ST-081",
+          "name": "ST_081",
+          "uPosition": 1,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "b48192ce-6572-45bb-a67e-bbf2ce77e7e1",
+          "assetId": "ST-082",
+          "name": "ST_082",
+          "uPosition": 3,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "5c5d6426-c11c-47fa-8ec8-998803051f61",
+          "assetId": "ST-083",
+          "name": "ST_083",
+          "uPosition": 5,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "b7214b34-5f67-468f-b49c-f1fd9ea51e96",
+          "assetId": "ST-084",
+          "name": "ST_084",
+          "uPosition": 7,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "0b63c441-dd53-4177-a523-1b4acfa72349",
+          "assetId": "ST-085",
+          "name": "ST_085",
+          "uPosition": 9,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "620be9de-3039-423d-8ed8-ce1546063104",
+          "assetId": "ST-086",
+          "name": "ST_086",
+          "uPosition": 11,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "37407f36-0688-4007-9e96-54f9438f2d56",
+          "assetId": "ST-087",
+          "name": "ST_087",
+          "uPosition": 13,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "46c66e02-5a2f-405d-a57c-94d85b3f1cb5",
+          "assetId": "ST-088",
+          "name": "ST_088",
+          "uPosition": 15,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "e96d3f00-1a84-4279-b970-7ee89eb9c76c",
+          "assetId": "ST-089",
+          "name": "ST_089",
+          "uPosition": 17,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "7894e243-dc6d-47bb-838c-8b0722315068",
+          "assetId": "ST-090",
+          "name": "ST_090",
+          "uPosition": 19,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        }
+      ],
+      "locationId": "b992789c-868e-4210-a3a9-bc5bd7995d75"
+    },
+    {
+      "id": "d9ecb1a6-a0e7-45df-9df2-ee466194af99",
+      "name": "Tank-09",
+      "type": "immersion_single",
+      "position": [
+        1.7999999999999998,
+        0,
+        3.5999999999999996
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 20,
+      "maxPowerKw": 30,
+      "servers": [
+        {
+          "id": "4474b11a-b5a0-4d2b-82d2-4fa13123abca",
+          "assetId": "ST-091",
+          "name": "ST_091",
+          "uPosition": 1,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "56dfa86c-994e-4c08-9621-07651d61a3df",
+          "assetId": "ST-092",
+          "name": "ST_092",
+          "uPosition": 3,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "d99b7ec3-0d37-418f-88bd-56a9970ffe61",
+          "assetId": "ST-093",
+          "name": "ST_093",
+          "uPosition": 5,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "fa1388bb-1db6-4bed-ab83-89c24c731e76",
+          "assetId": "ST-094",
+          "name": "ST_094",
+          "uPosition": 7,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "4db8a512-ba88-42f1-9a49-0a7044a8952d",
+          "assetId": "ST-095",
+          "name": "ST_095",
+          "uPosition": 9,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "44e0ef3f-738a-4852-b0ef-924fe211ec0d",
+          "assetId": "ST-096",
+          "name": "ST_096",
+          "uPosition": 11,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "b9121319-9afa-410f-ba6b-0ba34d48b067",
+          "assetId": "ST-097",
+          "name": "ST_097",
+          "uPosition": 13,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "19088778-0dff-4606-8e95-f985401706bb",
+          "assetId": "ST-098",
+          "name": "ST_098",
+          "uPosition": 15,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "4781aa25-9e83-454d-8844-d3c9b40a6cce",
+          "assetId": "ST-099",
+          "name": "ST_099",
+          "uPosition": 17,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "1970ce20-93f9-4e58-a538-0554c413f02d",
+          "assetId": "ST-100",
+          "name": "ST_100",
+          "uPosition": 19,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        }
+      ],
+      "locationId": "b992789c-868e-4210-a3a9-bc5bd7995d75"
+    },
+    {
+      "id": "9831ab5e-316d-47fc-9b13-2d0d77bdb451",
+      "name": "Tank-10",
+      "type": "immersion_single",
+      "position": [
+        2.4,
+        0,
+        3.5999999999999996
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "uCapacity": 20,
+      "maxPowerKw": 30,
+      "servers": [
+        {
+          "id": "e3fa88ec-5f9e-4e23-8657-96ec71788503",
+          "assetId": "ST-101",
+          "name": "ST_101",
+          "uPosition": 1,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "74a1123d-ed00-4315-80c7-1eb6e08b384c",
+          "assetId": "ST-102",
+          "name": "ST_102",
+          "uPosition": 3,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "5f8faacc-6c13-4dd3-9254-a5bb9d4b42fe",
+          "assetId": "ST-103",
+          "name": "ST_103",
+          "uPosition": 5,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "866ef287-c489-4e7d-a399-48ccd5aeeeb4",
+          "assetId": "ST-104",
+          "name": "ST_104",
+          "uPosition": 7,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "74207fce-67df-443d-a1d4-54aacaa74875",
+          "assetId": "ST-105",
+          "name": "ST_105",
+          "uPosition": 9,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "7dc781c6-90c4-4647-aa67-528b590c7c4a",
+          "assetId": "ST-106",
+          "name": "ST_106",
+          "uPosition": 11,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "7f6e5279-5e02-49de-895f-9f14922c5e78",
+          "assetId": "ST-107",
+          "name": "ST_107",
+          "uPosition": 13,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "2d1412ae-1961-4f21-9963-168c1f5d3766",
+          "assetId": "ST-108",
+          "name": "ST_108",
+          "uPosition": 15,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "94abf2d2-9a08-46f6-9d87-3af7256b698b",
+          "assetId": "ST-109",
+          "name": "ST_109",
+          "uPosition": 17,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        },
+        {
+          "id": "9f376ad4-9b63-4b63-bd05-7c661cf068aa",
+          "assetId": "ST-110",
+          "name": "ST_110",
+          "uPosition": 19,
+          "uHeight": 2,
+          "powerKw": 1.5,
+          "type": "server",
+          "status": "normal"
+        }
+      ],
+      "locationId": "b992789c-868e-4210-a3a9-bc5bd7995d75"
+    }
+  ],
+  "equipments": [
+    {
+      "id": "27d3c179-818b-401f-959d-8a463d10c71a",
+      "name": "CRAC-01",
+      "type": "crac",
+      "position": [
+        -5.3999999999999995,
+        0,
+        -6.6
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "locationId": "default-loc"
+    },
+    {
+      "id": "ec5986cc-260e-4630-b1c2-3bc539dd37d9",
+      "name": "CRAC-02",
+      "type": "crac",
+      "position": [
+        -0.6,
+        0,
+        -6.6
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "locationId": "default-loc"
+    },
+    {
+      "id": "ef8e7696-671e-4b80-a701-cbda3db7124d",
+      "name": "CRAC-03",
+      "type": "crac",
+      "position": [
+        4.8,
+        0,
+        -6.6
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "locationId": "default-loc"
+    },
+    {
+      "id": "e5d6d53e-2d57-4c29-8146-d3d60dbca128",
+      "name": "PDU-A",
+      "type": "pdu",
+      "position": [
+        -9.6,
+        0,
+        -4.2
+      ],
+      "rotation": [
+        0,
+        1.5707963267948966,
+        0
+      ],
+      "locationId": "default-loc"
+    },
+    {
+      "id": "282ec3dd-5c00-470f-9170-9bee6833670d",
+      "name": "PDU-B",
+      "type": "pdu",
+      "position": [
+        -9.6,
+        0,
+        -3
+      ],
+      "rotation": [
+        0,
+        1.5707963267948966,
+        0
+      ],
+      "locationId": "default-loc"
+    },
+    {
+      "id": "e94ae474-8190-4ae1-b2ce-cc1583cc54d6",
+      "name": "CDU-2-1",
+      "type": "cdu",
+      "position": [
+        -3.5999999999999996,
+        0,
+        -1.7999999999999998
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "locationId": "default-loc",
+      "connectedRackIds": [
+        "4e671841-b8db-4a74-8d3c-55ee86c53157",
+        "22881901-9dcc-4255-af01-b8c6a6168ef4",
+        "af6a207d-597b-40ee-bd3a-21ccbd7bbc33",
+        "60d9f7cf-e713-4284-ad34-65633f0525c4",
+        "dcdea220-1f73-4b7d-bb6f-f64cba338d07"
+      ]
+    },
+    {
+      "id": "2f9545d1-2e83-485e-9df8-79f00b4087f4",
+      "name": "DASHBOARD-706",
+      "type": "dashboard",
+      "position": [
+        3.5999999999999996,
+        0,
+        -1.7999999999999998
+      ],
+      "rotation": [
+        0,
+        1.5707963267948966,
+        0
+      ],
+      "locationId": "default-loc"
+    },
+    {
+      "id": "d62a6cbd-d214-49c7-b4f4-08a0bf5472c7",
+      "name": "CDU-1-2",
+      "type": "cdu",
+      "position": [
+        3,
+        0,
+        1.2
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "locationId": "default-loc",
+      "connectedRackIds": [
+        "e8f01889-b079-4273-a5b3-752bcde825e9",
+        "98a8fe09-a541-45df-a7cc-d82f790a7a23",
+        "8fafb837-1045-4b94-b9d3-e2cd5941bc44",
+        "e819eda0-2a10-4ac5-b1ab-a24bf20b3e91",
+        "0b151636-9ee5-43fc-9116-47a5aba2d790"
+      ]
+    },
+    {
+      "id": "b6059fa1-7f45-4b72-b5f9-38686b0c4527",
+      "name": "CDU-0-1",
+      "type": "cdu",
+      "position": [
+        -3.5999999999999996,
+        0,
+        4.2
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "locationId": "default-loc",
+      "connectedRackIds": [
+        "a4c2866a-97dc-4dbf-bbee-bfd126c104a2",
+        "21187c60-1148-4a58-ac20-f7473892f0e4",
+        "cd26390f-1362-4b02-bbe0-2367d7236995",
+        "726a8273-6731-45de-8698-7595700f1acd",
+        "5137c3de-4985-4c05-a383-4a365d7f3f30"
+      ]
+    },
+    {
+      "id": "8eda2730-1c50-4800-b92c-15f561406ecf",
+      "name": "CDU-1-1",
+      "type": "cdu",
+      "position": [
+        -3.5999999999999996,
+        0,
+        1.2
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "locationId": "default-loc",
+      "connectedRackIds": [
+        "fdaf071d-14f3-46a2-8d2c-457eb63c34d1",
+        "8452a024-c56b-4e0a-adef-a41ce46b4795",
+        "cf34e7f1-601a-4aa5-8466-72c31c8d82d7",
+        "e7fd344a-c4a8-4142-bebe-e08a3a170f82",
+        "61964291-ee17-40b6-bc60-efe204374bae"
+      ]
+    },
+    {
+      "id": "bd19311a-03f1-4247-8ae3-6a270a8a4fcf",
+      "name": "CDU-0-2",
+      "type": "cdu",
+      "position": [
+        3,
+        0,
+        4.2
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "locationId": "default-loc",
+      "connectedRackIds": [
+        "010bafa7-aae3-4ad8-b32b-26a0292bfec6",
+        "e04eb79f-72fa-49c5-8669-844f7ed5e021",
+        "d539d3ed-5700-469e-bdbb-e4e3725b2b02",
+        "7780d1b0-df2f-43a0-9605-6e64410baf3d",
+        "e0d69bee-650b-4f23-9afb-8f5e8d402550"
+      ]
+    },
+    {
+      "id": "a1424a6f-d1af-424f-9cb6-d5540a354670",
+      "name": "CRAC-802",
+      "type": "crac",
+      "position": [
+        -9.6,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        1.5707963267948966,
+        0
+      ],
+      "locationId": "default-loc"
+    },
+    {
+      "id": "5f3aadd3-e53b-4893-bab4-7ce8f2ea28f3",
+      "name": "CRAC-787",
+      "type": "crac",
+      "position": [
+        -9.6,
+        0,
+        3
+      ],
+      "rotation": [
+        0,
+        1.5707963267948966,
+        0
+      ],
+      "locationId": "default-loc"
+    },
+    {
+      "id": "52455a90-d1a2-4a47-b7e4-bcfda0e7f96c",
+      "name": "CRAC-674",
+      "type": "crac",
+      "position": [
+        -6.6,
+        0,
+        -6.6
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "locationId": "b992789c-868e-4210-a3a9-bc5bd7995d75"
+    },
+    {
+      "id": "622c9cbe-f6db-4645-8ddf-21178518ad22",
+      "name": "CRAC-418",
+      "type": "crac",
+      "position": [
+        6,
+        0,
+        -6.6
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "locationId": "b992789c-868e-4210-a3a9-bc5bd7995d75"
+    },
+    {
+      "id": "4d0bbd87-b782-4798-891b-6fe75ed26f65",
+      "name": "PDU-107",
+      "type": "pdu",
+      "position": [
+        -9.6,
+        0,
+        -2.4
+      ],
+      "rotation": [
+        0,
+        1.5707963267948966,
+        0
+      ],
+      "locationId": "b992789c-868e-4210-a3a9-bc5bd7995d75"
+    },
+    {
+      "id": "d5919358-7808-4eb4-9282-593b9b358638",
+      "name": "PDU-83",
+      "type": "pdu",
+      "position": [
+        -9.6,
+        0,
+        -0.6
+      ],
+      "rotation": [
+        0,
+        1.5707963267948966,
+        0
+      ],
+      "locationId": "b992789c-868e-4210-a3a9-bc5bd7995d75"
+    },
+    {
+      "id": "e7dec133-28bb-4caa-8c2b-af0f4a8605f0",
+      "name": "CDU-357",
+      "type": "cdu",
+      "position": [
+        -3.5999999999999996,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "locationId": "b992789c-868e-4210-a3a9-bc5bd7995d75"
+    },
+    {
+      "id": "5eb27588-ee3d-4053-bb5f-7f093a647cb6",
+      "name": "CDU-399",
+      "type": "cdu",
+      "position": [
+        -3.5999999999999996,
+        0,
+        3.5999999999999996
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "locationId": "b992789c-868e-4210-a3a9-bc5bd7995d75"
+    },
+    {
+      "id": "40c49477-f4d4-49d5-a27f-de02ed221729",
+      "name": "DASHBOARD-649",
+      "type": "dashboard",
+      "position": [
+        3,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        -4.71238898038469,
+        0
+      ],
+      "locationId": "b992789c-868e-4210-a3a9-bc5bd7995d75"
+    }
+  ],
+  "locations": [
+    {
+      "id": "default-loc",
+      "name": "1F Core DC",
+      "type": "floor",
+      "xMin": -10,
+      "xMax": 10,
+      "zMin": -7.5,
+      "zMax": 7.5
+    },
+    {
+      "id": "b992789c-868e-4210-a3a9-bc5bd7995d75",
+      "name": "2F Core DC (Tank)",
+      "type": "floor",
+      "width": 20,
+      "depth": 15,
+      "xMin": -10,
+      "xMax": 10,
+      "zMin": -7.5,
+      "zMax": 7.5,
+      "doorPosition": "right"
+    }
+  ],
+  "currentLocationId": "b992789c-868e-4210-a3a9-bc5bd7995d75"
+}

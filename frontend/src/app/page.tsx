@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer,
   BarChart, Bar, PieChart, Pie, Cell
@@ -11,9 +11,13 @@ import { ClientOnlyChart } from "@/components/ClientOnlyChart";
 import { useSSE } from "@/shared/hooks/useSSE";
 import { apiUrl } from "@/shared/api";
 import { useLanguage } from "@/shared/i18n/language";
+// 與 3D 視圖共用狀態判斷，閾值定義於 @/shared/status。
+import { getDeviceStatus } from "@/shared/status";
+import { normalizeNodeId } from "@/shared/nodeId";
 
 type ServerTelemetry = {
   server_id: string;
+  asset_id?: string;
   cpu_usage: number;
   temperature: number;
   timestamp: number;
@@ -22,6 +26,10 @@ type ServerTelemetry = {
   ports_total?: number;
   power_state?: 'on' | 'off';
 };
+
+const MATRIX_ITEMS_PER_PAGE = 100;
+const MAX_ALARM_RENDER = 180;
+const MAX_BAR_RENDER = 300;
 
 const TechPanel = ({ title, children, className = "" }: { title: string, children: React.ReactNode, className?: string }) => (
   <div className={`relative bg-[#020b1a] border border-[#1e3a8a] flex flex-col ${className}`}>
@@ -46,7 +54,8 @@ const TechPanel = ({ title, children, className = "" }: { title: string, childre
 
 const LiquidCoolingPanel = ({ title, cduData, className = "" }: { title: string, cduData: any[], className?: string }) => (
   <TechPanel title={title} className={className}>
-    <div className="flex flex-col gap-4">
+    <div className="h-full overflow-y-auto pr-2 custom-scrollbar">
+      <div className="flex flex-col gap-4">
       {cduData.length === 0 ? (
         <div className="flex items-center justify-center py-10 text-slate-600 italic text-xs font-mono tracking-widest">
           NO CDU DETECTED IN ZONE
@@ -107,13 +116,15 @@ const LiquidCoolingPanel = ({ title, cduData, className = "" }: { title: string,
           </div>
         ))
       )}
+      </div>
     </div>
   </TechPanel>
 );
 
 const ImmersionCoolingPanel = ({ title, immersionData, className = "" }: { title: string, immersionData: any[], className?: string }) => (
   <TechPanel title={title} className={className}>
-    <div className="flex flex-col gap-4">
+    <div className="h-full overflow-y-auto pr-2 custom-scrollbar">
+      <div className="flex flex-col gap-4">
       {immersionData.length === 0 ? (
         <div className="flex items-center justify-center py-10 text-slate-600 italic text-xs font-mono tracking-widest">
           NO DUAL-PHASE TANKS DETECTED
@@ -158,13 +169,16 @@ const ImmersionCoolingPanel = ({ title, immersionData, className = "" }: { title
           </div>
         ))
       )}
+      </div>
     </div>
   </TechPanel>
 );
 
 export default function Dashboard() {
   const { language } = useLanguage();
-  const store = useDcimStore();
+  const racks = useDcimStore((s) => s.racks);
+  const equipments = useDcimStore((s) => s.equipments);
+  const currentLocationId = useDcimStore((s) => s.currentLocationId);
   const t = useMemo(() => {
     if (language === "en") {
       return {
@@ -182,6 +196,11 @@ export default function Dashboard() {
         noAlarms: "No Active Alarms",
         liquidCooling: "CDU Liquid Cooling",
         immersionCooling: "Immersion Monitoring",
+        pageLabel: "Paging",
+        pageInfo: (current: number, total: number, pageCount: number, allCount: number) =>
+          `Page ${current} / ${total} (${pageCount} shown, ${allCount} total)`,
+        prevPage: "Prev",
+        nextPage: "Next",
       };
     }
     return {
@@ -199,12 +218,18 @@ export default function Dashboard() {
       noAlarms: "目前無告警",
       liquidCooling: "CDU 液冷監控 (Liquid Cooling)",
       immersionCooling: "雙相浸沒式監控 (Immersion Cooling)",
+      pageLabel: "分頁顯示",
+      pageInfo: (current: number, total: number, pageCount: number, allCount: number) =>
+        `第 ${current} / ${total} 頁（本頁 ${pageCount} 台，總計 ${allCount} 台）`,
+      prevPage: "上一頁",
+      nextPage: "下一頁",
     };
   }, [language]);
   const [data, setData] = useState<ServerTelemetry[]>([]);
   const [history, setHistory] = useState<any[]>([]);
   const [time, setTime] = useState("");
   const [simMode, setSimMode] = useState("simulation");
+  const lastHistoryAtRef = useRef(0);
 
   // 初始化模式
   useEffect(() => {
@@ -242,96 +267,94 @@ export default function Dashboard() {
   }, []);
 
   const handleSSEUpdate = useCallback((metricsMap: Record<string, any>) => {
-    const sortedData = Object.values(metricsMap).sort((a: any, b: any) =>
-      (a.server_id || "").localeCompare(b.server_id || "")
-    ) as ServerTelemetry[];
-    setData(sortedData);
-
-    // 更新歷史紀錄供圖表使用 (節流：至少間隔 5 秒才更新一次歷史點)
-    setHistory(prev => {
-      const lastPoint = prev[prev.length - 1];
-      const now = new Date();
-      if (lastPoint) {
-        const lastTime = new Date();
-        const [h, m, s] = lastPoint.time.split(':');
-        lastTime.setHours(parseInt(h), parseInt(m), parseInt(s));
-        if (now.getTime() - lastTime.getTime() < 2000) return prev; // 小於 2 秒不更新
-      }
-
-      const avgCpu = sortedData.reduce((acc, cur) => acc + cur.cpu_usage, 0) / (sortedData.length || 1);
-      const avgTemp = sortedData.reduce((acc, cur) => acc + cur.temperature, 0) / (sortedData.length || 1);
-      const newPoint = {
-        time: now.toLocaleTimeString("zh-TW", { hour12: false, minute: "2-digit", second: "2-digit" }),
-        avgCpu: Number(avgCpu.toFixed(1)),
-        avgTemp: Number(avgTemp.toFixed(1))
-      };
-      const newHistory = [...prev, newPoint];
-      if (newHistory.length > 30) newHistory.shift();
-      return newHistory;
-    });
+    const incoming = Object.values(metricsMap) as ServerTelemetry[];
+    setData(incoming);
   }, []);
 
-  const { connected, mode: sseMode } = useSSE({ onUpdate: handleSSEUpdate, fallbackPollingMs: 5000 });
+  useEffect(() => {
+    if (data.length === 0) return;
+    const nowTs = Date.now();
+    if (nowTs - lastHistoryAtRef.current < 2000) return;
 
-  // --- Unified Health Scoring Logic ---
-  const getDeviceStatus = (item: any, srv: ServerTelemetry | undefined) => {
-    if (!srv) return 'powered_off';
-    if (srv.power_state === 'off') return 'powered_off';
+    const validCpu = data
+      .map((cur) => Number(cur.cpu_usage))
+      .filter((v) => Number.isFinite(v));
+    const validTemp = data
+      .map((cur) => Number(cur.temperature))
+      .filter((v) => Number.isFinite(v));
+    if (validCpu.length === 0 || validTemp.length === 0) return;
 
-    // CDU specific thresholds
-    if (item.type === 'cdu') {
-      const cdu = srv as any;
-      if (cdu.leak_detected) return 'critical';
-      const outTemp = cdu.outlet_temp || 0;
-      const flow = cdu.flow_rate_lpm || 0;
-      if (outTemp > 50 || (flow > 0 && flow < 3)) return 'critical';
-      if (outTemp > 45 || (flow > 0 && flow < 5)) return 'warning';
-      return 'normal';
-    }
-    // Switch specific thresholds (Dynamic)
-    if (item.type === 'switch' || item.rackType === 'network') {
-      const traffic = srv.traffic_gbps || 0;
-      const ports = srv.ports_active || 0;
-      const cpu = srv.cpu_usage || 0;
-      const temp = srv.temperature || 0;
-      if (traffic > 35 || ports > 42 || cpu > 85 || temp > 55) return 'critical';
-      if (traffic > 25 || ports > 35 || cpu > 60 || temp > 45) return 'warning';
-      return 'normal';
-    }
-    // Server thresholds
-    else {
-      const cpu = srv.cpu_usage || 0;
-      const temp = srv.temperature || 0;
-      if (cpu > 85 || temp > 55) return 'critical';
-      if (cpu > 60 || temp > 45) return 'warning';
-      return 'normal';
-    }
-  };
+    lastHistoryAtRef.current = nowTs;
+    const now = new Date(nowTs);
+    const avgCpu = validCpu.reduce((acc, cur) => acc + cur, 0) / validCpu.length;
+    const avgTemp = validTemp.reduce((acc, cur) => acc + cur, 0) / validTemp.length;
+    const newPoint = {
+      time: now.toLocaleTimeString("zh-TW", { hour12: false, minute: "2-digit", second: "2-digit" }),
+      avgCpu: Number(avgCpu.toFixed(1)),
+      avgTemp: Number(avgTemp.toFixed(1)),
+    };
+    setHistory((prev) => {
+      const next = [...prev, newPoint];
+      if (next.length > 30) next.shift();
+      return next;
+    });
+  }, [data]);
 
-  const telemetryById = useMemo(
-    () => new Map(data.map((d) => [d.server_id, d])),
-    [data]
+  const { connected, mode: sseMode } = useSSE({
+    onUpdate: handleSSEUpdate,
+    fallbackPollingMs: 5000,
+    updateIntervalMs: 250,
+  });
+
+  const telemetryById = useMemo(() => {
+    const m = new Map<string, ServerTelemetry>();
+    data.forEach((d) => {
+      [d.asset_id, d.server_id]
+        .filter((v): v is string => typeof v === "string" && v.length > 0)
+        .forEach((id) => {
+          m.set(id, d);
+          m.set(normalizeNodeId(id), d);
+        });
+    });
+    return m;
+  }, [data]);
+
+  const locationRacks = useMemo(
+    () => racks.filter((r) => r.locationId === currentLocationId),
+    [racks, currentLocationId]
+  );
+  const locationEquipments = useMemo(
+    () => equipments.filter((e) => e.locationId === currentLocationId),
+    [equipments, currentLocationId]
   );
 
   // Calculate stats based on store servers (Filtered by location)
   const allGridItems = useMemo(() => {
-    const rackServers = store.racks
-      .filter(r => r.locationId === store.currentLocationId)
-      .flatMap(r => r.servers.map(s => ({ ...s, rackName: r.name, rackType: r.type })));
+    const rackServers = locationRacks
+      .flatMap(r => r.servers.map(s => ({ ...s, assetId: s.assetId || normalizeNodeId(s.name), rackName: r.name, rackType: r.type })));
     
-    const standaloneEquips = store.equipments
-      .filter(e => e.locationId === store.currentLocationId)
-      .map(e => ({ id: e.id, name: e.name, type: e.type, rackName: 'Facility', rackType: 'equipment' }));
+    const standaloneEquips = locationEquipments
+      .map(e => ({ id: e.id, assetId: normalizeNodeId(e.name), name: e.name, type: e.type, rackName: 'Facility', rackType: 'equipment' }));
       
     return [...rackServers, ...standaloneEquips];
-  }, [store.racks, store.equipments, store.currentLocationId]);
+  }, [locationRacks, locationEquipments]);
 
   const totalServers = allGridItems.length;
 
+  // Precompute per-item telemetry + status once, reuse across panels.
+  const gridStatusRows = useMemo(
+    () =>
+      allGridItems.map((item) => {
+        const srv = telemetryById.get(item.assetId || item.name) || telemetryById.get(item.name);
+        const status = getDeviceStatus(item, srv);
+        return { item, srv, status };
+      }),
+    [allGridItems, telemetryById]
+  );
+
   const { healthData, pieData } = useMemo(() => {
-    const health = allGridItems.reduce((acc, item) => {
-      const srv = telemetryById.get(item.name);
-      const status = getDeviceStatus(item, srv);
+    const health = gridStatusRows.reduce((acc, row) => {
+      const status = row.status;
       if (status === 'critical') acc.critical++;
       else if (status === 'warning') acc.warning++;
       else acc.normal++;
@@ -345,22 +368,84 @@ export default function Dashboard() {
     ].filter(d => d.value > 0);
 
     return { healthData: health, pieData: pie };
-  }, [allGridItems, telemetryById]);
+  }, [gridStatusRows]);
 
   const itemNameSet = useMemo(() => {
-    const serverNames = allGridItems.map((i) => i.name);
-    const equipmentNames = store.equipments
-      .filter(e => e.locationId === store.currentLocationId)
-      .map(e => e.name);
-    const rackNames = store.racks
-      .filter(r => r.locationId === store.currentLocationId)
-      .map(r => r.name);
+    const serverNames = allGridItems.map((i) => i.assetId || i.name);
+    const equipmentNames = locationEquipments.map(e => normalizeNodeId(e.name));
+    const rackNames = locationRacks.map(r => normalizeNodeId(r.name));
     return new Set([...serverNames, ...equipmentNames, ...rackNames]);
-  }, [allGridItems, store.equipments, store.racks, store.currentLocationId]);
+  }, [allGridItems, locationEquipments, locationRacks]);
 
   const activeStoreData = useMemo(
-    () => data.filter((d) => itemNameSet.has(d.server_id)),
+    () =>
+      data
+        .filter((d) => itemNameSet.has(d.asset_id || d.server_id))
+        .sort((a, b) => (a.server_id || "").localeCompare(b.server_id || ""))
+        .slice(0, MAX_BAR_RENDER),
     [data, itemNameSet]
+  );
+
+  const cduPanelData = useMemo(() => {
+    const expectedCdus = locationEquipments.filter((e) => e.type === "cdu");
+    return expectedCdus.map((e) => {
+      const eid = normalizeNodeId(e.name);
+      const telemetry = telemetryById.get(eid) || telemetryById.get(e.name);
+      return { ...e, server_id: e.name, ...telemetry };
+    });
+  }, [locationEquipments, telemetryById]);
+
+  const immersionPanelData = useMemo(() => {
+    const expectedTanks = locationRacks.filter((r) => r.type === "immersion_dual");
+    if (expectedTanks.length > 0) {
+      return expectedTanks.map((r) => {
+        const rid = normalizeNodeId(r.name);
+        const telemetry = telemetryById.get(rid) || telemetryById.get(r.name);
+        return { ...r, server_id: r.name, ...telemetry };
+      });
+    }
+    if (simMode === "simulation") {
+      const agentData = telemetryById.get("IMM-TAN-001");
+      if (agentData) return [{ ...agentData, isDemo: true }];
+    }
+    return [];
+  }, [locationRacks, telemetryById, simMode]);
+
+  const serverMatrixItems = useMemo(
+    () =>
+      locationRacks
+        .flatMap((r) => (r.servers || []).map((s) => ({ ...s, rackName: r.name })))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [locationRacks]
+  );
+  const [matrixPage, setMatrixPage] = useState(0);
+  const totalMatrixPages = Math.ceil(serverMatrixItems.length / MATRIX_ITEMS_PER_PAGE);
+  const visibleMatrixItems = useMemo(
+    () =>
+      serverMatrixItems.slice(
+        matrixPage * MATRIX_ITEMS_PER_PAGE,
+        (matrixPage + 1) * MATRIX_ITEMS_PER_PAGE
+      ),
+    [serverMatrixItems, matrixPage]
+  );
+
+  useEffect(() => {
+    if (totalMatrixPages === 0) {
+      setMatrixPage(0);
+      return;
+    }
+    if (matrixPage > totalMatrixPages - 1) {
+      setMatrixPage(totalMatrixPages - 1);
+    }
+  }, [matrixPage, totalMatrixPages]);
+
+  const alertDevices = useMemo(
+    () => gridStatusRows.filter((row) => row.status === "critical" || row.status === "warning"),
+    [gridStatusRows]
+  );
+  const visibleAlertDevices = useMemo(
+    () => alertDevices.slice(0, MAX_ALARM_RENDER),
+    [alertDevices]
   );
 
   useEffect(() => {
@@ -423,20 +508,26 @@ export default function Dashboard() {
           <TechPanel title={t.cpuTrend} className="h-[280px]">
             <ClientOnlyChart>
             <div className="h-full w-full min-h-[180px]">
-            <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1} initialDimension={{ width: 100, height: 180 }}>
-              <AreaChart data={history} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="colorCpu" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.8} />
-                    <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="time" stroke="#1e3a8a" fontSize={10} tickMargin={5} />
-                <YAxis stroke="#1e3a8a" fontSize={10} domain={[0, 100]} />
-                <RechartsTooltip contentStyle={{ backgroundColor: '#020b1a', borderColor: '#06b6d4', color: '#fff' }} />
-                <Area type="monotone" dataKey="avgCpu" stroke="#06b6d4" fillOpacity={1} fill="url(#colorCpu)" isAnimationActive={false} />
-              </AreaChart>
-            </ResponsiveContainer>
+            {history.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-cyan-700/80 text-[11px] font-mono tracking-widest">
+                {t.awaiting}
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1} initialDimension={{ width: 100, height: 180 }}>
+                <AreaChart data={history} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorCpu" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.8} />
+                      <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="time" stroke="#1e3a8a" fontSize={10} tickMargin={5} />
+                  <YAxis stroke="#1e3a8a" fontSize={10} domain={[0, 100]} />
+                  <RechartsTooltip contentStyle={{ backgroundColor: '#020b1a', borderColor: '#06b6d4', color: '#fff' }} />
+                  <Area type="monotone" dataKey="avgCpu" stroke="#06b6d4" fillOpacity={1} fill="url(#colorCpu)" isAnimationActive={false} />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
             </div>
             </ClientOnlyChart>
           </TechPanel>
@@ -444,20 +535,26 @@ export default function Dashboard() {
           <TechPanel title={t.tempTrend} className="h-[280px]">
             <ClientOnlyChart>
             <div className="h-full w-full min-h-[180px]">
-            <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1} initialDimension={{ width: 100, height: 180 }}>
-              <AreaChart data={history} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="colorTemp" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.8} />
-                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="time" stroke="#1e3a8a" fontSize={10} tickMargin={5} />
-                <YAxis stroke="#1e3a8a" fontSize={10} domain={[10, 60]} />
-                <RechartsTooltip contentStyle={{ backgroundColor: '#020b1a', borderColor: '#ef4444', color: '#fff' }} />
-                <Area type="monotone" dataKey="avgTemp" stroke="#ef4444" fillOpacity={1} fill="url(#colorTemp)" isAnimationActive={false} />
-              </AreaChart>
-            </ResponsiveContainer>
+            {history.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-cyan-700/80 text-[11px] font-mono tracking-widest">
+                {t.awaiting}
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1} initialDimension={{ width: 100, height: 180 }}>
+                <AreaChart data={history} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorTemp" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#ef4444" stopOpacity={0.8} />
+                      <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="time" stroke="#1e3a8a" fontSize={10} tickMargin={5} />
+                  <YAxis stroke="#1e3a8a" fontSize={10} domain={[10, 60]} />
+                  <RechartsTooltip contentStyle={{ backgroundColor: '#020b1a', borderColor: '#ef4444', color: '#fff' }} />
+                  <Area type="monotone" dataKey="avgTemp" stroke="#ef4444" fillOpacity={1} fill="url(#colorTemp)" isAnimationActive={false} />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
             </div>
             </ClientOnlyChart>
           </TechPanel>
@@ -465,35 +562,13 @@ export default function Dashboard() {
           {/* Liquid Cooling Panel */}
           <LiquidCoolingPanel 
             title={t.liquidCooling} 
-            cduData={(() => {
-              const expectedCdus = store.equipments.filter(e => e.type === 'cdu' && e.locationId === store.currentLocationId);
-              return expectedCdus.map(e => {
-                const telemetry = data.find(d => d.server_id === e.name);
-                return { ...e, server_id: e.name, ...telemetry };
-              });
-            })()}
+            cduData={cduPanelData}
             className="flex-1 min-h-[250px]"
           />
 
           <ImmersionCoolingPanel 
             title={t.immersionCooling} 
-            immersionData={(() => {
-              const expectedTanks = store.racks.filter(r => r.type === 'immersion_dual' && r.locationId === store.currentLocationId);
-              
-              if (expectedTanks.length > 0) {
-                return expectedTanks.map(r => {
-                  const telemetry = data.find(d => d.server_id === r.name);
-                  return { ...r, server_id: r.name, ...telemetry };
-                });
-              }
-
-              // 如果模擬模式且沒建立對應機櫃，回傳一個名為 IMM-TAN-001 的 Demo 數據
-              if (simMode === 'simulation') {
-                const agentData = data.find(d => d.server_id === 'IMM-TAN-001');
-                if (agentData) return [{ ...agentData, isDemo: true }];
-              }
-              return [];
-            })()}
+            immersionData={immersionPanelData}
             className="flex-1 min-h-[250px]"
           />
         </div>
@@ -501,22 +576,37 @@ export default function Dashboard() {
         {/* Center Column (Server Grid Matrix) */}
         <div className="col-span-6 flex flex-col gap-6">
           <TechPanel title={t.matrix} className="flex-1">
+            {serverMatrixItems.length > MATRIX_ITEMS_PER_PAGE && (
+              <div className="px-4 pt-2 flex items-center justify-between gap-3 text-[10px] text-cyan-500/80 font-mono">
+                <div>
+                  {t.pageLabel}：{t.pageInfo(matrixPage + 1, totalMatrixPages, visibleMatrixItems.length, serverMatrixItems.length)}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setMatrixPage((p) => Math.max(0, p - 1))}
+                    disabled={matrixPage === 0}
+                    className="px-2 py-1 border border-cyan-800 text-cyan-300 disabled:text-slate-600 disabled:border-slate-800 hover:bg-cyan-950/40 transition-colors"
+                  >
+                    {t.prevPage}
+                  </button>
+                  <button
+                    onClick={() => setMatrixPage((p) => Math.min(totalMatrixPages - 1, p + 1))}
+                    disabled={matrixPage >= totalMatrixPages - 1}
+                    className="px-2 py-1 border border-cyan-800 text-cyan-300 disabled:text-slate-600 disabled:border-slate-800 hover:bg-cyan-950/40 transition-colors"
+                  >
+                    {t.nextPage}
+                  </button>
+                </div>
+              </div>
+            )}
             <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mt-2">
-              {(() => {
-                const filteredRacks = store.racks.filter(r => r.locationId === store.currentLocationId);
-                const storeServers = filteredRacks.flatMap(r => r.servers.map(s => ({ ...s, rackName: r.name })));
-                const items = storeServers.sort((a, b) => a.name.localeCompare(b.name));
-
-                if (items.length === 0) {
-                  return (
-                    <div className="col-span-full h-full flex items-center justify-center text-cyan-800 animate-pulse font-mono tracking-widest mt-20">
-                      {t.awaiting}
-                    </div>
-                  );
-                }
-
-                return items.map(item => {
-                  const srv = telemetryById.get(item.name);
+              {visibleMatrixItems.length === 0 ? (
+                <div className="col-span-full h-full flex items-center justify-center text-cyan-800 animate-pulse font-mono tracking-widest mt-20">
+                  {t.awaiting}
+                </div>
+              ) : (
+                visibleMatrixItems.map(item => {
+                  const srv = telemetryById.get(item.assetId || item.name) || telemetryById.get(item.name);
                   const liveStatus = getDeviceStatus(item, srv);
                   const isOff = liveStatus === 'powered_off';
 
@@ -618,10 +708,10 @@ export default function Dashboard() {
                             <div className="relative">
                               <div className="flex justify-between text-[10px] text-cyan-600 font-bold mb-1">
                                 <span className="flex items-center gap-1"><Thermometer size={10} /> TEMP</span>
-                                <span className={srv.temperature > 50 ? 'text-red-400' : srv.temperature > 40 ? 'text-yellow-400' : 'text-white'}>{(srv.temperature || 0).toFixed(1)}°C</span>
+                                <span className={(srv.temperature || 0) > 55 ? 'text-red-400' : (srv.temperature || 0) > 45 ? 'text-yellow-400' : 'text-white'}>{(srv.temperature || 0).toFixed(1)}°C</span>
                               </div>
                               <div className="h-1 w-full bg-[#0a1e3f] overflow-hidden">
-                                <div className={`h-full ${srv.temperature > 50 ? 'bg-red-500' : srv.temperature > 40 ? 'bg-yellow-400' : 'bg-blue-400'}`} style={{ width: `${((srv.temperature || 0) / 100) * 100}%` }}></div>
+                                <div className={`h-full ${(srv.temperature || 0) > 55 ? 'bg-red-500' : (srv.temperature || 0) > 45 ? 'bg-yellow-400' : 'bg-blue-400'}`} style={{ width: `${((srv.temperature || 0) / 100) * 100}%` }}></div>
                               </div>
                             </div>
                           </>
@@ -629,8 +719,8 @@ export default function Dashboard() {
                       </div>
                     </div>
                   );
-                });
-              })()}
+                })
+              )}
             </div>
           </TechPanel>
         </div>
@@ -640,6 +730,11 @@ export default function Dashboard() {
           <TechPanel title={t.cpuByNode} className="h-[400px]">
             <ClientOnlyChart placeholderClassName="h-full w-full min-h-[200px]">
             <div className="h-full w-full overflow-y-auto pr-1 overflow-x-hidden custom-scrollbar">
+              {data.length > MAX_BAR_RENDER && (
+                <div className="text-[10px] text-cyan-500/80 font-mono mb-2">
+                  圖表僅顯示前 {MAX_BAR_RENDER} 台（依節點 ID 排序）
+                </div>
+              )}
               <div style={{ height: `${Math.max(200, activeStoreData.length * 20)}px` }} className="w-full">
                 <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1} initialDimension={{ width: 100, height: 200 }}>
                   <BarChart data={activeStoreData} layout="vertical" margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
@@ -674,19 +769,16 @@ export default function Dashboard() {
 
           <TechPanel title={t.alarms} className="flex-1">
             <div className="h-full overflow-y-auto pr-2 space-y-2 custom-scrollbar">
-              {(() => {
-                const alertDevices = allGridItems.filter(item => {
-                  const srv = telemetryById.get(item.name);
-                  const status = getDeviceStatus(item, srv);
-                  return status === 'critical' || status === 'warning';
-                });
-
-                if (alertDevices.length === 0) {
-                  return <div className="text-xs text-cyan-800 font-mono text-center mt-10 uppercase tracking-widest">{t.noAlarms}</div>;
-                }
-
-                return alertDevices.map(item => {
-                  const srv = telemetryById.get(item.name);
+              {visibleAlertDevices.length === 0 ? (
+                <div className="text-xs text-cyan-800 font-mono text-center mt-10 uppercase tracking-widest">{t.noAlarms}</div>
+              ) : (
+                <>
+                {alertDevices.length > MAX_ALARM_RENDER && (
+                  <div className="text-[10px] text-cyan-500/80 font-mono">
+                    警報列表僅顯示前 {MAX_ALARM_RENDER} 筆（共 {alertDevices.length} 筆）
+                  </div>
+                )}
+                {visibleAlertDevices.map(({ item, srv, status }) => {
                   if (!srv) return null;
 
                   const status = getDeviceStatus(item, srv);
@@ -729,8 +821,55 @@ export default function Dashboard() {
                       </div>
                     </div>
                   );
-                });
-              })()}
+                })}
+                </>
+              )}
+            </div>
+          </TechPanel>
+
+          {/* Health Distribution moved here */}
+          <TechPanel title={t.health} className="h-[220px] shrink-0">
+            <div className="h-[150px] w-full relative flex items-center justify-center">
+              <ClientOnlyChart placeholderClassName="h-[150px] w-[220px]">
+              <ResponsiveContainer width={220} height={150} initialDimension={{ width: 220, height: 150 }}>
+                <PieChart>
+                  <Pie
+                    data={pieData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={54}
+                    outerRadius={74}
+                    paddingAngle={5}
+                    dataKey="value"
+                    isAnimationActive={false}
+                  >
+                    {pieData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <RechartsTooltip contentStyle={{ backgroundColor: '#020b1a', borderColor: '#1e3a8a', color: '#fff' }} />
+                </PieChart>
+              </ResponsiveContainer>
+              </ClientOnlyChart>
+              {/* 中間文字 */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-1">
+                <span className="text-2xl font-black text-white leading-none">{totalServers}</span>
+                <span className="text-[8px] text-cyan-600 font-bold uppercase tracking-widest">Total</span>
+              </div>
+            </div>
+            <div className="mt-2 grid grid-cols-3 gap-2 text-[10px] font-mono">
+              <div className="flex items-center justify-center gap-1 border border-cyan-900/40 bg-cyan-950/20 py-1">
+                <span className="inline-block h-2 w-2 bg-cyan-400 rounded-full"></span>
+                <span className="text-cyan-300">{healthData.normal}</span>
+              </div>
+              <div className="flex items-center justify-center gap-1 border border-yellow-900/40 bg-yellow-950/20 py-1">
+                <span className="inline-block h-2 w-2 bg-yellow-400 rounded-full"></span>
+                <span className="text-yellow-300">{healthData.warning}</span>
+              </div>
+              <div className="flex items-center justify-center gap-1 border border-red-900/40 bg-red-950/20 py-1">
+                <span className="inline-block h-2 w-2 bg-red-500 rounded-full"></span>
+                <span className="text-red-300">{healthData.critical}</span>
+              </div>
             </div>
           </TechPanel>
 

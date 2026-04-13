@@ -5,10 +5,27 @@ import { Text } from '@react-three/drei';
 import * as THREE from 'three';
 import { RackData } from '@/store/useDcimStore';
 import { ServerData } from '@/store/useDcimStore';
-
-const U_HEIGHT = 0.04445; // 1U = 0.04445 meters
+import { RACK_WIDTH, RACK_DEPTH, U_HEIGHT } from './sceneScale';
+import { getDeviceStatus } from '@/shared/status';
 const SERVER_WIDTH = 0.44; // 19 inch rack standard (same as ServerModel)
 const SERVER_DEPTH = 0.8;  // same depth as ServerModel
+
+function normalizeNodeId(value: string): string {
+    const raw = (value || "").trim().toUpperCase().replace(/\s+/g, "").replace(/_/g, "-");
+    const m = raw.match(/^(SERVER|SW|IMM|CDU)-?(\d+)$/);
+    if (!m) return raw;
+    return `${m[1]}-${String(Number(m[2])).padStart(3, "0")}`;
+}
+
+function pickTelemetry(telemetry: Record<string, any>, assetId: string | undefined, name: string, fallbackName?: string) {
+    const keys = [assetId, name, normalizeNodeId(name), fallbackName, fallbackName ? normalizeNodeId(fallbackName) : undefined]
+        .filter((k): k is string => Boolean(k && k.length));
+    for (const k of keys) {
+        const hit = telemetry[k];
+        if (hit) return hit;
+    }
+    return undefined;
+}
 
 // ─────────────────────────────────────────────
 // Vertical Server Blade (Immersion Style)
@@ -123,15 +140,17 @@ export default function ImmersionTankModel({
     const isDualPhase = data.type === 'immersion_dual';
 
     // 槽體尺寸 — 需容納 0.44m 寬 × 0.8m 高的伺服器
-    const TANK_WIDTH = 0.6;    // 比伺服器寬 0.44m 多留邊距
-    const TANK_DEPTH = 1.0;    // Z 方向：容納 20 片縱向 blade
+    const TANK_WIDTH = RACK_WIDTH;  // 與標準機櫃同寬，場景比例一致
+    const TANK_DEPTH = RACK_DEPTH;
     const TANK_HEIGHT = 1.05;  // 比伺服器高度 0.8m 多留 ~0.25m 液面空間
     const TANK_INNER_DEPTH = TANK_DEPTH - 0.1; // 內部可用深度 (扣掉兩側壁厚)
 
-    // Coolant color
+    // Coolant color（雙相槽內仍用紫色介質色，外殼改白色機櫃）
     const coolantColor = isDualPhase ? '#7c3aed' : '#06b6d4';
     const coolantEmissive = isDualPhase ? '#6d28d9' : '#0891b2';
-    const frameColor = isSelected ? '#22d3ee' : (isDualPhase ? '#a855f7' : '#0ea5e9');
+    const cabinetWhite = '#ececec';
+    const cabinetRough = 0.42;
+    const cabinetMetal = 0.12;
 
     // ── Coolant Liquid (Submerge 0.8m servers) ──
     const coolantRef = useRef<THREE.Mesh>(null);
@@ -153,90 +172,170 @@ export default function ImmersionTankModel({
     let hasCriticalServer = false;
     let hasWarningServer = false;
     data.servers.forEach(server => {
-        const sTel = telemetry[server.name];
-        if (sTel) {
-            if (sTel.temperature > 55 || sTel.cpu_usage > 85) hasCriticalServer = true;
-            else if (sTel.temperature > 45 || sTel.cpu_usage > 60) hasWarningServer = true;
-        }
+        const sTel = pickTelemetry(telemetry, server.assetId, server.name, data.name);
+        const status = getDeviceStatus(
+            { type: server.type, rackType: data.type },
+            sTel,
+        );
+        if (status === 'critical') hasCriticalServer = true;
+        else if (status === 'warning') hasWarningServer = true;
     });
+
+    const frontZ = TANK_DEPTH / 2 + 0.006;
+    const hw = TANK_WIDTH / 2;
+    const hd = TANK_DEPTH / 2;
+    const grilleY0 = 0.11;
+    const grilleY1 = 0.11 + TANK_HEIGHT * 0.34;
 
     return (
         <group>
-            {/* ── Tank Outer Shell (Translucent Glass) ── */}
-            <mesh position={[0, TANK_HEIGHT / 2, 0]} castShadow>
-                <boxGeometry args={[TANK_WIDTH, TANK_HEIGHT, TANK_DEPTH]} />
-                <meshStandardMaterial
-                    color={frameColor}
-                    transparent
-                    opacity={isSelected ? 0.25 : 0.12}
-                    wireframe={!isSelected}
-                    side={THREE.DoubleSide}
-                />
-            </mesh>
+            <>
+                {/* ── 單相/雙相：統一白色工業機櫃外觀 ── */}
+                <mesh position={[0, TANK_HEIGHT / 2, 0]} castShadow>
+                    <boxGeometry args={[TANK_WIDTH, TANK_HEIGHT, TANK_DEPTH]} />
+                    <meshStandardMaterial
+                        color={cabinetWhite}
+                        roughness={cabinetRough}
+                        metalness={cabinetMetal}
+                        transparent
+                        opacity={0.6}
+                    />
+                </mesh>
+                {isSelected && (
+                    <mesh position={[0, TANK_HEIGHT / 2, 0]}>
+                        <boxGeometry args={[TANK_WIDTH + 0.06, TANK_HEIGHT + 0.06, TANK_DEPTH + 0.06]} />
+                        <meshBasicMaterial color="#22d3ee" wireframe transparent opacity={0.45} depthWrite={false} />
+                    </mesh>
+                )}
+                {/* 底板 */}
+                <mesh position={[0, 0.05, 0]}>
+                    <boxGeometry args={[TANK_WIDTH, 0.1, TANK_DEPTH]} />
+                    <meshStandardMaterial color="#d4d4d8" metalness={0.55} roughness={0.35} />
+                </mesh>
+                {/* 頂蓋 */}
+                <mesh position={[0, TANK_HEIGHT - 0.015, 0]}>
+                    <boxGeometry args={[TANK_WIDTH + 0.012, 0.03, TANK_DEPTH + 0.012]} />
+                    <meshStandardMaterial
+                        color={cabinetWhite}
+                        roughness={cabinetRough}
+                        metalness={cabinetMetal}
+                        transparent
+                        opacity={0.55}
+                    />
+                </mesh>
+                {/* 後方加高飾板 */}
+                <mesh position={[0, TANK_HEIGHT - 0.08, -hd - 0.025]}>
+                    <boxGeometry args={[TANK_WIDTH * 0.92, 0.14, 0.04]} />
+                    <meshStandardMaterial color="#f4f4f5" roughness={0.4} metalness={0.15} />
+                </mesh>
+                {/* 四腳座 */}
+                {[
+                    [-hw * 0.78, -hd * 0.78],
+                    [hw * 0.78, -hd * 0.78],
+                    [-hw * 0.78, hd * 0.78],
+                    [hw * 0.78, hd * 0.78],
+                ].map(([fx, fz], i) => (
+                    <mesh key={`foot-${i}`} position={[fx, 0.028, fz]} castShadow>
+                        <cylinderGeometry args={[0.028, 0.032, 0.045, 12]} />
+                        <meshStandardMaterial color="#a1a1aa" metalness={0.65} roughness={0.35} />
+                    </mesh>
+                ))}
+                {/* 正面下緣通風格柵 */}
+                {Array.from({ length: 11 }).map((_, i) => {
+                    const t = i / 10;
+                    const y = grilleY0 + t * (grilleY1 - grilleY0);
+                    return (
+                        <mesh key={`louver-${i}`} position={[0, y, frontZ]}>
+                            <boxGeometry args={[TANK_WIDTH * 0.72, 0.008, 0.02]} />
+                            <meshStandardMaterial color="#27272a" metalness={0.4} roughness={0.6} />
+                        </mesh>
+                    );
+                })}
+                {/* 急停：黃色底座 + 紅色按鈕 */}
+                <mesh position={[0, 0.12 + TANK_HEIGHT * 0.58, frontZ + 0.028]} rotation={[Math.PI / 2, 0, 0]}>
+                    <cylinderGeometry args={[0.038, 0.042, 0.014, 24]} />
+                    <meshStandardMaterial color="#facc15" metalness={0.35} roughness={0.45} />
+                </mesh>
+                <mesh position={[0, 0.12 + TANK_HEIGHT * 0.58 + 0.022, frontZ + 0.032]}>
+                    <cylinderGeometry args={[0.026, 0.026, 0.018, 24]} />
+                    <meshStandardMaterial color="#dc2626" metalness={0.25} roughness={0.35} />
+                </mesh>
+                {/* 右側門鎖/把手飾片 */}
+                <mesh position={[hw * 0.52, TANK_HEIGHT * 0.52, frontZ + 0.02]}>
+                    <boxGeometry args={[0.045, 0.07, 0.012]} />
+                    <meshStandardMaterial color="#18181b" metalness={0.5} roughness={0.5} />
+                </mesh>
+                {/* 頂面前緣小金屬拉環 */}
+                <mesh position={[hw * 0.38, TANK_HEIGHT + 0.018, hd * 0.72]} rotation={[Math.PI / 2, 0, 0]}>
+                    <torusGeometry args={[0.028, 0.006, 8, 24]} />
+                    <meshStandardMaterial color="#a1a1aa" metalness={0.85} roughness={0.25} />
+                </mesh>
+                {/* 後左角三色燈柱（頂層綠燈亮） */}
+                <group position={[-hw + 0.045, grilleY1 + 0.12, -hd + 0.045]}>
+                    {[
+                        { y: 0, color: '#450a0a', em: '#000000', int: 0 },
+                        { y: 0.055, color: '#422006', em: '#000000', int: 0 },
+                        { y: 0.11, color: '#166534', em: '#22c55e', int: 1.2 },
+                    ].map((seg, idx) => (
+                        <mesh key={`stack-${idx}`} position={[0, seg.y, 0]}>
+                            <cylinderGeometry args={[0.022, 0.022, 0.048, 16]} />
+                            <meshStandardMaterial
+                                color={seg.color}
+                                emissive={seg.em}
+                                emissiveIntensity={seg.int}
+                                metalness={0.3}
+                                roughness={0.4}
+                            />
+                        </mesh>
+                    ))}
+                </group>
+                {/* 左側板螺絲點綴 */}
+                {[
+                    [0.22, -hd * 0.35],
+                    [0.38, -hd * 0.12],
+                    [0.54, hd * 0.12],
+                    [0.72, hd * 0.38],
+                ].map(([y, sz], i) => (
+                    <mesh key={`screw-l-${i}`} position={[-hw - 0.004, y, sz]}>
+                        <cylinderGeometry args={[0.012, 0.012, 0.008, 6]} />
+                        <meshStandardMaterial color="#d4d4d8" metalness={0.7} roughness={0.35} />
+                    </mesh>
+                ))}
+            </>
 
-            {/* ── Tank Solid Edges ── */}
-            {/* Bottom plate (0.1m thick) */}
-            <mesh position={[0, 0.05, 0]}>
-                <boxGeometry args={[TANK_WIDTH, 0.1, TANK_DEPTH]} />
-                <meshStandardMaterial color={frameColor} metalness={0.6} roughness={0.3} />
-            </mesh>
-            {/* Top rim */}
-            <mesh position={[0, TANK_HEIGHT - 0.02, 0]}>
-                <boxGeometry args={[TANK_WIDTH + 0.02, 0.04, TANK_DEPTH + 0.02]} />
-                <meshStandardMaterial color={frameColor} metalness={0.8} roughness={0.2} />
-            </mesh>
-
-            {/* ── Coolant Liquid (Submerged servers) ── */}
-            <mesh ref={coolantRef} position={[0, LIQUID_Y, 0]}>
-                <boxGeometry args={[TANK_WIDTH - 0.04, LIQUID_HEIGHT, TANK_DEPTH - 0.04]} />
-                <meshStandardMaterial
-                    color={coolantColor}
-                    emissive={coolantEmissive}
-                    emissiveIntensity={0.3}
-                    transparent
-                    opacity={0.35}
-                />
-            </mesh>
-
-            {/* ── Vertical Server Blades (Full-size, rotated 90°) ── */}
+            {/* ── Vertical Server Blades：先畫固體，再由半透明液體疊色 ── */}
             {data.servers.map((server, i) => (
                 <ImmersionServerBlade
-                    key={server.id}
+                    key={`${data.id}-${server.id}-${i}`}
                     data={server}
-                    telemetry={telemetry[server.name]}
+                    telemetry={pickTelemetry(telemetry, server.assetId, server.name, data.name)}
                     index={i}
                     totalSlots={data.uCapacity}
                     tankInnerDepth={TANK_INNER_DEPTH}
                 />
             ))}
 
-            {/* ── Dual-Phase: Condenser Unit on Top ── */}
+            {/* ── Coolant Liquid（半透明、不寫入 depth，疊在 server 上可見內部） ── */}
+            <mesh ref={coolantRef} position={[0, LIQUID_Y, 0]} renderOrder={2}>
+                <boxGeometry args={[TANK_WIDTH - 0.04, LIQUID_HEIGHT, TANK_DEPTH - 0.04]} />
+                <meshStandardMaterial
+                    color={coolantColor}
+                    emissive={coolantEmissive}
+                    emissiveIntensity={isDualPhase ? 0.12 : 0.15}
+                    transparent
+                    opacity={isDualPhase ? 0.22 : 0.26}
+                    depthWrite={false}
+                    roughness={0.15}
+                    metalness={0.05}
+                />
+            </mesh>
+
+            {/* ── 雙相：後上方小型冷凝／模組示意（低調灰色，不搶白色機櫃造型） ── */}
             {isDualPhase && (
-                <group position={[0, TANK_HEIGHT + 0.15, 0]}>
-                    <mesh castShadow>
-                        <boxGeometry args={[TANK_WIDTH * 0.8, 0.2, TANK_DEPTH * 0.6]} />
-                        <meshStandardMaterial color="#1e1b4b" metalness={0.7} roughness={0.3} />
-                    </mesh>
-                    {[-0.15, -0.05, 0.05, 0.15].map((z, i) => (
-                        <mesh key={`fin-${i}`} position={[0, 0, z]}>
-                            <boxGeometry args={[TANK_WIDTH * 0.75, 0.18, 0.015]} />
-                            <meshStandardMaterial color="#312e81" metalness={0.9} roughness={0.1} />
-                        </mesh>
-                    ))}
-                    <mesh position={[0, 0.15, 0]}>
-                        <sphereGeometry args={[0.06, 16, 16]} />
-                        <meshStandardMaterial
-                            color="#a78bfa"
-                            emissive="#7c3aed"
-                            emissiveIntensity={1.5}
-                            transparent
-                            opacity={0.8}
-                        />
-                    </mesh>
-                    <Text position={[0, 0.28, 0]} fontSize={0.06} color="#a78bfa" anchorX="center" anchorY="middle">
-                        CONDENSER
-                    </Text>
-                </group>
+                <mesh position={[0.06, TANK_HEIGHT + 0.06, -hd * 0.35]} castShadow>
+                    <boxGeometry args={[TANK_WIDTH * 0.42, 0.1, TANK_DEPTH * 0.38]} />
+                    <meshStandardMaterial color="#71717a" metalness={0.75} roughness={0.35} />
+                </mesh>
             )}
 
             {/* ── Pipe Connectors ── */}
@@ -251,7 +350,7 @@ export default function ImmersionTankModel({
 
             {/* ── Label ── */}
             <Text
-                position={[0, TANK_HEIGHT + (isDualPhase ? 0.55 : 0.15), 0]}
+                position={[0, TANK_HEIGHT + (isDualPhase ? 0.22 : 0.15), 0]}
                 fontSize={0.12}
                 color="#1e293b"
                 anchorX="center"
@@ -262,9 +361,9 @@ export default function ImmersionTankModel({
 
             {/* Type Tag */}
             <Text
-                position={[0, TANK_HEIGHT + (isDualPhase ? 0.7 : 0.3), 0]}
+                position={[0, TANK_HEIGHT + (isDualPhase ? 0.36 : 0.3), 0]}
                 fontSize={0.08}
-                color={isDualPhase ? '#a855f7' : '#06b6d4'}
+                color={isDualPhase ? '#7c3aed' : '#06b6d4'}
                 anchorX="center"
                 anchorY="middle"
             >
@@ -274,7 +373,7 @@ export default function ImmersionTankModel({
             {/* Alert icon */}
             {(hasCriticalServer || hasWarningServer) && (
                 <Text
-                    position={[0, TANK_HEIGHT + (isDualPhase ? 0.9 : 0.5), 0]}
+                    position={[0, TANK_HEIGHT + (isDualPhase ? 0.52 : 0.5), 0]}
                     fontSize={0.2}
                     color={hasCriticalServer ? "#ef4444" : "#f59e0b"}
                     anchorX="center"
