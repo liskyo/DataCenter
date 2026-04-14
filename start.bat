@@ -14,12 +14,15 @@ set "VENV_PY=%ROOT%\.venv\Scripts\python.exe"
 chcp 65001 >nul 2>nul
 
 if not exist "%VENV_ACTIVATE%" (
-  echo [ERROR] Virtual environment not found.
-  echo Expected: %VENV_ACTIVATE%
-  echo Create:   python -m venv .venv
-  echo Then:     .venv\Scripts\pip install -r backend\requirements.txt
-  pause
-  exit /b 1
+  echo [INFO] Virtual environment not found. Creating...
+  python -m venv .venv
+  echo Installing requirements...
+  .venv\Scripts\pip install -r backend\requirements.txt
+  if errorlevel 1 (
+    echo [ERROR] Failed to install requirements.
+    pause
+    exit /b 1
+  )
 )
 
 echo ==============================================
@@ -60,14 +63,6 @@ start "Agent-CDU-001" cmd /k "cd /d %ROOT%\backend && call %VENV_ACTIVATE% && py
 echo   - IMM-TAN-001 - Immersion mode
 start "Agent-IMM-TAN-001" cmd /k "cd /d %ROOT%\backend && call %VENV_ACTIVATE% && python client_agent.py --server-id IMM-TAN-001 --mode immersion"
 
-echo.
-echo [4/4] Starting In-Band Telemetry Agents...
-echo   - SERVER-015 (standard mode: CPU + Temp)
-start cmd /k "title Agent-SERVER-015 && cd /d %~dp0backend && python client_agent.py --server-id SERVER-015"
-echo   - CDU-001 (DLC mode: + liquid cooling metrics)
-start cmd /k "title Agent-CDU-001 && cd /d %~dp0backend && python client_agent.py --server-id CDU-001 --mode dlc"
-echo   - IMM-TAN-001 (Immersion mode: + immersion metrics)
-start cmd /k "title Agent-IMM-TAN-001 && cd /d %~dp0backend && python client_agent.py --server-id IMM-TAN-001 --mode immersion"
 
 echo.
 echo ==============================================

@@ -3,60 +3,30 @@ import React, { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { ServerData } from '@/store/useDcimStore';
 import * as THREE from 'three';
+import { Instance } from '@react-three/drei';
 import { U_HEIGHT } from './sceneScale';
+
 const SERVER_WIDTH = 0.44; // 19 inch rack internal
 const SERVER_DEPTH = 0.8;
 
-export default function ServerModel({ data, telemetry }: { data: ServerData, telemetry?: any }) {
-    const meshRef = useRef<THREE.Mesh>(null);
-
+// Helper to determine status and power metrics
+function getLiveStatus(data: ServerData, telemetry: any) {
     let liveStatus = data.status;
     const isPoweredOff = telemetry?.power_state === 'off';
 
     if (isPoweredOff) {
         liveStatus = 'offline';
     } else if (telemetry) {
-        // Sync with dashboard thresholds
         if (telemetry.temperature > 55 || telemetry.cpu_usage > 85) liveStatus = 'critical';
         else if (telemetry.temperature > 45 || telemetry.cpu_usage > 60) liveStatus = 'warning';
         else liveStatus = 'normal';
     }
+    return { liveStatus, isPoweredOff };
+}
 
-    // Position based on U-space (1 to 42, bottom to top)
-    // Add 0.1m offset because the RackBase mesh occupies y=0 to y=0.1
-    const yPos = 0.1 + (data.uPosition - 1) * U_HEIGHT + (data.uHeight * U_HEIGHT) / 2;
-
-    // 動態網格發光指示燈
-    const materialRef = useRef<THREE.MeshStandardMaterial>(null);
-
-    useFrame((state) => {
-        if (materialRef.current) {
-            if (isPoweredOff) {
-                materialRef.current.emissiveIntensity = 0.05;
-                return;
-            }
-            if (liveStatus === 'critical') {
-                const t = Math.sin(state.clock.elapsedTime * 10);
-                materialRef.current.emissiveIntensity = t > 0 ? 0.8 : 0.2;
-            } else if (liveStatus === 'warning') {
-                const t = Math.sin(state.clock.elapsedTime * 2);
-                materialRef.current.emissiveIntensity = t > 0 ? 0.5 : 0.1;
-            } else {
-                materialRef.current.emissiveIntensity = 0.2;
-            }
-        }
-    });
-
-    const getStatusColor = () => {
-        if (isPoweredOff) return '#111111';
-        switch (liveStatus) {
-            case 'critical': return '#ef4444';
-            case 'warning': return '#f59e0b';
-            case 'offline': return '#64748b';
-            case 'normal':
-            default: return '#06b6d4';
-        }
-    };
+export function ServerBodyInstance({ data, telemetry }: { data: ServerData, telemetry?: any }) {
+    const ref = useRef<any>(null);
+    const { liveStatus, isPoweredOff } = getLiveStatus(data, telemetry);
 
     const getBodyColor = () => {
         if (isPoweredOff) return '#1a1a1a'; // Power Off Color
@@ -67,23 +37,58 @@ export default function ServerModel({ data, telemetry }: { data: ServerData, tel
         return '#3b82f6';
     };
 
-    return (
-        <group position={[0, yPos, 0]}>
-            <mesh ref={meshRef} castShadow receiveShadow>
-                <boxGeometry args={[SERVER_WIDTH, data.uHeight * U_HEIGHT - 0.002, SERVER_DEPTH]} />
-                <meshStandardMaterial color={getBodyColor()} metalness={0.2} roughness={0.8} />
-            </mesh>
+    const yPos = 0.1 + (data.uPosition - 1) * U_HEIGHT + (data.uHeight * U_HEIGHT) / 2;
 
-            {/* Front Panel LED Indicator */}
-            <mesh position={[SERVER_WIDTH / 2 - 0.05, 0, SERVER_DEPTH / 2 + 0.001]}>
-                <boxGeometry args={[0.02, 0.01, 0.01]} />
-                <meshStandardMaterial
-                    ref={materialRef}
-                    color={getStatusColor()}
-                    emissive={getStatusColor()}
-                    emissiveIntensity={0.5}
-                />
-            </mesh>
-        </group>
+    return (
+        <Instance
+            ref={ref}
+            position={[0, yPos, 0]}
+            scale={[SERVER_WIDTH, data.uHeight * U_HEIGHT - 0.002, SERVER_DEPTH]}
+            color={getBodyColor()}
+        />
+    );
+}
+
+export function ServerLedInstance({ data, telemetry }: { data: ServerData, telemetry?: any }) {
+    const ref = useRef<any>(null);
+    const { liveStatus, isPoweredOff } = getLiveStatus(data, telemetry);
+
+    const getStatusColor = () => {
+        if (isPoweredOff) return new THREE.Color('#111111');
+        switch (liveStatus) {
+            case 'critical': return new THREE.Color('#ef4444');
+            case 'warning': return new THREE.Color('#f59e0b');
+            case 'offline': return new THREE.Color('#64748b');
+            case 'normal':
+            default: return new THREE.Color('#06b6d4');
+        }
+    };
+
+    const yPos = 0.1 + (data.uPosition - 1) * U_HEIGHT + (data.uHeight * U_HEIGHT) / 2;
+    const baseColor = getStatusColor();
+
+    useFrame((state) => {
+        // Direct Mutation: bypasses React rendering lifecycle and sends color directly to InstancedMesh buffer!
+        if (ref.current && ref.current.color) {
+            if (isPoweredOff) {
+                ref.current.color.copy(baseColor).multiplyScalar(0.2);
+            } else if (liveStatus === 'critical') {
+                const t = Math.sin(state.clock.elapsedTime * 10);
+                ref.current.color.copy(baseColor).multiplyScalar(t > 0 ? 1.0 : 0.2);
+            } else if (liveStatus === 'warning') {
+                const t = Math.sin(state.clock.elapsedTime * 2);
+                ref.current.color.copy(baseColor).multiplyScalar(t > 0 ? 1.0 : 0.5);
+            } else {
+                ref.current.color.copy(baseColor).multiplyScalar(1.0);
+            }
+        }
+    });
+
+    return (
+        <Instance
+            ref={ref}
+            position={[SERVER_WIDTH / 2 - 0.05, yPos, SERVER_DEPTH / 2 + 0.001]}
+            scale={[0.02, 0.01, 0.01]}
+        />
     );
 }

@@ -781,7 +781,6 @@ export default function Dashboard() {
                 {visibleAlertDevices.map(({ item, srv, status }) => {
                   if (!srv) return null;
 
-                  const status = getDeviceStatus(item, srv);
                   const traffic = srv.traffic_gbps || 0;
                   const ports = srv.ports_active || 0;
                   const cpu = srv.cpu_usage || 0;
@@ -872,39 +871,8 @@ export default function Dashboard() {
               </div>
             </div>
           </TechPanel>
-
-          {/* Health Distribution moved here */}
-          <TechPanel title={t.health} className="flex-1 min-h-[160px]">
-            <div className="h-[140px] w-full relative flex items-center justify-center">
-              <ClientOnlyChart placeholderClassName="h-[140px] w-[160px]">
-              <ResponsiveContainer width={160} height={140} initialDimension={{ width: 160, height: 140 }}>
-                <PieChart>
-                  <Pie
-                    data={pieData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={50}
-                    outerRadius={65}
-                    paddingAngle={5}
-                    dataKey="value"
-                    isAnimationActive={false}
-                  >
-                    {pieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <RechartsTooltip contentStyle={{ backgroundColor: '#020b1a', borderColor: '#1e3a8a', color: '#fff' }} />
-                </PieChart>
-              </ResponsiveContainer>
-              </ClientOnlyChart>
-              {/* 中間文字 */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-1">
-                <span className="text-2xl font-black text-white leading-none">{totalServers}</span>
-                <span className="text-[8px] text-cyan-600 font-bold uppercase tracking-widest">Total</span>
-              </div>
-            </div>
-          </TechPanel>
         </div>
+
 
       </main>
 

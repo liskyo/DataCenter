@@ -4,7 +4,8 @@ import { useFrame } from '@react-three/fiber';
 import { PivotControls, Text } from '@react-three/drei';
 import * as THREE from 'three';
 import { RackData, useDcimStore } from '@/store/useDcimStore';
-import ServerModel from './ServerModel';
+import ServerModel, { ServerBodyInstance, ServerLedInstance } from './ServerModel';
+import { Instances } from '@react-three/drei';
 import ImmersionTankModel from './ImmersionTankModel';
 import { U_HEIGHT, RACK_WIDTH, RACK_DEPTH } from './sceneScale';
 import { getDeviceStatus } from '@/shared/status';
@@ -197,13 +198,33 @@ export default function RackModel({ data, isSelected, telemetry = {} }: { data: 
                 </mesh>
 
                 {/* Render Servers inside */}
-                {data.servers.map((server, idx) => (
-                    <ServerModel
-                        key={`${data.id}-${server.id}-${idx}`}
-                        data={server}
-                        telemetry={pickTelemetry(telemetry, server.assetId, server.name)}
-                    />
-                ))}
+                {data.servers.length > 0 && (
+                    <group>
+                        <Instances limit={Math.max(1, data.servers.length)} castShadow receiveShadow>
+                            <boxGeometry args={[1, 1, 1]} />
+                            <meshStandardMaterial metalness={0.2} roughness={0.8} />
+                            {data.servers.map((server, idx) => (
+                                <ServerBodyInstance
+                                    key={`body-${data.id}-${server.id}-${idx}`}
+                                    data={server}
+                                    telemetry={pickTelemetry(telemetry, server.assetId, server.name)}
+                                />
+                            ))}
+                        </Instances>
+
+                        <Instances limit={Math.max(1, data.servers.length)}>
+                            <boxGeometry args={[1, 1, 1]} />
+                            <meshBasicMaterial toneMapped={false} />
+                            {data.servers.map((server, idx) => (
+                                <ServerLedInstance
+                                    key={`led-${data.id}-${server.id}-${idx}`}
+                                    data={server}
+                                    telemetry={pickTelemetry(telemetry, server.assetId, server.name)}
+                                />
+                            ))}
+                        </Instances>
+                    </group>
+                )}
 
                 {/* Heatmap Environmental Sensor Nodes (Front) */}
                 <group position={[0, 0, RACK_DEPTH / 2 + 0.05]}>

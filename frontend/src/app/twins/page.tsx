@@ -4,8 +4,23 @@ import { useShallow } from "zustand/react/shallow";
 import { useDcimStore, ServerData } from "@/store/useDcimStore";
 import { apiUrl } from "@/shared/api";
 import { normalizeNodeId, buildTelemetryKeys } from "@/shared/nodeId";
-import { TwinsSceneCanvas } from "@/features/twins/TwinsSceneCanvas";
+import dynamic from "next/dynamic";
 import { Activity, Download, Upload, Server, Trash, Save, Edit, Lock, Thermometer, Zap, Box, MonitorIcon, Globe, Link2, Droplets } from "lucide-react";
+
+const TwinsSceneCanvas = dynamic(
+    () => import("@/features/twins/TwinsSceneCanvas").then((mod) => mod.TwinsSceneCanvas),
+    {
+        ssr: false,
+        loading: () => (
+            <div className="absolute inset-0 z-0 flex items-center justify-center bg-[#010613]/50 backdrop-blur-sm text-cyan-500">
+                <div className="flex flex-col items-center gap-4 border border-cyan-800/50 bg-[#020b1a]/80 p-8 rounded-xl shadow-[0_0_30px_rgba(6,182,212,0.15)]">
+                    <div className="h-10 w-10 animate-spin rounded-full border-4 border-cyan-900 border-t-cyan-400"></div>
+                    <span className="font-mono text-sm tracking-widest text-cyan-200 animate-pulse">INITIALIZING 3D ENGINE...</span>
+                </div>
+            </div>
+        )
+    }
+);
 import { v4 as uuidv4 } from "uuid";
 import { useLanguage } from "@/shared/i18n/language";
 import { usePolling } from "@/shared/hooks/usePolling";
