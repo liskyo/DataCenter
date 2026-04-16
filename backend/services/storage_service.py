@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import List, Optional
 
 from influxdb_client import InfluxDBClient, Point
-from influxdb_client.client.write_api import ASYNCHRONOUS
+from influxdb_client.client.write_api import WriteOptions
 from pymongo import MongoClient
 from pymongo.collection import Collection
 
@@ -13,7 +13,16 @@ class InfluxService:
         self.org = org
         self.bucket = bucket
         self.client = InfluxDBClient(url=url, token=token, org=org)
-        self.write_api = self.client.write_api(write_options=ASYNCHRONOUS)
+        options = WriteOptions(
+            batch_size=500,
+            flush_interval=1000,
+            jitter_interval=0,
+            retry_interval=1000,
+            max_retries=3,
+            max_retry_delay=5000,
+            exponential_base=2
+        )
+        self.write_api = self.client.write_api(write_options=options)
 
     def write_metrics(self, server_id: str, temp: float, cpu: float) -> None:
         point = (

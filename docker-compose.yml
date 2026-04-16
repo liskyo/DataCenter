@@ -30,6 +30,11 @@ services:
       - DOCKER_INFLUXDB_INIT_ORG=datacenter
       - DOCKER_INFLUXDB_INIT_BUCKET=telemetry
 
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+
   mongodb:
     image: mongo:latest
     ports:

@@ -11,18 +11,25 @@ set "ROOT=%CD%"
 set "VENV_ACTIVATE=%ROOT%\.venv\Scripts\activate.bat"
 set "VENV_PY=%ROOT%\.venv\Scripts\python.exe"
 
+:: Help script find Node.js on new computer without restart
+if not exist "%ProgramFiles%\nodejs" (
+  set "PATH=C:\Program Files\nodejs;%PATH%"
+) else (
+  set "PATH=%ProgramFiles%\nodejs;%PATH%"
+)
+
 chcp 65001 >nul 2>nul
 
 if not exist "%VENV_ACTIVATE%" (
   echo [INFO] Virtual environment not found. Creating...
   python -m venv .venv
-  echo Installing requirements...
-  .venv\Scripts\pip install -r backend\requirements.txt
-  if errorlevel 1 (
-    echo [ERROR] Failed to install requirements.
-    pause
-    exit /b 1
-  )
+)
+echo [INFO] Verifying Python requirements...
+"%VENV_PY%" -m pip install -r backend\requirements.txt >nul
+if errorlevel 1 (
+  echo [ERROR] Failed to install requirements.
+  pause
+  exit /b 1
 )
 
 echo ==============================================

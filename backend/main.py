@@ -27,6 +27,7 @@ app.include_router(auth_router)
 @app.on_event("startup")
 async def startup_event():
     container: AppContainer = app.state.container
+    await container.sse.connect()
     container.startup()
 
 
@@ -34,3 +35,4 @@ async def startup_event():
 async def shutdown_event():
     container: AppContainer = app.state.container
     container.shutdown()
+    await container.sse.disconnect()
