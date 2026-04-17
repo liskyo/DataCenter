@@ -38,7 +38,7 @@ class AppSettings:
 class AppContainer:
     def __init__(self, settings: AppSettings | None = None):
         self.settings = settings or AppSettings()
-        self.telemetry = TelemetryService(history_window=5)
+        self.telemetry = TelemetryService(history_window=60)
         self.alert_storage = AlertStorageService(mongo_uri=self.settings.mongo_uri)
         self.influx = InfluxService(
             url=self.settings.influx_url,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { Power, Fan, Settings2, SlidersHorizontal, RefreshCcw, X, Cpu, Network, ShieldCheck, DatabaseZap } from "lucide-react";
+import { Power, Fan, Settings2, SlidersHorizontal, RefreshCcw, X, Cpu, Network, ShieldCheck, DatabaseZap, Search } from "lucide-react";
 import { useLanguage } from "@/shared/i18n/language";
 import { useDcimStore } from "@/store/useDcimStore";
 import { apiUrl } from "@/shared/api";
@@ -117,6 +117,27 @@ export default function ControlPage() {
   }, [allGridItems]);
 
   const [configuringMachine, setConfiguringMachine] = useState<string | null>(null);
+  
+  // 搜尋處理
+  const [searchQuery, setSearchQuery] = useState("");
+  const filteredMachines = machines.filter(m => m.id.toLowerCase().includes(searchQuery.toLowerCase()));
+  
+  // 分頁處理
+  const [page, setPage] = useState(0);
+  const pageSize = 6;
+  const totalPages = Math.ceil(filteredMachines.length / pageSize);
+
+  useEffect(() => {
+    if (page >= totalPages && totalPages > 0) {
+      setPage(Math.max(0, totalPages - 1));
+    }
+  }, [totalPages, page]);
+
+  useEffect(() => {
+    setPage(0); // 當搜尋條件改變時，回到第一頁
+  }, [searchQuery]);
+
+  const paginatedMachines = filteredMachines.slice(page * pageSize, (page + 1) * pageSize);
 
   const togglePower = async (id: string) => {
     const machine = machines.find((m) => m.id === id);
@@ -147,8 +168,6 @@ export default function ControlPage() {
     }
   };
 
-
-
   const rebootMachine = async (id: string) => {
     setMachines((prev) => prev.map((m) => (m.id === id ? { ...m, isRebooting: true } : m)));
     try {
@@ -174,7 +193,7 @@ export default function ControlPage() {
 
   return (
     <div className="p-8 pb-20 max-w-7xl mx-auto relative h-full flex flex-col">
-      <header className="mb-10 flex flex-col md:flex-row justify-between items-center bg-[#0a1e3f]/30 p-4 rounded-xl border border-[#1e3a8a]">
+      <header className="mb-10 flex flex-col md:flex-row justify-between items-start md:items-center bg-[#0a1e3f]/30 p-4 rounded-xl border border-[#1e3a8a] gap-4">
         <div>
           <h1 className="text-2xl font-black text-[#4ea8de] tracking-widest uppercase shadow-sm">
              {t.title}
@@ -183,10 +202,46 @@ export default function ControlPage() {
             {t.subtitle}
           </p>
         </div>
+        
+        {/* Search & Pagination Controls */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 shrink-0">
+            <div className="relative">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-cyan-700" />
+              <input 
+                type="text" 
+                placeholder="Search ID..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="bg-[#020b1a] border border-[#1e3a8a] text-cyan-400 pl-9 pr-4 py-1.5 rounded text-sm focus:outline-none focus:border-cyan-500 transition-colors w-full sm:w-48 placeholder:text-cyan-900" 
+              />
+            </div>
+
+            {totalPages > 1 && (
+                <div className="flex gap-2 text-xs font-mono shrink-0">
+                   <button 
+                      disabled={page === 0} 
+                      onClick={() => setPage(p => p - 1)}
+                      className="px-3 py-1.5 bg-[#020b1a] border border-[#1e3a8a] text-cyan-400 disabled:opacity-30 rounded hover:bg-[#0a1e3f] transition-colors"
+                   >
+                      PREV
+                   </button>
+                   <div className="px-3 py-1.5 text-slate-400 flex items-center">
+                      PAGE {page + 1} / {totalPages}
+                   </div>
+                   <button 
+                      disabled={page >= totalPages - 1} 
+                      onClick={() => setPage(p => p + 1)}
+                      className="px-3 py-1.5 bg-[#020b1a] border border-[#1e3a8a] text-cyan-400 disabled:opacity-30 rounded hover:bg-[#0a1e3f] transition-colors"
+                   >
+                      NEXT
+                   </button>
+                </div>
+            )}
+        </div>
       </header>
 
       <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {machines.map((machine) => (
+        {paginatedMachines.map((machine) => (
           <TechPanel key={machine.id} title={machine.id} className="h-fit">
             <div className="space-y-6">
               

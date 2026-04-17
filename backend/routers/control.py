@@ -95,10 +95,18 @@ def control_power(request: Request, server_id: str, payload: dict):
     time.sleep(1.5)
 
     # 更新全域電源狀態 (持久化於記憶體)
-    if action in ["on", "off"]:
-        container.power_states[resolved_server_id] = action
-    elif action == "reboot":
-        container.power_states[resolved_server_id] = "on"
+    new_state = action if action in ["on", "off"] else "on"
+    container.power_states[resolved_server_id] = new_state
+    
+    # 立即覆蓋記憶體內的舊遙測資料，並透過 SSE 強制推送，消除等待 Kafka 迴圈造成的時間差 (Race condition)
+    if resolved_server_id in container.telemetry.latest_metrics:
+        container.telemetry.latest_metrics[resolved_server_id]["power_state"] = new_state
+        if new_state == "off":
+            container.telemetry.latest_metrics[resolved_server_id]["cpu_usage"] = 0.0
+            container.telemetry.latest_metrics[resolved_server_id]["temperature"] = 25.0
+            if "fan_speed" in container.telemetry.latest_metrics[resolved_server_id]:
+                container.telemetry.latest_metrics[resolved_server_id]["fan_speed"] = 20.0
+        container.sse.broadcast(container.telemetry.latest_metrics[resolved_server_id])
 
     """
     ===================================================================
