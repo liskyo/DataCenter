@@ -9,6 +9,8 @@ import RackModel from "@/components/3d/RackModel";
 import EquipmentModel from "@/components/3d/EquipmentModel";
 import NetworkLines from "@/components/3d/NetworkLines";
 import CoolantFlow from "@/components/3d/CoolantFlow";
+import HeatmapOverlay from "@/components/3d/HeatmapOverlay";
+import { useDcimStore } from "@/store/useDcimStore";
 
 export type TwinsSceneCanvasProps = {
   locationRacks: RackData[];
@@ -27,6 +29,13 @@ function TwinsSceneCanvasInner({
   showConnectionLines,
   onPointerMissed,
 }: TwinsSceneCanvasProps) {
+  const store = useDcimStore();
+  const loc = store.locations.find(l => l.id === store.currentLocationId);
+  const xMin = loc?.xMin ?? -10;
+  const xMax = loc?.xMax ?? 10;
+  const zMin = loc?.zMin ?? -7.5;
+  const zMax = loc?.zMax ?? 7.5;
+
   return (
     <Canvas
       camera={{ position: [5, 4, 8], fov: 45 }}
@@ -34,6 +43,7 @@ function TwinsSceneCanvasInner({
       onPointerMissed={onPointerMissed}
     >
       <RoomContext />
+      <HeatmapOverlay racks={locationRacks} telemetry={telemetry} xMin={xMin} xMax={xMax} zMin={zMin} zMax={zMax} />
       {locationRacks.map((rack) => (
         <RackModel key={rack.id} data={rack} isSelected={rack.id === selectedRackId} telemetry={telemetry} />
       ))}

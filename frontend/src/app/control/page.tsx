@@ -13,6 +13,14 @@ type ServerTelemetry = {
   fan_speed?: number;
 };
 
+// Normalize names directly imported or ported
+function normalizeNodeId(value: string): string {
+    const raw = (value || "").trim().toUpperCase().replace(/\s+/g, "").replace(/_/g, "-");
+    const m = raw.match(/^(SERVER|SW|IMM|CDU)-?(\d+)$/);
+    if (!m) return raw;
+    return `${m[1]}-${String(Number(m[2])).padStart(3, "0")}`;
+}
+
 const TechPanel = ({ title, children, className = "" }: { title: string, children: React.ReactNode, className?: string }) => (
   <div className={`relative bg-[#020b1a] border border-[#1e3a8a] flex flex-col ${className}`}>
     <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-[#4ea8de]"></div>
@@ -65,9 +73,19 @@ export default function ControlPage() {
   useSSE({
     onUpdate: (metricsMap: Record<string, any>) => {
       setMachines(prev => prev.map(m => {
-        const telemetry = metricsMap[m.id];
-        if (telemetry && telemetry.power_state) {
-          return { ...m, powerOn: telemetry.power_state === "on" };
+        // use normalize to catch format like SERVER-001
+        const telemetry = metricsMap[normalizeNodeId(m.id)] || metricsMap[m.id];
+        if (telemetry) {
+          const updates: any = {};
+          if (telemetry.power_state !== undefined) {
+             updates.powerOn = telemetry.power_state === "on";
+          }
+          if (telemetry.fan_speed !== undefined) {
+             updates.fanSpeed = Math.round(telemetry.fan_speed);
+          }
+          if (Object.keys(updates).length > 0) {
+             return { ...m, ...updates };
+          }
         }
         return m;
       }));
@@ -109,37 +127,47 @@ export default function ControlPage() {
 
     try {
       const targetAction = currentPower ? "off" : "on";
-      await fetch(apiUrl(`/api/control/${id}/power`), {
+      const res = await fetch(apiUrl(`/api/control/${encodeURIComponent(id)}/power`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: targetAction }),
       });
+      
+      if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData?.detail?.interlock_reason || "Access Denied / Interlock Active");
+      }
+      
       setMachines((prev) =>
         prev.map((m) => (m.id === id ? { ...m, powerOn: !currentPower, isRebooting: false } : m))
       );
-    } catch (err) {
-      alert("Hardware control error: Server unreachable");
+    } catch (err: any) {
+      alert(`Hardware control rejected: ${err.message}`);
       setMachines((prev) => prev.map((m) => (m.id === id ? { ...m, isRebooting: false } : m)));
     }
   };
 
-  const changeFanSpeed = (id: string, val: number) => {
-    setMachines((prev) => prev.map((m) => (m.id === id ? { ...m, fanSpeed: val } : m)));
-  };
+
 
   const rebootMachine = async (id: string) => {
     setMachines((prev) => prev.map((m) => (m.id === id ? { ...m, isRebooting: true } : m)));
     try {
-      await fetch(apiUrl(`/api/control/${id}/power`), {
+      const res = await fetch(apiUrl(`/api/control/${encodeURIComponent(id)}/power`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "reboot" }),
       });
+      
+      if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData?.detail?.interlock_reason || "Access Denied / Interlock Active");
+      }
+      
       setMachines((prev) =>
         prev.map((m) => (m.id === id ? { ...m, powerOn: true, isRebooting: false } : m))
       );
-    } catch (err) {
-      alert("Hardware reboot error: Server unreachable");
+    } catch (err: any) {
+      alert(`Hardware reboot rejected: ${err.message}`);
       setMachines((prev) => prev.map((m) => (m.id === id ? { ...m, isRebooting: false } : m)));
     }
   };
@@ -192,8 +220,8 @@ export default function ControlPage() {
                 <input 
                   type="range" min="0" max="100" 
                   value={machine.fanSpeed}
-                  onChange={(e) => changeFanSpeed(machine.id, Number(e.target.value))}
-                  className="w-full h-2 bg-[#0a1e3f] rounded-lg appearance-none cursor-pointer accent-[#4ea8de]"
+                  readOnly
+                  className="w-full h-2 bg-[#0a1e3f] rounded-lg appearance-none cursor-default accent-[#4ea8de]"
                 />
               </div>
 

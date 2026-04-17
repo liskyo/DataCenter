@@ -654,10 +654,16 @@ removeLocation(currentLocationId);
                                         <div key={`${selectedRack.id}-${server.id}-${idx}`} className="flex flex-col gap-2 text-xs bg-[#0a1e3f] p-2 rounded border border-slate-700">
                                             {editingServerId === server.id && editingDraft ? (
                                                 <div className="flex flex-col gap-2">
-                                                    <div className="text-slate-200 font-bold">
-                                                        {server.name}
+                                                    <div className="flex items-center gap-2">
+                                                        <input
+                                                            type="text"
+                                                            value={editingDraft.name || ''}
+                                                            onChange={(e) => setEditingDraft({ ...editingDraft, name: e.target.value })}
+                                                            className="flex-1 bg-[#0a1e3f] border border-cyan-800 p-1.5 rounded text-white font-bold outline-none focus:border-cyan-400 text-sm"
+                                                            placeholder="Server Name"
+                                                        />
                                                         {server.type === 'switch' && (
-                                                            <span className="text-[9px] bg-purple-900 border border-purple-500 px-1 rounded text-purple-100 ml-1">
+                                                            <span className="text-[9px] bg-purple-900 border border-purple-500 px-1 rounded text-purple-100 shrink-0">
                                                                 SWITCH
                                                             </span>
                                                         )}
@@ -776,15 +782,16 @@ removeLocation(currentLocationId);
                                                         {isEditMode && (
                                                             <button
                                                                 onClick={() => {
-                                                                    setEditingServerId(server.id);
-                                                                    setEditingDraft({
-                                                                        uPosition: server.uPosition,
-                                                                        uHeight: server.uHeight,
-                                                                        powerKw: server.powerKw,
-                                                                        type: server.type,
-                                                                        status: server.status,
-                                                                    });
-                                                                }}
+                                                                        setEditingServerId(server.id);
+                                                                        setEditingDraft({
+                                                                            name: server.name,
+                                                                            uPosition: server.uPosition,
+                                                                            uHeight: server.uHeight,
+                                                                            powerKw: server.powerKw,
+                                                                            type: server.type,
+                                                                            status: server.status,
+                                                                        });
+                                                                    }}
                                                                 className="text-cyan-400 hover:bg-cyan-900/30 p-1 rounded transition"
                                                                 title="Edit Server"
                                                             >

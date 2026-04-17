@@ -145,9 +145,9 @@ class KafkaRuntimeService:
                             base["traffic"] += random.uniform(-2.0, 2.0)
 
                             if s_id == active_critical:
-                                if base["temp"] < 75: base["temp"] += 10.0
-                                if base["cpu"] < 95: base["cpu"] += 20.0
-                                if base["traffic"] < 45: base["traffic"] += 10.0
+                                base["temp"] = 90.0
+                                base["cpu"] = 100.0
+                                base["traffic"] = 50.0
                             elif s_id == active_warning:
                                 if base["temp"] < 45: base["temp"] += 5.0
                                 if base["cpu"] < 75: base["cpu"] += 10.0
@@ -209,11 +209,16 @@ class KafkaRuntimeService:
                             else:
                                 current_temp = base["temp"] + (random.uniform(15, 25) if random.random() < 0.005 else 0)
                                 current_cpu = base["cpu"] + (random.uniform(30, 50) if random.random() < 0.005 else 0)
+                                
+                                final_temp = min(current_temp, 99.9)
+                                fan_speed = min(100.0, max(20.0, ((final_temp - 25) * 1.6) + 20))
+                                
                                 payload = {
                                     "server_id": s_id,
                                     "is_simulated": True,
-                                    "temperature": min(current_temp, 99.9),
+                                    "temperature": final_temp,
                                     "cpu_usage": min(current_cpu, 100.0),
+                                    "fan_speed": fan_speed,
                                     "timestamp": int(time.time() * 1000),
                                 }
                         else:
