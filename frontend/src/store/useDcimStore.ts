@@ -1,5 +1,18 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage, PersistStorage } from 'zustand/middleware';
+import { get, set, del } from 'idb-keyval';
+
+const indexedDBStorage: PersistStorage<any> = {
+    getItem: async (name) => {
+        return (await get(name)) || null;
+    },
+    setItem: async (name, value) => {
+        await set(name, value);
+    },
+    removeItem: async (name) => {
+        await del(name);
+    },
+};
 import { v4 as uuidv4 } from 'uuid';
 import { normalizeNodeId } from '@/shared/nodeId';
 
@@ -548,7 +561,8 @@ export const useDcimStore = create<DcimState>()(
             }
         }),
         {
-            name: 'datacenter-storage-v3', // key in localStorage - Updated to v3 for location support
+            name: 'datacenter-storage-v4', // key in IndexedDB
+            storage: createJSONStorage(() => indexedDBStorage),
             partialize: (state) => ({ 
                 racks: state.racks, 
                 equipments: state.equipments, 

@@ -60,6 +60,16 @@ git merge origin/leia0
 > [!TIP]
 > 如果你在解衝突時覺得太混亂想放棄，可以輸入 `git merge --abort` 恢復原狀。
 
+### E. 自動化衝突處理 (以特定分支為主)
+如果你確定所有衝突都要以某一方為主（例如 Leia 的最新版本），可以使用：
+```bash
+# 合併時自動採用「他們」(遠端) 的內容
+git merge origin/leia0 -X theirs
+
+# 或是：合併時自動採用「我們」(本地) 的內容
+git merge origin/leia0 -X ours
+```
+
 ---
 
 ## 4. 如何「後悔」(Revert Changes)

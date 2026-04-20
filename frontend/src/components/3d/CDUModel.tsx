@@ -1,5 +1,5 @@
 "use client";
-import React, { useRef, useState, useMemo } from "react";
+import React, { useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Text } from "@react-three/drei";
 import * as THREE from "three";
@@ -54,92 +54,8 @@ const STATUS_COLORS = {
   off: { body: "#0a0a0a", emissive: "#000000", intensity: 0, speed: 0 },
 };
 
-/** Build a CanvasTexture with live CDU metrics */
-function useCDUCanvasTexture(t?: CDUTelemetry, status?: string): THREE.CanvasTexture {
-  return useMemo(() => {
-    const canvas = document.createElement("canvas");
-    canvas.width = 256;
-    canvas.height = 384;
-    const ctx = canvas.getContext("2d")!;
-
-    // Background
-    ctx.fillStyle = "#020b1a";
-    ctx.fillRect(0, 0, 256, 384);
-
-    // Border
-    const borderColor = status === "leak" || status === "critical" ? "#ef4444" : status === "warning" ? "#f59e0b" : "#06b6d4";
-    ctx.strokeStyle = borderColor;
-    ctx.lineWidth = 4;
-    ctx.strokeRect(4, 4, 248, 376);
-
-    // Title
-    ctx.fillStyle = borderColor;
-    ctx.font = "bold 18px monospace";
-    ctx.textAlign = "center";
-    ctx.fillText("◈ CDU MONITOR ◈", 128, 32);
-
-    ctx.fillStyle = "#334155";
-    ctx.fillRect(10, 40, 236, 2);
-
-    // Metric rows
-    const rows = [
-      { label: "Supply Temp", value: t?.inlet_temp !== undefined ? `${t.inlet_temp}°C` : "---", color: "#38bdf8" },
-      { label: "Return Temp", value: t?.outlet_temp !== undefined ? `${t.outlet_temp}°C` : "---", color: t?.outlet_temp && t.outlet_temp > 45 ? "#ef4444" : "#f97316" },
-      { label: "Flow Rate", value: t?.flow_rate_lpm !== undefined ? `${t.flow_rate_lpm} LPM` : "---", color: t?.flow_rate_lpm && t.flow_rate_lpm < 5 ? "#ef4444" : "#22d3ee" },
-      { label: "Pressure", value: t?.pressure_bar !== undefined ? `${t.pressure_bar} bar` : "---", color: "#a78bfa" },
-      { label: "Pump A", value: t?.pump_a_rpm !== undefined ? `${t.pump_a_rpm} RPM` : "---", color: "#34d399" },
-      { label: "Pump B", value: t?.pump_b_rpm !== undefined ? `${t.pump_b_rpm} RPM` : "---", color: "#34d399" },
-      { label: "Reservoir", value: t?.reservoir_level !== undefined ? `${t.reservoir_level}%` : "---", color: t?.reservoir_level && t.reservoir_level < 30 ? "#ef4444" : "#94a3b8" },
-      { label: "CHW Supply", value: t?.facility_supply_temp !== undefined ? `${t.facility_supply_temp}°C` : "---", color: "#67e8f9" },
-      { label: "CHW Return", value: t?.facility_return_temp !== undefined ? `${t.facility_return_temp}°C` : "---", color: "#67e8f9" },
-    ];
-
-    rows.forEach((row, i) => {
-      const y = 70 + i * 32;
-      ctx.fillStyle = "#64748b";
-      ctx.font = "12px monospace";
-      ctx.textAlign = "left";
-      ctx.fillText(row.label, 18, y);
-      ctx.fillStyle = status === "off" ? "#334155" : row.color;
-      ctx.font = "bold 13px monospace";
-      ctx.textAlign = "right";
-      ctx.fillText(row.value, 238, y);
-    });
-
-    if (status === "off") {
-      ctx.fillStyle = "rgba(10, 10, 10, 0.7)";
-      ctx.fillRect(10, 60, 236, 270);
-      ctx.fillStyle = "#475569";
-      ctx.font = "bold 20px monospace";
-      ctx.textAlign = "center";
-      ctx.fillText("POWERED OFF", 128, 180);
-      
-      ctx.fillStyle = "#334155";
-      ctx.font = "bold 13px monospace";
-
-      ctx.textAlign = "center";
-      ctx.fillText("● OFFLINE", 128, 370);
-    } else if (t?.leak_detected) {
-      ctx.fillStyle = "#ef4444";
-      ctx.font = "bold 16px monospace";
-      ctx.textAlign = "center";
-      ctx.fillText("⚠ LEAK DETECTED ⚠", 128, 370);
-    } else {
-      const statusText = status === "normal" ? "● SYSTEM NORMAL" : status === "warning" ? "▲ WARNING" : "✕ CRITICAL";
-      ctx.fillStyle = borderColor;
-      ctx.font = "bold 13px monospace";
-      ctx.textAlign = "center";
-      ctx.fillText(statusText, 128, 370);
-    }
-
-    const texture = new THREE.CanvasTexture(canvas);
-    return texture;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    t?.inlet_temp, t?.outlet_temp, t?.flow_rate_lpm, t?.pressure_bar,
-    t?.pump_a_rpm, t?.pump_b_rpm, t?.reservoir_level,
-    t?.facility_supply_temp, t?.facility_return_temp, t?.leak_detected, status,
-  ]);
+function formatMetric(value: number | undefined, suffix: string): string {
+  return value !== undefined ? `${value}${suffix}` : "---";
 }
 
 export default function CDUModel({ name, isSelected, telemetry }: CDUModelProps) {
@@ -153,8 +69,37 @@ export default function CDUModel({ name, isSelected, telemetry }: CDUModelProps)
   const pumpARef = useRef<THREE.Mesh>(null!);
   const pumpBRef = useRef<THREE.Mesh>(null!);
   const leakLightRef = useRef<THREE.Mesh>(null!);
-
-  const canvasTexture = useCDUCanvasTexture(telemetry, status);
+  const panelAccent =
+    status === "leak" || status === "critical" ? "#ef4444" : status === "warning" ? "#f59e0b" : "#06b6d4";
+  const panelRows = [
+    { label: "SUPPLY", value: formatMetric(telemetry?.inlet_temp, "C"), color: "#38bdf8" },
+    {
+      label: "RETURN",
+      value: formatMetric(telemetry?.outlet_temp, "C"),
+      color: telemetry?.outlet_temp !== undefined && telemetry.outlet_temp > 45 ? "#ef4444" : "#f97316",
+    },
+    {
+      label: "FLOW",
+      value: formatMetric(telemetry?.flow_rate_lpm, " LPM"),
+      color: telemetry?.flow_rate_lpm !== undefined && telemetry.flow_rate_lpm < 5 ? "#ef4444" : "#22d3ee",
+    },
+    { label: "PRESS", value: formatMetric(telemetry?.pressure_bar, " bar"), color: "#a78bfa" },
+    {
+      label: "LEVEL",
+      value: formatMetric(telemetry?.reservoir_level, "%"),
+      color: telemetry?.reservoir_level !== undefined && telemetry.reservoir_level < 30 ? "#ef4444" : "#94a3b8",
+    },
+  ];
+  const statusText =
+    status === "off"
+      ? "OFFLINE"
+      : status === "leak"
+        ? "LEAK"
+        : status === "warning"
+          ? "WARNING"
+          : status === "critical"
+            ? "CRITICAL"
+            : "NORMAL";
 
   // Animate emissive breathing and pump rotation
   useFrame(({ clock }) => {
@@ -198,11 +143,46 @@ export default function CDUModel({ name, isSelected, telemetry }: CDUModelProps)
         />
       </mesh>
 
-      {/* ── Front Panel Canvas Screen ─────────────────── */}
-      <mesh position={[0, CDU.cy, CDU.d / 2 + 0.012]}>
-        <planeGeometry args={[CDU.w * 0.88, CDU.h * 0.78]} />
-        <meshBasicMaterial map={canvasTexture} />
-      </mesh>
+      {/* 動態 CanvasTexture 在部分驅動上會於遙測更新後導致白屏；改成靜態幾何面板。 */}
+      <group position={[0, CDU.cy, CDU.d / 2 + 0.012]}>
+        <mesh renderOrder={2}>
+          <planeGeometry args={[CDU.w * 0.88, CDU.h * 0.78]} />
+          <meshBasicMaterial color="#020b1a" toneMapped={false} />
+        </mesh>
+        <mesh position={[0, CDU.h * 0.325, 0.001]} renderOrder={3}>
+          <planeGeometry args={[CDU.w * 0.84, 0.055]} />
+          <meshBasicMaterial color={panelAccent} transparent opacity={0.18} toneMapped={false} depthWrite={false} />
+        </mesh>
+        <mesh position={[0, -CDU.h * 0.33, 0.001]} renderOrder={3}>
+          <planeGeometry args={[CDU.w * 0.84, 0.05]} />
+          <meshBasicMaterial color={panelAccent} transparent opacity={0.12} toneMapped={false} depthWrite={false} />
+        </mesh>
+        <Text position={[0, CDU.h * 0.325, 0.002]} fontSize={0.038} color={panelAccent} anchorX="center" anchorY="middle">
+          CDU MONITOR
+        </Text>
+        {panelRows.map((row, index) => {
+          const y = CDU.h * 0.19 - index * 0.105;
+          return (
+            <group key={row.label} position={[0, y, 0.002]}>
+              <Text position={[-CDU.w * 0.33, 0, 0]} fontSize={0.03} color="#64748b" anchorX="left" anchorY="middle">
+                {row.label}
+              </Text>
+              <Text
+                position={[CDU.w * 0.33, 0, 0]}
+                fontSize={0.032}
+                color={status === "off" ? "#334155" : row.color}
+                anchorX="right"
+                anchorY="middle"
+              >
+                {row.value}
+              </Text>
+            </group>
+          );
+        })}
+        <Text position={[0, -CDU.h * 0.33, 0.002]} fontSize={0.034} color={status === "off" ? "#475569" : panelAccent} anchorX="center" anchorY="middle">
+          {statusText}
+        </Text>
+      </group>
 
       {/* ── Corner frame accent lines ─────────────────── */}
       {[

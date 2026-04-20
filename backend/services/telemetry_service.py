@@ -14,6 +14,12 @@ class TelemetryService:
 
     def upsert_latest(self, server_id: str, payload: dict) -> None:
         self.latest_metrics[server_id] = payload
+        
+        # Maintain history data for the /history endpoint (AI Trend Analysis)
+        if "temperature" in payload and "cpu_usage" in payload:
+            if server_id not in self.server_history:
+                self.server_history[server_id] = deque(maxlen=self.history_window)
+            self.server_history[server_id].append((float(payload["temperature"]), float(payload["cpu_usage"])))
 
     def clear_latest(self) -> None:
         self.latest_metrics.clear()

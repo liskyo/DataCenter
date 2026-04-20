@@ -10,6 +10,8 @@ from services.storage_service import AlertStorageService, InfluxService
 from services.telemetry_service import TelemetryService
 from services.notification_service import NotificationService
 from services.sse_manager import SSEManager
+from services.ml_worker import AnomalyDetectionEngine
+from services.remediation_service import AutoRemediationEngine
 
 
 def _temperature_tier(temp: float) -> str:
@@ -23,7 +25,7 @@ def _temperature_tier(temp: float) -> str:
 
 @dataclass
 class AppSettings:
-    kafka_broker: str = "localhost:29093"
+    kafka_broker: str = "127.0.0.1:29093"
     topic: str = "telemetry"
     influx_url: str = "http://localhost:8087"
     influx_token: str = "adminpassword"
@@ -36,7 +38,7 @@ class AppSettings:
 class AppContainer:
     def __init__(self, settings: AppSettings | None = None):
         self.settings = settings or AppSettings()
-        self.telemetry = TelemetryService(history_window=5)
+        self.telemetry = TelemetryService(history_window=60)
         self.alert_storage = AlertStorageService(mongo_uri=self.settings.mongo_uri)
         self.influx = InfluxService(
             url=self.settings.influx_url,
@@ -47,6 +49,8 @@ class AppContainer:
         self.kafka = KafkaRuntimeService(broker=self.settings.kafka_broker, topic=self.settings.topic)
         self.notifier = NotificationService(token=self.settings.line_notify_token)
         self.sse = SSEManager()
+        self.ml_engine = AnomalyDetectionEngine()
+        self.remediation_engine = AutoRemediationEngine(continuous_seconds=15)
         self.system_mode = "simulation"
         self.power_states: dict[str, str] = {} # { "SERVER-001": "on", "CDU-001": "off" }
         self.last_real_data_at: dict[str, float] = {} # { "SERVER-15": 1711956... }
@@ -178,10 +182,21 @@ class AppContainer:
         else:
             data.pop("alert", None)
 
-        is_anomaly, reason = self.telemetry.detect_anomaly(server_id, cpu, temp)
+        is_anomaly, reason = self.ml_engine.detect(server_id, temp, cpu)
         if is_anomaly:
-            self.trigger_alert(server_id, "AI_ANOMALY", reason)
+            self.trigger_alert(server_id, "AI_PREDICTIVE_WARNING", reason)
             data["anomaly"] = reason
+
+        def set_power(sid: str, state: str) -> None:
+            self.power_states[sid] = state
+            
+        self.remediation_engine.check_and_remediate(
+            server_id=server_id,
+            cpu=cpu,
+            temp=temp,
+            trigger_alert_cb=self.trigger_alert,
+            set_power_cb=set_power
+        )
 
         # --- DLC / Liquid Cooling Threshold Checks ---
         inlet_temp = data.get("inlet_temp")
@@ -214,6 +229,11 @@ class AppContainer:
             self.trigger_alert(server_id, "DLC_LOW_RESERVOIR", f"Coolant reservoir level critically low: {reservoir}% (threshold: 20%)")
             data["dlc_alert"] = "Low Reservoir"
 
+        if "fan_speed" not in data:
+            # Fallback to calculate from temp if backend simulated payload didn't include it
+            calc_temp = min(temp, 99.9)
+            data["fan_speed"] = min(100.0, max(20.0, ((calc_temp - 25) * 1.6) + 20))
+
         self.telemetry.upsert_latest(server_id, data)
         self.influx.write_metrics(server_id=server_id, temp=temp, cpu=cpu)
 
@@ -235,7 +255,7 @@ class AppContainer:
             ),
             threading.Thread(
                 target=self.kafka.simulation_worker,
-                args=(lambda: self.system_mode,),
+                args=(lambda: self.system_mode, self.process_message),
                 daemon=True,
                 name="kafka-simulation-worker",
             ),

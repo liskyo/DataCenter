@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { Power, Fan, Settings2, SlidersHorizontal, RefreshCcw, X, Cpu, Network, ShieldCheck, DatabaseZap } from "lucide-react";
+import { Power, Fan, Settings2, SlidersHorizontal, RefreshCcw, X, Cpu, Network, ShieldCheck, DatabaseZap, Search } from "lucide-react";
 import { useLanguage } from "@/shared/i18n/language";
 import { useDcimStore } from "@/store/useDcimStore";
 import { apiUrl } from "@/shared/api";
@@ -12,6 +12,14 @@ type ServerTelemetry = {
   power_state?: "on" | "off";
   fan_speed?: number;
 };
+
+// Normalize names directly imported or ported
+function normalizeNodeId(value: string): string {
+    const raw = (value || "").trim().toUpperCase().replace(/\s+/g, "").replace(/_/g, "-");
+    const m = raw.match(/^(SERVER|SW|IMM|CDU)-?(\d+)$/);
+    if (!m) return raw;
+    return `${m[1]}-${String(Number(m[2])).padStart(3, "0")}`;
+}
 
 const TechPanel = ({ title, children, className = "" }: { title: string, children: React.ReactNode, className?: string }) => (
   <div className={`relative bg-[#020b1a] border border-[#1e3a8a] flex flex-col ${className}`}>
@@ -65,9 +73,19 @@ export default function ControlPage() {
   useSSE({
     onUpdate: (metricsMap: Record<string, any>) => {
       setMachines(prev => prev.map(m => {
-        const telemetry = metricsMap[m.id];
-        if (telemetry && telemetry.power_state) {
-          return { ...m, powerOn: telemetry.power_state === "on" };
+        // use normalize to catch format like SERVER-001
+        const telemetry = metricsMap[normalizeNodeId(m.id)] || metricsMap[m.id];
+        if (telemetry) {
+          const updates: any = {};
+          if (telemetry.power_state !== undefined) {
+             updates.powerOn = telemetry.power_state === "on";
+          }
+          if (telemetry.fan_speed !== undefined) {
+             updates.fanSpeed = Math.round(telemetry.fan_speed);
+          }
+          if (Object.keys(updates).length > 0) {
+             return { ...m, ...updates };
+          }
         }
         return m;
       }));
@@ -99,6 +117,27 @@ export default function ControlPage() {
   }, [allGridItems]);
 
   const [configuringMachine, setConfiguringMachine] = useState<string | null>(null);
+  
+  // 搜尋處理
+  const [searchQuery, setSearchQuery] = useState("");
+  const filteredMachines = machines.filter(m => m.id.toLowerCase().includes(searchQuery.toLowerCase()));
+  
+  // 分頁處理
+  const [page, setPage] = useState(0);
+  const pageSize = 6;
+  const totalPages = Math.ceil(filteredMachines.length / pageSize);
+
+  useEffect(() => {
+    if (page >= totalPages && totalPages > 0) {
+      setPage(Math.max(0, totalPages - 1));
+    }
+  }, [totalPages, page]);
+
+  useEffect(() => {
+    setPage(0); // 當搜尋條件改變時，回到第一頁
+  }, [searchQuery]);
+
+  const paginatedMachines = filteredMachines.slice(page * pageSize, (page + 1) * pageSize);
 
   const togglePower = async (id: string) => {
     const machine = machines.find((m) => m.id === id);
@@ -109,44 +148,52 @@ export default function ControlPage() {
 
     try {
       const targetAction = currentPower ? "off" : "on";
-      await fetch(apiUrl(`/api/control/${id}/power`), {
+      const res = await fetch(apiUrl(`/api/control/${encodeURIComponent(id)}/power`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: targetAction }),
       });
+      
+      if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData?.detail?.interlock_reason || "Access Denied / Interlock Active");
+      }
+      
       setMachines((prev) =>
         prev.map((m) => (m.id === id ? { ...m, powerOn: !currentPower, isRebooting: false } : m))
       );
-    } catch (err) {
-      alert("Hardware control error: Server unreachable");
+    } catch (err: any) {
+      alert(`Hardware control rejected: ${err.message}`);
       setMachines((prev) => prev.map((m) => (m.id === id ? { ...m, isRebooting: false } : m)));
     }
-  };
-
-  const changeFanSpeed = (id: string, val: number) => {
-    setMachines((prev) => prev.map((m) => (m.id === id ? { ...m, fanSpeed: val } : m)));
   };
 
   const rebootMachine = async (id: string) => {
     setMachines((prev) => prev.map((m) => (m.id === id ? { ...m, isRebooting: true } : m)));
     try {
-      await fetch(apiUrl(`/api/control/${id}/power`), {
+      const res = await fetch(apiUrl(`/api/control/${encodeURIComponent(id)}/power`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "reboot" }),
       });
+      
+      if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData?.detail?.interlock_reason || "Access Denied / Interlock Active");
+      }
+      
       setMachines((prev) =>
         prev.map((m) => (m.id === id ? { ...m, powerOn: true, isRebooting: false } : m))
       );
-    } catch (err) {
-      alert("Hardware reboot error: Server unreachable");
+    } catch (err: any) {
+      alert(`Hardware reboot rejected: ${err.message}`);
       setMachines((prev) => prev.map((m) => (m.id === id ? { ...m, isRebooting: false } : m)));
     }
   };
 
   return (
     <div className="p-8 pb-20 max-w-7xl mx-auto relative h-full flex flex-col">
-      <header className="mb-10 flex flex-col md:flex-row justify-between items-center bg-[#0a1e3f]/30 p-4 rounded-xl border border-[#1e3a8a]">
+      <header className="mb-10 flex flex-col md:flex-row justify-between items-start md:items-center bg-[#0a1e3f]/30 p-4 rounded-xl border border-[#1e3a8a] gap-4">
         <div>
           <h1 className="text-2xl font-black text-[#4ea8de] tracking-widest uppercase shadow-sm">
              {t.title}
@@ -155,10 +202,46 @@ export default function ControlPage() {
             {t.subtitle}
           </p>
         </div>
+        
+        {/* Search & Pagination Controls */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 shrink-0">
+            <div className="relative">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-cyan-700" />
+              <input 
+                type="text" 
+                placeholder="Search ID..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="bg-[#020b1a] border border-[#1e3a8a] text-cyan-400 pl-9 pr-4 py-1.5 rounded text-sm focus:outline-none focus:border-cyan-500 transition-colors w-full sm:w-48 placeholder:text-cyan-900" 
+              />
+            </div>
+
+            {totalPages > 1 && (
+                <div className="flex gap-2 text-xs font-mono shrink-0">
+                   <button 
+                      disabled={page === 0} 
+                      onClick={() => setPage(p => p - 1)}
+                      className="px-3 py-1.5 bg-[#020b1a] border border-[#1e3a8a] text-cyan-400 disabled:opacity-30 rounded hover:bg-[#0a1e3f] transition-colors"
+                   >
+                      PREV
+                   </button>
+                   <div className="px-3 py-1.5 text-slate-400 flex items-center">
+                      PAGE {page + 1} / {totalPages}
+                   </div>
+                   <button 
+                      disabled={page >= totalPages - 1} 
+                      onClick={() => setPage(p => p + 1)}
+                      className="px-3 py-1.5 bg-[#020b1a] border border-[#1e3a8a] text-cyan-400 disabled:opacity-30 rounded hover:bg-[#0a1e3f] transition-colors"
+                   >
+                      NEXT
+                   </button>
+                </div>
+            )}
+        </div>
       </header>
 
       <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {machines.map((machine) => (
+        {paginatedMachines.map((machine) => (
           <TechPanel key={machine.id} title={machine.id} className="h-fit">
             <div className="space-y-6">
               
@@ -192,8 +275,8 @@ export default function ControlPage() {
                 <input 
                   type="range" min="0" max="100" 
                   value={machine.fanSpeed}
-                  onChange={(e) => changeFanSpeed(machine.id, Number(e.target.value))}
-                  className="w-full h-2 bg-[#0a1e3f] rounded-lg appearance-none cursor-pointer accent-[#4ea8de]"
+                  readOnly
+                  className="w-full h-2 bg-[#0a1e3f] rounded-lg appearance-none cursor-default accent-[#4ea8de]"
                 />
               </div>
 

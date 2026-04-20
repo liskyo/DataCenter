@@ -15,9 +15,10 @@ def _container(request: Request) -> AppContainer:
 @router.post("/ingest")
 async def ingest_telemetry(payload: dict, request: Request):
     container = _container(request)
-    if not container.kafka.emit(payload):
-        return {"status": "error", "message": "Kafka is not ready yet"}
-    return {"status": "event queued"}
+    if container.kafka.emit(payload):
+        return {"status": "event queued"}
+    container.process_message(payload)
+    return {"status": "processed_local_fallback", "message": "Kafka unavailable, processed locally"}
 
 
 @router.get("/stream")

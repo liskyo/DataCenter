@@ -13,7 +13,25 @@ import { apiUrl } from "@/shared/api";
 import { useLanguage } from "@/shared/i18n/language";
 // 與 3D 視圖共用狀態判斷，閾值定義於 @/shared/status。
 import { getDeviceStatus } from "@/shared/status";
-import { normalizeNodeId } from "@/shared/nodeId";
+import { normalizeNodeId, buildTelemetryKeys } from "@/shared/nodeId";
+
+/** 機房配置 ID 與後端 metrics 鍵（大小寫／補零／asset vs server）對齊 */
+function findTelemetryForItem(
+  m: Map<string, ServerTelemetry>,
+  assetId: string | undefined,
+  name: string | undefined,
+): ServerTelemetry | undefined {
+  const candidates = [assetId, name].flatMap((v) => {
+    if (!v || typeof v !== "string" || !v.trim()) return [];
+    const t = v.trim();
+    return [t, normalizeNodeId(t)];
+  });
+  for (const k of candidates) {
+    const hit = m.get(k);
+    if (hit) return hit;
+  }
+  return undefined;
+}
 
 type ServerTelemetry = {
   server_id: string;
@@ -27,7 +45,7 @@ type ServerTelemetry = {
   power_state?: 'on' | 'off';
 };
 
-const MATRIX_ITEMS_PER_PAGE = 100;
+const MATRIX_ITEMS_PER_PAGE = 20;
 const MAX_ALARM_RENDER = 180;
 const MAX_BAR_RENDER = 300;
 
@@ -267,8 +285,16 @@ export default function Dashboard() {
   }, []);
 
   const handleSSEUpdate = useCallback((metricsMap: Record<string, any>) => {
-    const incoming = Object.values(metricsMap) as ServerTelemetry[];
-    setData(incoming);
+    // metricsMap 同一筆資料可能掛多個 key；Object.values 會重複多份，依節點正規化 ID 去重
+    const merged = new Map<string, ServerTelemetry>();
+    for (const raw of Object.values(metricsMap)) {
+      if (!raw || typeof raw !== "object") continue;
+      const row = raw as ServerTelemetry;
+      const sid = String(row.server_id || row.asset_id || "").trim();
+      if (!sid) continue;
+      merged.set(normalizeNodeId(sid), row);
+    }
+    setData(Array.from(merged.values()));
   }, []);
 
   useEffect(() => {
@@ -309,12 +335,9 @@ export default function Dashboard() {
   const telemetryById = useMemo(() => {
     const m = new Map<string, ServerTelemetry>();
     data.forEach((d) => {
-      [d.asset_id, d.server_id]
-        .filter((v): v is string => typeof v === "string" && v.length > 0)
-        .forEach((id) => {
-          m.set(id, d);
-          m.set(normalizeNodeId(id), d);
-        });
+      buildTelemetryKeys(d).forEach((k) => {
+        m.set(k, d);
+      });
     });
     return m;
   }, [data]);
@@ -345,7 +368,7 @@ export default function Dashboard() {
   const gridStatusRows = useMemo(
     () =>
       allGridItems.map((item) => {
-        const srv = telemetryById.get(item.assetId || item.name) || telemetryById.get(item.name);
+        const srv = findTelemetryForItem(telemetryById, item.assetId, item.name);
         const status = getDeviceStatus(item, srv);
         return { item, srv, status };
       }),
@@ -371,16 +394,26 @@ export default function Dashboard() {
   }, [gridStatusRows]);
 
   const itemNameSet = useMemo(() => {
-    const serverNames = allGridItems.map((i) => i.assetId || i.name);
-    const equipmentNames = locationEquipments.map(e => normalizeNodeId(e.name));
-    const rackNames = locationRacks.map(r => normalizeNodeId(r.name));
-    return new Set([...serverNames, ...equipmentNames, ...rackNames]);
+    const set = new Set<string>();
+    const add = (raw?: string) => {
+      if (!raw || typeof raw !== "string" || !raw.trim()) return;
+      const t = raw.trim();
+      set.add(t);
+      set.add(normalizeNodeId(t));
+    };
+    allGridItems.forEach((i) => {
+      add(i.assetId);
+      add(i.name);
+    });
+    locationEquipments.forEach((e) => add(e.name));
+    locationRacks.forEach((r) => add(r.name));
+    return set;
   }, [allGridItems, locationEquipments, locationRacks]);
 
   const activeStoreData = useMemo(
     () =>
       data
-        .filter((d) => itemNameSet.has(d.asset_id || d.server_id))
+        .filter((d) => buildTelemetryKeys(d).some((k) => itemNameSet.has(k)))
         .sort((a, b) => (a.server_id || "").localeCompare(b.server_id || ""))
         .slice(0, MAX_BAR_RENDER),
     [data, itemNameSet]
@@ -389,9 +422,8 @@ export default function Dashboard() {
   const cduPanelData = useMemo(() => {
     const expectedCdus = locationEquipments.filter((e) => e.type === "cdu");
     return expectedCdus.map((e) => {
-      const eid = normalizeNodeId(e.name);
-      const telemetry = telemetryById.get(eid) || telemetryById.get(e.name);
-      return { ...e, server_id: e.name, ...telemetry };
+      const row = findTelemetryForItem(telemetryById, normalizeNodeId(e.name), e.name);
+      return { ...e, server_id: e.name, ...row };
     });
   }, [locationEquipments, telemetryById]);
 
@@ -399,9 +431,8 @@ export default function Dashboard() {
     const expectedTanks = locationRacks.filter((r) => r.type === "immersion_dual");
     if (expectedTanks.length > 0) {
       return expectedTanks.map((r) => {
-        const rid = normalizeNodeId(r.name);
-        const telemetry = telemetryById.get(rid) || telemetryById.get(r.name);
-        return { ...r, server_id: r.name, ...telemetry };
+        const row = findTelemetryForItem(telemetryById, normalizeNodeId(r.name), r.name);
+        return { ...r, server_id: r.name, ...row };
       });
     }
     if (simMode === "simulation") {
@@ -606,7 +637,7 @@ export default function Dashboard() {
                 </div>
               ) : (
                 visibleMatrixItems.map(item => {
-                  const srv = telemetryById.get(item.assetId || item.name) || telemetryById.get(item.name);
+                  const srv = findTelemetryForItem(telemetryById, item.assetId, item.name);
                   const liveStatus = getDeviceStatus(item, srv);
                   const isOff = liveStatus === 'powered_off';
 
@@ -872,6 +903,7 @@ export default function Dashboard() {
             </div>
           </TechPanel>
         </div>
+
 
       </main>
 

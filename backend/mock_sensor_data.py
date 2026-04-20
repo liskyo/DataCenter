@@ -3,7 +3,8 @@ import json
 import random
 import requests
 
-API_URL = "http://localhost:8000/ingest"
+# 與專案 start.bat 預設之 uvicorn 埠一致（可自行改成實際 API 位址）
+API_URL = "http://127.0.0.1:9000/ingest"
 
 # 模擬設備
 servers = [f"SERVER-{i:03d}" for i in range(1, 13)]

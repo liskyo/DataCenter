@@ -22,7 +22,13 @@ function pickTelemetry(telemetry: Record<string, any>, assetId: string | undefin
         .filter((k): k is string => Boolean(k && k.length));
     for (const k of keys) {
         const hit = telemetry[k];
-        if (hit) return hit;
+        if (
+            hit &&
+            typeof hit === "object" &&
+            ("temperature" in hit || "cpu_usage" in hit || "traffic_gbps" in hit || "server_id" in hit || "asset_id" in hit)
+        ) {
+            return hit;
+        }
     }
     return undefined;
 }

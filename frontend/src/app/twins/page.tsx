@@ -4,8 +4,23 @@ import { useShallow } from "zustand/react/shallow";
 import { useDcimStore, ServerData } from "@/store/useDcimStore";
 import { apiUrl } from "@/shared/api";
 import { normalizeNodeId, buildTelemetryKeys } from "@/shared/nodeId";
-import { TwinsSceneCanvas } from "@/features/twins/TwinsSceneCanvas";
+import dynamic from "next/dynamic";
 import { Activity, Download, Upload, Server, Trash, Save, Edit, Lock, Thermometer, Zap, Box, MonitorIcon, Globe, Link2, Droplets } from "lucide-react";
+
+const TwinsSceneCanvas = dynamic(
+    () => import("@/features/twins/TwinsSceneCanvas").then((mod) => mod.TwinsSceneCanvas),
+    {
+        ssr: false,
+        loading: () => (
+            <div className="absolute inset-0 z-0 flex items-center justify-center bg-[#010613]/50 backdrop-blur-sm text-cyan-500">
+                <div className="flex flex-col items-center gap-4 border border-cyan-800/50 bg-[#020b1a]/80 p-8 rounded-xl shadow-[0_0_30px_rgba(6,182,212,0.15)]">
+                    <div className="h-10 w-10 animate-spin rounded-full border-4 border-cyan-900 border-t-cyan-400"></div>
+                    <span className="font-mono text-sm tracking-widest text-cyan-200 animate-pulse">INITIALIZING 3D ENGINE...</span>
+                </div>
+            </div>
+        )
+    }
+);
 import { v4 as uuidv4 } from "uuid";
 import { useLanguage } from "@/shared/i18n/language";
 import { usePolling } from "@/shared/hooks/usePolling";
@@ -167,6 +182,7 @@ export default function TwinsPage() {
 
     const [editingServerId, setEditingServerId] = useState<string | null>(null);
     const [editingDraft, setEditingDraft] = useState<{
+        name: string;
         uPosition: number;
         uHeight: number;
         powerKw: number;
@@ -631,18 +647,24 @@ removeLocation(currentLocationId);
                                         telemetry[normalizeNodeId(selectedRack.name)];
                                     const metricsText = sTel
                                         ? (server.type === 'switch'
-                                            ? `Traffic: ${(sTel.traffic_gbps || (Math.random() * 10)).toFixed(1)} Gbps | Ports: ${Math.floor((sTel.port_usage || Math.random()) * 48)}/48`
-                                            : `CPU: ${sTel.cpu_usage.toFixed(1)}% | TEMP: ${sTel.temperature.toFixed(1)}°C`)
+                                            ? `Traffic: ${Number(sTel.traffic_gbps ?? Math.random() * 10).toFixed(1)} Gbps | Ports: ${Math.floor(Number(sTel.port_usage ?? Math.random()) * 48)}/48`
+                                            : `CPU: ${Number(sTel.cpu_usage ?? 0).toFixed(1)}% | TEMP: ${Number(sTel.temperature ?? 0).toFixed(1)}°C`)
                                         : "";
 
                                     return (
                                         <div key={`${selectedRack.id}-${server.id}-${idx}`} className="flex flex-col gap-2 text-xs bg-[#0a1e3f] p-2 rounded border border-slate-700">
                                             {editingServerId === server.id && editingDraft ? (
                                                 <div className="flex flex-col gap-2">
-                                                    <div className="text-slate-200 font-bold">
-                                                        {server.name}
+                                                    <div className="flex items-center gap-2">
+                                                        <input
+                                                            type="text"
+                                                            value={editingDraft.name || ''}
+                                                            onChange={(e) => setEditingDraft({ ...editingDraft, name: e.target.value })}
+                                                            className="flex-1 bg-[#0a1e3f] border border-cyan-800 p-1.5 rounded text-white font-bold outline-none focus:border-cyan-400 text-sm"
+                                                            placeholder="Server Name"
+                                                        />
                                                         {server.type === 'switch' && (
-                                                            <span className="text-[9px] bg-purple-900 border border-purple-500 px-1 rounded text-purple-100 ml-1">
+                                                            <span className="text-[9px] bg-purple-900 border border-purple-500 px-1 rounded text-purple-100 shrink-0">
                                                                 SWITCH
                                                             </span>
                                                         )}
@@ -761,15 +783,16 @@ removeLocation(currentLocationId);
                                                         {isEditMode && (
                                                             <button
                                                                 onClick={() => {
-                                                                    setEditingServerId(server.id);
-                                                                    setEditingDraft({
-                                                                        uPosition: server.uPosition,
-                                                                        uHeight: server.uHeight,
-                                                                        powerKw: server.powerKw,
-                                                                        type: server.type,
-                                                                        status: server.status,
-                                                                    });
-                                                                }}
+                                                                        setEditingServerId(server.id);
+                                                                        setEditingDraft({
+                                                                            name: server.name,
+                                                                            uPosition: server.uPosition,
+                                                                            uHeight: server.uHeight,
+                                                                            powerKw: server.powerKw,
+                                                                            type: server.type,
+                                                                            status: server.status,
+                                                                        });
+                                                                    }}
                                                                 className="text-cyan-400 hover:bg-cyan-900/30 p-1 rounded transition"
                                                                 title="Edit Server"
                                                             >

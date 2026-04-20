@@ -1,7 +1,19 @@
 "use client";
 import React from 'react';
-import { Grid, ContactShadows } from '@react-three/drei';
 import { useDcimStore } from '@/store/useDcimStore';
+import RoomFloorGrid from '@/components/3d/RoomFloorGrid';
+
+type WallsProps = {
+    xMin: number;
+    xMax: number;
+    zMin: number;
+    zMax: number;
+    doorPos: 'front' | 'back' | 'left' | 'right';
+    wallHeight: number;
+    wallThick: number;
+    doorW: number;
+    doorH: number;
+};
 
 export default function RoomContext() {
     const store = useDcimStore();
@@ -26,30 +38,22 @@ export default function RoomContext() {
 
     return (
         <group>
-            <color attach="background" args={['#f8fafc']} />
-            <ambientLight intensity={1.5} />
-            <hemisphereLight args={["#ffffff", "#cbd5e1", 1.5]} />
-            <directionalLight position={[15, 20, 10]} intensity={2.0} castShadow />
-            <directionalLight position={[-15, 10, -10]} intensity={1.0} color="#0ea5e9" />
-            <pointLight position={[0, 4, 0]} intensity={1.5} distance={20} />
+            {/* 背景與光照需保守：過亮會把淺色地板／牆面沖成一片白（看起來像白畫面） */}
+            <color attach="background" args={["#cbd5e1"]} />
+            <ambientLight intensity={0.42} />
+            <hemisphereLight args={["#f1f5f9", "#64748b", 0.55]} />
+            <directionalLight position={[15, 20, 10]} intensity={1.05} castShadow />
+            <directionalLight position={[-15, 10, -10]} intensity={0.38} color="#38bdf8" />
+            <pointLight position={[0, 4, 0]} intensity={0.45} distance={24} decay={2} />
 
-            {/* 高架地板網格線 */}
-            <Grid
-                infiniteGrid
-                fadeDistance={30}
-                sectionColor="#cbd5e1"
-                sectionSize={0.6}
-                cellColor="#f8fafc"
-                cellSize={0.6}
-                position={[0, 0.01, 0]}
-            />
+            <RoomFloorGrid centerX={centerX} centerZ={centerZ} width={width} depth={depth} />
 
-            <ContactShadows position={[centerX, 0, centerZ]} color="#000000" opacity={0.5} scale={Math.max(width, depth) * 1.5} blur={2.5} far={4} />
+            {/* ContactShadows 會持續更新陰影 FBO，部分環境下與相機互動後易異常；改由 directionalLight.castShadow 即可 */}
 
             {/* 實體壓克力質感地板 (Dynamic bounds) */}
             <mesh rotation={[-Math.PI / 2, 0, 0]} position={[centerX, -0.05, centerZ]} receiveShadow>
                 <planeGeometry args={[width, depth]} />
-                <meshStandardMaterial color="#ffffff" roughness={0.1} metalness={0.2} />
+                <meshStandardMaterial color="#f1f5f9" roughness={0.28} metalness={0.1} />
             </mesh>
             
             <Walls xMin={xMin} xMax={xMax} zMin={zMin} zMax={zMax} doorPos={doorPos} wallHeight={wallHeight} wallThick={wallThick} doorW={doorW} doorH={doorH} />
@@ -57,7 +61,7 @@ export default function RoomContext() {
     );
 }
 
-function Walls({ xMin, xMax, zMin, zMax, doorPos, wallHeight, wallThick, doorW, doorH }: any) {
+function Walls({ xMin, xMax, zMin, zMax, doorPos, wallHeight, wallThick, doorW, doorH }: WallsProps) {
     const width = xMax - xMin;
     const depth = zMax - zMin;
     const centerX = (xMin + xMax) / 2;
@@ -69,7 +73,7 @@ function Walls({ xMin, xMax, zMin, zMax, doorPos, wallHeight, wallThick, doorW, 
             return (
                 <mesh position={pos} rotation={rot} receiveShadow>
                     <boxGeometry args={[len, wallHeight, wallThick]} />
-                    <meshStandardMaterial color="#fef3c7" />
+                    <meshStandardMaterial color="#fff7d6" />
                 </mesh>
             );
         }
@@ -81,17 +85,17 @@ function Walls({ xMin, xMax, zMin, zMax, doorPos, wallHeight, wallThick, doorW, 
                 {/* Top header */}
                 <mesh position={[0, doorH / 2, 0]} receiveShadow>
                     <boxGeometry args={[doorW, wallHeight - doorH, wallThick]} />
-                    <meshStandardMaterial color="#fef3c7" />
+                    <meshStandardMaterial color="#fff7d6" />
                 </mesh>
                 {/* Left side */}
                 <mesh position={[-doorW/2 - sideLen/2, 0, 0]} receiveShadow>
                     <boxGeometry args={[sideLen, wallHeight, wallThick]} />
-                    <meshStandardMaterial color="#fef3c7" />
+                    <meshStandardMaterial color="#fff7d6" />
                 </mesh>
                 {/* Right side */}
                 <mesh position={[doorW/2 + sideLen/2, 0, 0]} receiveShadow>
                     <boxGeometry args={[sideLen, wallHeight, wallThick]} />
-                    <meshStandardMaterial color="#fef3c7" />
+                    <meshStandardMaterial color="#fff7d6" />
                 </mesh>
                 {/* Door assembly */}
                 <group position={[0, -hh, 0]}>

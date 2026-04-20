@@ -1,25 +1,40 @@
-version: '3.8'
-
 services:
   zookeeper:
     image: wurstmeister/zookeeper:latest
+    restart: unless-stopped
     ports:
       - "2182:2181"
 
   kafka:
     image: wurstmeister/kafka:latest
+    restart: unless-stopped
+    hostname: kafka
+    depends_on:
+      - zookeeper
     ports:
       - "29093:29093"
     environment:
+      KAFKA_BROKER_ID: 1
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INSIDE:PLAINTEXT,OUTSIDE:PLAINTEXT
       KAFKA_LISTENERS: INSIDE://0.0.0.0:9092,OUTSIDE://0.0.0.0:29093
-      KAFKA_ADVERTISED_LISTENERS: INSIDE://kafka:9092,OUTSIDE://localhost:29093
+      KAFKA_ADVERTISED_LISTENERS: INSIDE://kafka:9092,OUTSIDE://127.0.0.1:29093
       KAFKA_INTER_BROKER_LISTENER_NAME: INSIDE
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_CREATE_TOPICS: "telemetry:1:1"
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+    healthcheck:
+      test: ["CMD-SHELL", "unset JMX_PORT; kafka-topics.sh --bootstrap-server 127.0.0.1:9092 --list > /dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 20s
 
   influxdb:
     image: influxdb:2.0
+    restart: unless-stopped
     ports:
       - "8087:8086"
     environment:
@@ -30,8 +45,15 @@ services:
       - DOCKER_INFLUXDB_INIT_ORG=datacenter
       - DOCKER_INFLUXDB_INIT_BUCKET=telemetry
 
+  redis:
+    image: redis:alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
   mongodb:
     image: mongo:latest
+    restart: unless-stopped
     ports:
       - "27018:27017"
     environment:
@@ -40,6 +62,7 @@ services:
 
   grafana:
     image: grafana/grafana:latest
+    restart: unless-stopped
     ports:
       - "3002:3000"
     environment:
