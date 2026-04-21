@@ -32,6 +32,15 @@ if errorlevel 1 (
   exit /b 1
 )
 
+if exist "%ROOT%\.env" (
+  echo [INFO] Loading environment variables from .env ...
+  for /f "usebackq eol=# tokens=1* delims==" %%A in ("%ROOT%\.env") do (
+    if not "%%~A"=="" call set "%%~A=%%~B"
+  )
+) else (
+  echo [INFO] .env not found. Using current system environment.
+)
+
 echo ==============================================
 echo   DataCenter Monitoring System - Startup
 echo ==============================================
@@ -39,7 +48,7 @@ echo Root:   %ROOT%
 echo Python: %VENV_PY%
 echo.
 
-echo [1/4] Starting Docker containers - Kafka, InfluxDB, MongoDB, Grafana
+echo [1/4] Starting Docker containers - Kafka, InfluxDB, MongoDB, Mailpit, Grafana
 docker compose up -d 2>nul
 if errorlevel 1 docker-compose up -d 2>nul
 if errorlevel 1 echo [WARN] Docker step skipped - install Docker Desktop or add compose to PATH.
@@ -94,6 +103,7 @@ echo.
 echo Backend API : http://127.0.0.1:9000/docs
 echo Frontend    : http://127.0.0.1:9001
 echo Grafana     : http://127.0.0.1:3002
+echo Mailpit UI  : http://127.0.0.1:8025
 echo.
 echo Agents      : SERVER-015 standard, CDU-001 DLC
 echo Auth Login  : POST http://127.0.0.1:9000/api/auth/login

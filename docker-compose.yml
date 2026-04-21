@@ -2,8 +2,6 @@ services:
   zookeeper:
     image: wurstmeister/zookeeper:latest
     restart: unless-stopped
-    ports:
-      - "2182:2181"
 
   kafka:
     image: wurstmeister/kafka:latest
@@ -59,6 +57,13 @@ services:
     environment:
       - MONGO_INITDB_ROOT_USERNAME=admin
       - MONGO_INITDB_ROOT_PASSWORD=adminpassword
+
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    ports:
+      - "1025:1025"
+      - "8025:8025"
 
   grafana:
     image: grafana/grafana:latest

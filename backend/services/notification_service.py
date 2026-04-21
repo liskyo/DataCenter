@@ -1,5 +1,10 @@
 import time
+import smtplib
 import httpx
+from email.header import Header
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.utils import formataddr
 from typing import Dict, Tuple
 
 class NotificationService:
@@ -60,3 +65,76 @@ class NotificationService:
                 
         except Exception as e:
             print(f"[Notifier] Connection error sending LINE Notify: {str(e)}")
+
+
+class EmailNotificationService:
+    def __init__(
+        self,
+        host: str,
+        port: int,
+        username: str,
+        password: str,
+        from_email: str,
+        from_name: str = "DCIM System",
+        use_tls: bool = True,
+    ):
+        self.host = host
+        self.port = port
+        self.username = username
+        self.password = password
+        self.from_email = from_email
+        self.from_name = from_name
+        self.use_tls = use_tls
+
+    @property
+    def is_configured(self) -> bool:
+        return bool(self.host and self.port and self.from_email)
+
+    def send_email(self, *, to_email: str, subject: str, html_content: str) -> tuple[bool, str]:
+        if not self.is_configured:
+            return False, "SMTP settings are incomplete"
+
+        recipient = str(to_email).strip()
+        if not recipient:
+            return False, "Recipient email is empty"
+
+        content = MIMEMultipart("mixed")
+        content["Subject"] = Header(subject, "utf-8").encode()
+        content["From"] = formataddr((str(Header(self.from_name, "utf-8")), self.from_email))
+        content["To"] = recipient
+        content.attach(MIMEText(html_content, "html", "utf-8"))
+
+        try:
+            with smtplib.SMTP(self.host, self.port, timeout=10) as smtp:
+                smtp.ehlo()
+                if self.use_tls:
+                    smtp.starttls()
+                    smtp.ehlo()
+                if self.username and self.password:
+                    smtp.login(self.username, self.password)
+                smtp.sendmail(self.from_email, recipient, content.as_string())
+            return True, ""
+        except Exception as exc:
+            return False, str(exc)
+
+    def send_maintenance_reminder(self, schedule: dict) -> tuple[bool, str]:
+        to_email = str(schedule.get("reminder_email", "")).strip()
+        return self.send_email(
+            to_email=to_email,
+            subject=f"[DCIM] 維護排程提醒 - {schedule.get('target', 'Unknown Target')}",
+            html_content=f"""
+<html>
+  <body>
+    <h2>DCIM 維護排程提醒</h2>
+    <p><strong>維護對象:</strong> {schedule.get('target', '')}</p>
+    <p><strong>維護項目:</strong> {schedule.get('task_type', '')}</p>
+    <p><strong>排程時間:</strong> {schedule.get('scheduled_at', '')}</p>
+    <p><strong>負責人:</strong> {schedule.get('assignee_name', '')} ({schedule.get('assignee_username', '')})</p>
+    <p><strong>通知信箱:</strong> {to_email}</p>
+    <p><strong>備註:</strong> {schedule.get('notes', '') or '無'}</p>
+    <hr />
+    <p>請依排程時間完成維護作業。</p>
+  </body>
+</html>
+""".strip(),
+        )

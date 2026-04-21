@@ -5,14 +5,16 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useShallow } from "zustand/react/shallow";
 import { useDcimStore } from "@/store/useDcimStore";
+import { useAuth } from "@/shared/auth-context";
 import { useLanguage } from "@/shared/i18n/language";
 import {
   BarChart3, SlidersHorizontal, LineChart, LifeBuoy,
-  CloudDownload, Globe, FileText, Wrench, Settings, Languages, MonitorIcon, Factory, Box, MapPin, Plus
+  CloudDownload, Globe, FileText, Wrench, Settings, Languages, Factory, Box, MapPin, Plus, LogOut
 } from "lucide-react";
 
 export default function Navbar() {
   const pathname = usePathname();
+  const { user, logout, loading, isAuthenticated } = useAuth();
   const { language, toggleLanguage } = useLanguage();
   const { locations, currentLocationId, setCurrentLocation, addLocation } = useDcimStore(
     useShallow((s) => ({
@@ -59,6 +61,10 @@ export default function Navbar() {
       languageButton: "中(繁)",
     };
   }, [language]);
+
+  if (pathname === "/login" || loading || !isAuthenticated) {
+    return null;
+  }
 
   const validLocationId =
     locations.some((l) => l.id === currentLocationId) && locations.length > 0
@@ -113,6 +119,14 @@ export default function Navbar() {
 
       {/* 右側工具列 */}
       <div className="flex items-center gap-3 pl-4 border-l border-slate-700 ml-4 shrink-0">
+        <div className="hidden xl:flex flex-col items-end text-right">
+          <span className="text-[11px] font-bold tracking-[0.2em] text-cyan-300">
+            {user?.name || user?.username}
+          </span>
+          <span className="text-[10px] uppercase tracking-[0.3em] text-slate-500">
+            {user?.role}
+          </span>
+        </div>
 
         {/* 地點切換器 */}
         <div className="flex items-center gap-2 bg-[#0a1e3f] border border-cyan-900/50 rounded-md px-2 py-1">
@@ -137,14 +151,19 @@ export default function Navbar() {
           </button>
         </div>
 
-        <button className="flex items-center justify-center p-2 text-slate-400 hover:text-white transition-colors">
-          <MonitorIcon size={18} />
-        </button>
         <button
           onClick={toggleLanguage}
           className="flex items-center gap-2 px-3 py-1.5 rounded-md border border-slate-700 hover:bg-slate-800 hover:border-slate-500 transition-colors text-[13px] tracking-wider text-slate-300"
         >
           <Languages size={14} /> {t.languageButton}
+        </button>
+        <button
+          onClick={logout}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-md border border-red-900/60 text-red-300 transition-colors hover:bg-red-950/30 hover:border-red-700"
+          title="Logout"
+        >
+          <LogOut size={14} />
+          <span className="text-[12px] font-bold tracking-[0.2em]">OUT</span>
         </button>
       </div>
     </nav>

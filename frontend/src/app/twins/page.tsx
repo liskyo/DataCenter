@@ -3,6 +3,7 @@ import React, { useRef, useState, useEffect, useMemo, useCallback } from "react"
 import { useShallow } from "zustand/react/shallow";
 import { useDcimStore, ServerData } from "@/store/useDcimStore";
 import { apiUrl } from "@/shared/api";
+import { authFetch } from "@/shared/auth";
 import { normalizeNodeId, buildTelemetryKeys } from "@/shared/nodeId";
 import dynamic from "next/dynamic";
 import { Activity, Download, Upload, Server, Trash, Save, Edit, Lock, Thermometer, Zap, Box, MonitorIcon, Globe, Link2, Droplets } from "lucide-react";
@@ -217,7 +218,7 @@ export default function TwinsPage() {
 
     usePolling(async () => {
         try {
-            const res = await fetch(apiUrl("/metrics"), { cache: "no-store" });
+            const res = await authFetch(apiUrl("/metrics"), { cache: "no-store" });
             if (!res.ok) return;
             const json = await res.json();
             const tMap: Record<string, any> = {};
@@ -233,7 +234,7 @@ export default function TwinsPage() {
     useEffect(() => {
         const syncTargets = async () => {
             try {
-                const modeRes = await fetch(apiUrl("/api/system/mode"), { cache: "no-store" });
+                const modeRes = await authFetch(apiUrl("/api/system/mode"), { cache: "no-store" });
                 if (!modeRes.ok) return;
                 const modeJson = await modeRes.json();
                 if (modeJson.mode !== "simulation") return;
@@ -254,14 +255,14 @@ export default function TwinsPage() {
                     display_name: normalizeNodeId(s.name),
                 }));
                 if (bindingItems.length > 0) {
-                    await fetch(apiUrl("/api/system/id_bindings/bulk_bind"), {
+                    await authFetch(apiUrl("/api/system/id_bindings/bulk_bind"), {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ items: bindingItems }),
                     });
                 }
 
-                await fetch(apiUrl("/api/system/simulate_targets"), {
+                await authFetch(apiUrl("/api/system/simulate_targets"), {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ targets }),

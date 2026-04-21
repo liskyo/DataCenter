@@ -5,6 +5,7 @@ import { Power, Fan, Settings2, SlidersHorizontal, RefreshCcw, X, Cpu, Network, 
 import { useLanguage } from "@/shared/i18n/language";
 import { useDcimStore } from "@/store/useDcimStore";
 import { apiUrl } from "@/shared/api";
+import { authFetch } from "@/shared/auth";
 import { useSSE } from "@/shared/hooks/useSSE";
 
 type ServerTelemetry = {
@@ -148,7 +149,7 @@ export default function ControlPage() {
 
     try {
       const targetAction = currentPower ? "off" : "on";
-      const res = await fetch(apiUrl(`/api/control/${encodeURIComponent(id)}/power`), {
+      const res = await authFetch(apiUrl(`/api/control/${encodeURIComponent(id)}/power`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: targetAction }),
@@ -171,7 +172,7 @@ export default function ControlPage() {
   const rebootMachine = async (id: string) => {
     setMachines((prev) => prev.map((m) => (m.id === id ? { ...m, isRebooting: true } : m)));
     try {
-      const res = await fetch(apiUrl(`/api/control/${encodeURIComponent(id)}/power`), {
+      const res = await authFetch(apiUrl(`/api/control/${encodeURIComponent(id)}/power`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "reboot" }),

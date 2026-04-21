@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 
+from core.auth_middleware import get_current_user, require_role
 from core.container import AppContainer
 
 router = APIRouter(prefix="/api/system")
@@ -13,13 +14,17 @@ def _container(request: Request) -> AppContainer:
 
 
 @router.get("/mode")
-def get_system_mode(request: Request):
+def get_system_mode(request: Request, _: dict = Depends(get_current_user)):
     container = _container(request)
     return {"mode": container.system_mode}
 
 
 @router.post("/mode")
-def toggle_system_mode(payload: dict, request: Request):
+def toggle_system_mode(
+    payload: dict,
+    request: Request,
+    _: dict = Depends(require_role("admin", "operator")),
+):
     container = _container(request)
     mode = payload.get("mode")
     if mode in ["simulation", "real"]:
@@ -30,7 +35,11 @@ def toggle_system_mode(payload: dict, request: Request):
 
 
 @router.post("/simulate_targets")
-def set_simulate_targets(payload: dict, request: Request):
+def set_simulate_targets(
+    payload: dict,
+    request: Request,
+    _: dict = Depends(require_role("admin", "operator")),
+):
     container = _container(request)
     targets = payload.get("targets", [])
     if isinstance(targets, list) and targets:
@@ -48,7 +57,7 @@ def set_simulate_targets(payload: dict, request: Request):
 
 
 @router.get("/id_bindings")
-def list_id_bindings(request: Request):
+def list_id_bindings(request: Request, _: dict = Depends(get_current_user)):
     container = _container(request)
     rows = [{"asset_id": a, "display_name": d} for a, d in container.asset_to_display.items()]
     rows.sort(key=lambda x: x["display_name"])
@@ -56,7 +65,11 @@ def list_id_bindings(request: Request):
 
 
 @router.post("/id_bindings/bind")
-def bind_id(payload: dict, request: Request):
+def bind_id(
+    payload: dict,
+    request: Request,
+    _: dict = Depends(require_role("admin", "operator")),
+):
     container = _container(request)
     asset_id = payload.get("asset_id")
     display_name = payload.get("display_name")
@@ -70,7 +83,11 @@ def bind_id(payload: dict, request: Request):
 
 
 @router.post("/id_bindings/bulk_bind")
-def bulk_bind_id(payload: dict, request: Request):
+def bulk_bind_id(
+    payload: dict,
+    request: Request,
+    _: dict = Depends(require_role("admin", "operator")),
+):
     container = _container(request)
     items = payload.get("items", [])
     if not isinstance(items, list):
@@ -95,17 +112,21 @@ def bulk_bind_id(payload: dict, request: Request):
 def health_check(request: Request):
     container = _container(request)
     mongo_state = "up" if container.alert_storage.is_ready else "down"
+    user_store_state = "up" if container.user_storage.is_ready else "down"
     producer_state = "up" if container.kafka.producer is not None else "down"
     consumer_state = "up" if container.kafka.consumer_ready else "down"
 
     overall = (
-        "healthy" if mongo_state == "up" and producer_state == "up" and consumer_state == "up" else "degraded"
+        "healthy"
+        if mongo_state == "up" and user_store_state == "up" and producer_state == "up" and consumer_state == "up"
+        else "degraded"
     )
 
     return {
         "status": overall,
         "dependencies": {
             "mongo": mongo_state,
+            "user_store": user_store_state,
             "kafka_producer": producer_state,
             "kafka_consumer": consumer_state,
             "influx": "up",
@@ -122,4 +143,5 @@ def debug(request: Request):
         "latest_metrics_len": len(container.telemetry.latest_metrics),
         "system_mode": container.system_mode,
         "mongo_ready": container.alert_storage.is_ready,
+        "user_store_ready": container.user_storage.is_ready,
     }

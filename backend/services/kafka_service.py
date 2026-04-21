@@ -137,7 +137,7 @@ class KafkaRuntimeService:
                         servers = [f"SERVER-{str(i).zfill(3)}" for i in range(1, 19)]
                         switches = [f"SW-{str(i).zfill(3)}" for i in range(1, 4)]
                         all_ids = servers + switches
-                        
+
                     for s_id in all_ids:
                         if s_id not in base_metrics:
                             base_metrics[s_id] = {"temp": random.uniform(20, 25), "cpu": random.uniform(10, 30), "traffic": random.uniform(2, 10)}
@@ -221,10 +221,10 @@ class KafkaRuntimeService:
                             else:
                                 current_temp = base["temp"] + (random.uniform(15, 25) if random.random() < 0.005 else 0)
                                 current_cpu = base["cpu"] + (random.uniform(30, 50) if random.random() < 0.005 else 0)
-                                
+
                                 final_temp = min(current_temp, 99.9)
                                 fan_speed = min(100.0, max(20.0, ((final_temp - 25) * 1.6) + 20))
-                                
+
                                 payload = {
                                     "server_id": s_id,
                                     "is_simulated": True,
@@ -242,7 +242,7 @@ class KafkaRuntimeService:
                                 "power_state": "off", # 真實模式下若無數據，我們標記為 off (除非手動開機)
                                 "timestamp": int(time.time() * 1000),
                             }
-                        
+
                         self.emit_or_fallback(payload, fallback_on_message)
                     if self.producer is not None:
                         self.producer.flush()
