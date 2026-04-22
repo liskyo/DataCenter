@@ -12,10 +12,11 @@ def _container(request: Request) -> AppContainer:
     return request.app.state.container
 
 
-def _parse_schedule_payload(payload: dict, request: Request) -> tuple[str, str, str, str, bool, str, dict, str]:
+def _parse_schedule_payload(payload: dict, request: Request) -> tuple[str, str, str, int, str, bool, str, dict, str]:
     target = str(payload.get("target", "")).strip()
     task_type = str(payload.get("task_type", "")).strip()
     scheduled_at = str(payload.get("scheduled_at", "")).strip()
+    recurrence_days_raw = payload.get("recurrence_days", 0)
     assignee_username = str(payload.get("assignee_username", "")).strip()
     notify_email = bool(payload.get("notify_email", False))
     notes = str(payload.get("notes", "")).strip()
@@ -26,6 +27,12 @@ def _parse_schedule_payload(payload: dict, request: Request) -> tuple[str, str, 
         raise HTTPException(status_code=400, detail="Maintenance task is required")
     if not scheduled_at:
         raise HTTPException(status_code=400, detail="Schedule time is required")
+    try:
+        recurrence_days = int(recurrence_days_raw)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Invalid recurrence value")
+    if recurrence_days < 0:
+        raise HTTPException(status_code=400, detail="Recurrence days must be non-negative")
     if not assignee_username:
         raise HTTPException(status_code=400, detail="Assignee is required")
 
@@ -34,7 +41,17 @@ def _parse_schedule_payload(payload: dict, request: Request) -> tuple[str, str, 
     if notify_email and not assignee_email:
         raise HTTPException(status_code=400, detail="Selected assignee has no email configured")
 
-    return target, task_type, scheduled_at, assignee_username, notify_email, notes, assignee, assignee_email
+    return (
+        target,
+        task_type,
+        scheduled_at,
+        recurrence_days,
+        assignee_username,
+        notify_email,
+        notes,
+        assignee,
+        assignee_email,
+    )
 
 
 @router.get("/schedules")
@@ -46,7 +63,7 @@ def list_schedules(request: Request, _: dict = Depends(get_current_user)):
 @router.post("/schedules")
 def create_schedule(payload: dict, request: Request, _: dict = Depends(get_current_user)):
     container = _container(request)
-    target, task_type, scheduled_at, assignee_username, notify_email, notes, assignee, assignee_email = (
+    target, task_type, scheduled_at, recurrence_days, assignee_username, notify_email, notes, assignee, assignee_email = (
         _parse_schedule_payload(payload, request)
     )
 
@@ -55,6 +72,7 @@ def create_schedule(payload: dict, request: Request, _: dict = Depends(get_curre
             target=target,
             task_type=task_type,
             scheduled_at=scheduled_at,
+            recurrence_days=recurrence_days,
             assignee_username=assignee_username,
             assignee_name=str(assignee.get("name", assignee_username)),
             assignee_role=str(assignee.get("role", "")),
@@ -70,7 +88,7 @@ def create_schedule(payload: dict, request: Request, _: dict = Depends(get_curre
 @router.put("/schedules/{schedule_id}")
 def update_schedule(schedule_id: str, payload: dict, request: Request, _: dict = Depends(get_current_user)):
     container = _container(request)
-    target, task_type, scheduled_at, assignee_username, notify_email, notes, assignee, assignee_email = (
+    target, task_type, scheduled_at, recurrence_days, assignee_username, notify_email, notes, assignee, assignee_email = (
         _parse_schedule_payload(payload, request)
     )
 
@@ -80,6 +98,7 @@ def update_schedule(schedule_id: str, payload: dict, request: Request, _: dict =
             target=target,
             task_type=task_type,
             scheduled_at=scheduled_at,
+            recurrence_days=recurrence_days,
             assignee_username=assignee_username,
             assignee_name=str(assignee.get("name", assignee_username)),
             assignee_role=str(assignee.get("role", "")),

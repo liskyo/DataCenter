@@ -2,7 +2,7 @@
 
 import { BellRing, CalendarClock, ShieldCheck, Wrench } from "lucide-react";
 import type { MaintenanceCopy, MaintenanceSchedule } from "./types";
-import { formatScheduleDateTime } from "./utils";
+import { formatRecurrenceLabel, formatScheduleDateTime } from "./utils";
 
 type Props = {
   task: MaintenanceSchedule;
@@ -45,6 +45,10 @@ export function MaintenanceScheduleCard({
         <div className="flex items-center gap-2">
           <CalendarClock size={14} className="text-slate-500" />
           {t.schedule}: {formatScheduleDateTime(task.scheduled_at)}
+        </div>
+        <div className="flex items-center gap-2">
+          <CalendarClock size={14} className="text-slate-500" />
+          {t.recurrence}: {formatRecurrenceLabel(task.recurrence_days, t)}
         </div>
         <div className="flex items-center gap-2">
           <BellRing size={14} className="text-slate-500" />

@@ -5,6 +5,7 @@ export type MaintenanceSchedule = {
   target: string;
   task_type: string;
   scheduled_at: string;
+  recurrence_days: number;
   status: string;
   assignee_username: string;
   assignee_name: string;
@@ -29,6 +30,7 @@ export type MaintenanceFormState = {
   taskType: string;
   scheduledDate: string;
   scheduledTime: string;
+  recurrenceDays: string;
   assigneeUsername: string;
   notifyEmail: boolean;
   notes: string;
@@ -44,6 +46,8 @@ export type MaintenanceCopy = {
   schedule: string;
   scheduleDate: string;
   scheduleTime: string;
+  recurrence: string;
+  recurrenceHint: string;
   assigned: string;
   notify: string;
   notes: string;
@@ -67,6 +71,9 @@ export type MaintenanceCopy = {
   placeholderTarget: string;
   placeholderTask: string;
   placeholderTime: string;
+  placeholderRecurrenceDays: string;
   placeholderNotes: string;
   invalidTime: string;
+  invalidRecurrenceDays: string;
+  recurrenceOneTime: string;
 };

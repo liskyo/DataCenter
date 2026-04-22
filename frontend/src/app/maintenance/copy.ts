@@ -15,6 +15,8 @@ export function getMaintenanceCopy(language: AppLanguage): MaintenanceCopy {
         schedule: "Schedule",
         scheduleDate: "Date",
         scheduleTime: "Time (24h)",
+        recurrence: "Cycle Days",
+        recurrenceHint: "Use 0 for one-time only; after each email send, the next send time moves forward by this many days.",
         assigned: "Assignee",
         notify: "Email Reminder",
         notes: "Notes",
@@ -38,8 +40,11 @@ export function getMaintenanceCopy(language: AppLanguage): MaintenanceCopy {
         placeholderTarget: "e.g. CRAC Unit A",
         placeholderTask: "e.g. Filter replacement",
         placeholderTime: "e.g. 14:30",
+        placeholderRecurrenceDays: "e.g. 30",
         placeholderNotes: "Optional work order or preparation notes",
         invalidTime: "Please enter time in 24-hour format (HH:MM).",
+        invalidRecurrenceDays: "Please enter cycle days as a non-negative integer.",
+        recurrenceOneTime: "One-time",
       }
     : {
         title: "維護排程",
@@ -51,6 +56,8 @@ export function getMaintenanceCopy(language: AppLanguage): MaintenanceCopy {
         schedule: "排程",
         scheduleDate: "日期",
         scheduleTime: "時間（24小時制）",
+        recurrence: "週期天數",
+        recurrenceHint: "輸入 0 代表單次；每次發信成功後，系統會把下一次發送時間往後加上這個天數。",
         assigned: "維護負責人",
         notify: "Email 提醒",
         notes: "備註",
@@ -74,7 +81,10 @@ export function getMaintenanceCopy(language: AppLanguage): MaintenanceCopy {
         placeholderTarget: "例如：CRAC Unit A",
         placeholderTask: "例如：濾網更換",
         placeholderTime: "例如：14:30",
+        placeholderRecurrenceDays: "例如：30",
         placeholderNotes: "可填寫工單內容、停機窗口或準備事項",
         invalidTime: "請輸入 24 小時制時間，格式為 HH:MM。",
+        invalidRecurrenceDays: "請輸入大於或等於 0 的整數天數。",
+        recurrenceOneTime: "單次",
       };
 }

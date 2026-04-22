@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import time
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 import threading
 import re
 
@@ -277,16 +278,29 @@ class AppContainer:
         # SSE: broadcast to all connected frontends in real-time
         self.sse.broadcast(data)
 
+    @staticmethod
+    def _next_maintenance_email_run(now: datetime) -> datetime:
+        base = now.replace(second=0, microsecond=0)
+        retry_minutes = (0, 5, 10)
+        for minute in retry_minutes:
+            slot = base.replace(hour=8, minute=minute)
+            if now < slot:
+                return slot
+        tomorrow = base + timedelta(days=1)
+        return tomorrow.replace(hour=8, minute=0)
+
     def maintenance_email_worker(self) -> None:
         while not self.kafka.stop_event.is_set():
+            now = datetime.now()
+            next_run = self._next_maintenance_email_run(now)
+            wait_seconds = max((next_run - now).total_seconds(), 1)
+            if self.kafka.stop_event.wait(wait_seconds):
+                break
             if self.maintenance_service.is_ready:
                 self.maintenance_service.process_due_email_schedules(
-                    int(time.time() * 1000),
+                    datetime.now().date().isoformat(),
                     self.log_system_event,
                 )
-
-            if self.kafka.stop_event.wait(self.settings.maintenance_email_scan_seconds):
-                break
 
     def startup(self) -> None:
         self.alert_storage.init()

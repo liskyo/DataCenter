@@ -57,6 +57,8 @@ services:
     environment:
       - MONGO_INITDB_ROOT_USERNAME=admin
       - MONGO_INITDB_ROOT_PASSWORD=adminpassword
+    volumes:
+      - mongodb_data:/data/db
 
   mailpit:
     image: axllent/mailpit:latest
@@ -74,3 +76,6 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=admin
     depends_on:
       - influxdb
+
+volumes:
+  mongodb_data:

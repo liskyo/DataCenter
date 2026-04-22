@@ -45,8 +45,12 @@ export default function ControlPage() {
   const allGridItems = useMemo(() =>
     store.racks
       .filter(r => r.locationId === store.currentLocationId)
-      .flatMap(r => r.servers.map(s => ({ ...s, rackName: r.name, rackType: r.type }))),
+      .flatMap(r => r.servers.map(s => ({ ...s, rackName: r.name, rackType: r.type, rackId: r.id }))),
     [store.racks, store.currentLocationId]
+  );
+  const machineMetaByName = useMemo(
+    () => new Map(allGridItems.map((item) => [item.name, item])),
+    [allGridItems],
   );
 
   const { language } = useLanguage();
@@ -118,6 +122,7 @@ export default function ControlPage() {
   }, [allGridItems]);
 
   const [configuringMachine, setConfiguringMachine] = useState<string | null>(null);
+  const [configIp, setConfigIp] = useState("");
   
   // 搜尋處理
   const [searchQuery, setSearchQuery] = useState("");
@@ -127,6 +132,12 @@ export default function ControlPage() {
   const [page, setPage] = useState(0);
   const pageSize = 6;
   const totalPages = Math.ceil(filteredMachines.length / pageSize);
+
+  useEffect(() => {
+    if (!configuringMachine) return;
+    const meta = machineMetaByName.get(configuringMachine);
+    setConfigIp(meta?.ipAddress || "");
+  }, [configuringMachine, machineMetaByName]);
 
   useEffect(() => {
     if (page >= totalPages && totalPages > 0) {
@@ -192,6 +203,15 @@ export default function ControlPage() {
     }
   };
 
+  const applyMachineConfig = () => {
+    if (!configuringMachine) return;
+    const meta = machineMetaByName.get(configuringMachine);
+    if (!meta) return;
+    const normalizedIp = configIp.trim();
+    store.updateServerInRack(meta.rackId, meta.id, { ipAddress: normalizedIp });
+    setConfiguringMachine(null);
+  };
+
   return (
     <div className="p-8 pb-20 max-w-7xl mx-auto relative h-full flex flex-col">
       <header className="mb-10 flex flex-col md:flex-row justify-between items-start md:items-center bg-[#0a1e3f]/30 p-4 rounded-xl border border-[#1e3a8a] gap-4">
@@ -245,6 +265,9 @@ export default function ControlPage() {
         {paginatedMachines.map((machine) => (
           <TechPanel key={machine.id} title={machine.id} className="h-fit">
             <div className="space-y-6">
+              <div className="text-[11px] text-slate-500 font-mono">
+                HOST / IP: {machineMetaByName.get(machine.id)?.ipAddress || "N/A"}
+              </div>
               
               {/* Power Toggle */}
               <div className="flex justify-between items-center bg-[#0a1e3f]/50 p-4 rounded-lg border border-[#1e3a8a]">
@@ -333,7 +356,13 @@ export default function ControlPage() {
                     <div className="space-y-3 font-mono text-xs">
                        <div className="flex justify-between items-center text-slate-300">
                          <span>IPv4 Address</span>
-                         <input type="text" className="bg-black border border-cyan-900 px-2 py-1 text-cyan-400 w-32 focus:outline-none" defaultValue={`192.168.1.${parseInt(configuringMachine.split('-')[1], 10) + 10}`} />
+                         <input
+                           type="text"
+                           className="bg-black border border-cyan-900 px-2 py-1 text-cyan-400 w-40 focus:outline-none"
+                           value={configIp}
+                           onChange={(e) => setConfigIp(e.target.value)}
+                           placeholder="e.g. 192.168.1.10"
+                         />
                        </div>
                        <div className="flex justify-between items-center text-slate-300">
                          <span>VLAN ID</span>
@@ -370,7 +399,10 @@ export default function ControlPage() {
                       </label>
                     </div>
 
-                    <button className="w-full mt-6 flex items-center justify-center gap-2 bg-[#06183a] border border-emerald-800 text-emerald-400 py-2 font-mono text-xs tracking-widest hover:bg-emerald-950 transition-colors">
+                    <button
+                      onClick={applyMachineConfig}
+                      className="w-full mt-6 flex items-center justify-center gap-2 bg-[#06183a] border border-emerald-800 text-emerald-400 py-2 font-mono text-xs tracking-widest hover:bg-emerald-950 transition-colors"
+                    >
                        <DatabaseZap size={14}/> APPLY CHANGES
                     </button>
                  </div>

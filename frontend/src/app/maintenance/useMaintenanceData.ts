@@ -16,6 +16,7 @@ const EMPTY_FORM: MaintenanceFormState = {
   taskType: "",
   scheduledDate: "",
   scheduledTime: "",
+  recurrenceDays: "0",
   assigneeUsername: "",
   notifyEmail: true,
   notes: "",
@@ -99,6 +100,7 @@ export function useMaintenanceData(t: MaintenanceCopy) {
       taskType: task.task_type,
       scheduledDate: date,
       scheduledTime: time,
+      recurrenceDays: String(task.recurrence_days ?? 0),
       assigneeUsername: task.assignee_username,
       notifyEmail: task.notify_email,
       notes: task.notes,
@@ -143,6 +145,12 @@ export function useMaintenanceData(t: MaintenanceCopy) {
       setSubmitting(false);
       return false;
     }
+    const normalizedRecurrenceDays = form.recurrenceDays.trim();
+    if (!/^\d+$/.test(normalizedRecurrenceDays)) {
+      setError(t.invalidRecurrenceDays);
+      setSubmitting(false);
+      return false;
+    }
 
     const scheduledAt = `${form.scheduledDate}T${normalizedTime}`;
 
@@ -161,6 +169,7 @@ export function useMaintenanceData(t: MaintenanceCopy) {
             target: form.target,
             task_type: form.taskType,
             scheduled_at: scheduledAt,
+            recurrence_days: Number(normalizedRecurrenceDays),
             assignee_username: form.assigneeUsername,
             notify_email: form.notifyEmail,
             notes: form.notes,
@@ -196,7 +205,7 @@ export function useMaintenanceData(t: MaintenanceCopy) {
     } finally {
       setSubmitting(false);
     }
-  }, [editingScheduleId, form, resetForm, t.invalidTime]);
+  }, [editingScheduleId, form, resetForm, t.invalidRecurrenceDays, t.invalidTime]);
 
   const handleDelete = useCallback(
     async (scheduleId: string) => {

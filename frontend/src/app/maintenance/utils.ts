@@ -1,5 +1,7 @@
 "use client";
 
+import type { MaintenanceCopy } from "./types";
+
 export function formatScheduleDateTime(value: string): string {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) {
@@ -19,4 +21,11 @@ export function formatScheduleDateTime(value: string): string {
 export function splitScheduleDateTime(value: string): { date: string; time: string } {
   const [date = "", time = ""] = value.split("T");
   return { date, time: time.slice(0, 5) };
+}
+
+export function formatRecurrenceLabel(days: number, t: MaintenanceCopy): string {
+  if (!days) {
+    return t.recurrenceOneTime;
+  }
+  return `${days} 天`;
 }

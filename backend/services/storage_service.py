@@ -4,7 +4,7 @@ import hashlib
 import hmac
 import secrets
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Optional
 
 from influxdb_client import InfluxDBClient, Point
@@ -89,6 +89,44 @@ class AlertStorageService:
 
 PBKDF2_ALGORITHM = "sha256"
 PBKDF2_ITERATIONS = 310000
+
+def normalize_recurrence_days(value: object) -> int:
+    try:
+        days = int(value)
+    except (TypeError, ValueError):
+        return 0
+    return max(days, 0)
+
+
+def legacy_recurrence_months_to_days(value: object) -> int:
+    month_to_days = {
+        1: 30,
+        3: 90,
+        6: 180,
+        12: 365,
+    }
+    try:
+        months = int(value)
+    except (TypeError, ValueError):
+        return 0
+    return month_to_days.get(months, 0)
+
+
+def add_days_to_iso_datetime(value: str, days: int) -> tuple[str, int]:
+    base = datetime.fromisoformat(value)
+    shifted = base + timedelta(days=days)
+    return shifted.isoformat(timespec="minutes"), int(shifted.timestamp() * 1000)
+
+
+def scheduled_date_8am_ts(value: str) -> int:
+    base = datetime.fromisoformat(value)
+    due_at = base.replace(hour=8, minute=0, second=0, microsecond=0)
+    return int(due_at.timestamp() * 1000)
+
+
+def scheduled_date_text(value: str) -> str:
+    base = datetime.fromisoformat(value)
+    return base.date().isoformat()
 
 
 def hash_password(password: str) -> str:
@@ -295,6 +333,8 @@ class MaintenanceStorageService:
             self.maintenance_collection = db["maintenance_schedules"]
             self.maintenance_collection.create_index([("scheduled_at", 1)])
             self.maintenance_collection.create_index([("scheduled_at_ts", 1)])
+            self.maintenance_collection.create_index([("email_due_ts", 1)])
+            self.maintenance_collection.create_index([("scheduled_date", 1)])
             self.maintenance_collection.create_index([("assignee_username", 1)])
             self._backfill_existing_schedules()
             self.is_ready = True
@@ -315,6 +355,9 @@ class MaintenanceStorageService:
                     {"reminder_sent": {"$exists": False}},
                     {"reminder_last_attempt_at": {"$exists": False}},
                     {"reminder_error": {"$exists": False}},
+                    {"recurrence_days": {"$exists": False}},
+                    {"email_due_ts": {"$exists": False}},
+                    {"scheduled_date": {"$exists": False}},
                 ]
             },
             {
@@ -326,6 +369,10 @@ class MaintenanceStorageService:
                 "reminder_sent_at": 1,
                 "reminder_last_attempt_at": 1,
                 "reminder_error": 1,
+                "recurrence_days": 1,
+                "recurrence_months": 1,
+                "email_due_ts": 1,
+                "scheduled_date": 1,
             },
         )
         for row in cursor:
@@ -336,6 +383,16 @@ class MaintenanceStorageService:
                     update_doc["scheduled_at_ts"] = int(datetime.fromisoformat(scheduled_at).timestamp() * 1000)
                 except ValueError:
                     pass
+            if "email_due_ts" not in row and scheduled_at:
+                try:
+                    update_doc["email_due_ts"] = scheduled_date_8am_ts(scheduled_at)
+                except ValueError:
+                    pass
+            if "scheduled_date" not in row and scheduled_at:
+                try:
+                    update_doc["scheduled_date"] = scheduled_date_text(scheduled_at)
+                except ValueError:
+                    pass
             if "reminder_sent" not in row:
                 update_doc["reminder_sent"] = False
             if "reminder_sent_at" not in row:
@@ -344,6 +401,10 @@ class MaintenanceStorageService:
                 update_doc["reminder_last_attempt_at"] = 0
             if "reminder_error" not in row:
                 update_doc["reminder_error"] = ""
+            if "recurrence_days" not in row:
+                update_doc["recurrence_days"] = legacy_recurrence_months_to_days(row.get("recurrence_months"))
+            elif normalize_recurrence_days(row.get("recurrence_days")) != row.get("recurrence_days"):
+                update_doc["recurrence_days"] = normalize_recurrence_days(row.get("recurrence_days"))
             if update_doc:
                 self.maintenance_collection.update_one({"id": row["id"]}, {"$set": update_doc})
 
@@ -355,7 +416,7 @@ class MaintenanceStorageService:
         )
         return list(cursor)
 
-    def list_due_email_schedules(self, now_ts_ms: int, retry_after_ms: int = 300000, limit: int = 20) -> List[dict]:
+    def list_due_email_schedules(self, schedule_date: str, limit: int = 100) -> List[dict]:
         if self.maintenance_collection is None:
             return []
         cursor = self.maintenance_collection.find(
@@ -363,11 +424,7 @@ class MaintenanceStorageService:
                 "notify_email": True,
                 "reminder_email": {"$ne": ""},
                 "reminder_sent": {"$ne": True},
-                "scheduled_at_ts": {"$lte": now_ts_ms},
-                "$or": [
-                    {"reminder_last_attempt_at": {"$exists": False}},
-                    {"reminder_last_attempt_at": {"$lte": now_ts_ms - retry_after_ms}},
-                ],
+                "scheduled_date": schedule_date,
             },
             {"_id": 0},
         ).sort([("scheduled_at_ts", 1), ("created_at", 1)]).limit(limit)
@@ -379,6 +436,7 @@ class MaintenanceStorageService:
         target: str,
         task_type: str,
         scheduled_at: str,
+        recurrence_days: int,
         assignee_username: str,
         assignee_name: str,
         assignee_role: str,
@@ -389,6 +447,9 @@ class MaintenanceStorageService:
         if self.maintenance_collection is None:
             raise RuntimeError("Maintenance collection unavailable")
         scheduled_at_ts = int(datetime.fromisoformat(scheduled_at).timestamp() * 1000)
+        email_due_ts = scheduled_date_8am_ts(scheduled_at)
+        scheduled_date = scheduled_date_text(scheduled_at)
+        recurrence_days = normalize_recurrence_days(recurrence_days)
 
         doc = {
             "id": secrets.token_hex(8),
@@ -396,6 +457,9 @@ class MaintenanceStorageService:
             "task_type": task_type,
             "scheduled_at": scheduled_at,
             "scheduled_at_ts": scheduled_at_ts,
+            "email_due_ts": email_due_ts,
+            "scheduled_date": scheduled_date,
+            "recurrence_days": recurrence_days,
             "status": "SCHEDULED",
             "assignee_username": assignee_username,
             "assignee_name": assignee_name,
@@ -420,6 +484,7 @@ class MaintenanceStorageService:
         target: str,
         task_type: str,
         scheduled_at: str,
+        recurrence_days: int,
         assignee_username: str,
         assignee_name: str,
         assignee_role: str,
@@ -435,9 +500,13 @@ class MaintenanceStorageService:
             return None
 
         scheduled_at_ts = int(datetime.fromisoformat(scheduled_at).timestamp() * 1000)
+        email_due_ts = scheduled_date_8am_ts(scheduled_at)
+        scheduled_date = scheduled_date_text(scheduled_at)
+        recurrence_days = normalize_recurrence_days(recurrence_days)
         reminder_email = assignee_email if notify_email else ""
         delivery_fields_changed = (
             str(existing.get("scheduled_at", "")) != scheduled_at
+            or normalize_recurrence_days(existing.get("recurrence_days")) != recurrence_days
             or str(existing.get("assignee_username", "")) != assignee_username
             or str(existing.get("reminder_email", "")) != reminder_email
             or bool(existing.get("notify_email", False)) != notify_email
@@ -448,6 +517,9 @@ class MaintenanceStorageService:
             "task_type": task_type,
             "scheduled_at": scheduled_at,
             "scheduled_at_ts": scheduled_at_ts,
+            "email_due_ts": email_due_ts,
+            "scheduled_date": scheduled_date,
+            "recurrence_days": recurrence_days,
             "assignee_username": assignee_username,
             "assignee_name": assignee_name,
             "assignee_role": assignee_role,
@@ -487,21 +559,47 @@ class MaintenanceStorageService:
         result = self.maintenance_collection.delete_one({"id": schedule_id})
         return result.deleted_count > 0
 
-    def mark_email_sent(self, schedule_id: str) -> None:
+    def mark_email_sent(self, schedule: dict) -> None:
         if self.maintenance_collection is None:
             return
-        self.maintenance_collection.update_one(
-            {"id": schedule_id},
-            {
-                "$set": {
+        schedule_id = str(schedule.get("id", "")).strip()
+        if not schedule_id:
+            return
+
+        now_ms = int(time.time() * 1000)
+        recurrence_days = normalize_recurrence_days(schedule.get("recurrence_days"))
+        update_doc = {
+            "reminder_sent_at": now_ms,
+            "reminder_last_attempt_at": now_ms,
+            "reminder_error": "",
+            "updated_at": now_ms,
+        }
+        if recurrence_days > 0:
+            next_scheduled_at, next_scheduled_at_ts = add_days_to_iso_datetime(
+                str(schedule.get("scheduled_at", "")),
+                recurrence_days,
+            )
+            next_email_due_ts = scheduled_date_8am_ts(next_scheduled_at)
+            next_scheduled_date = scheduled_date_text(next_scheduled_at)
+            update_doc.update(
+                {
+                    "scheduled_at": next_scheduled_at,
+                    "scheduled_at_ts": next_scheduled_at_ts,
+                    "email_due_ts": next_email_due_ts,
+                    "scheduled_date": next_scheduled_date,
+                    "reminder_sent": False,
+                    "status": "SCHEDULED",
+                }
+            )
+        else:
+            update_doc.update(
+                {
                     "reminder_sent": True,
-                    "reminder_sent_at": int(time.time() * 1000),
-                    "reminder_last_attempt_at": int(time.time() * 1000),
-                    "reminder_error": "",
                     "status": "EMAIL_SENT",
                 }
-            },
-        )
+            )
+
+        self.maintenance_collection.update_one({"id": schedule_id}, {"$set": update_doc})
 
     def mark_email_failed(self, schedule_id: str, error: str) -> None:
         if self.maintenance_collection is None:

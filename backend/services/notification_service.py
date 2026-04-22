@@ -119,6 +119,8 @@ class EmailNotificationService:
 
     def send_maintenance_reminder(self, schedule: dict) -> tuple[bool, str]:
         to_email = str(schedule.get("reminder_email", "")).strip()
+        recurrence_days = int(schedule.get("recurrence_days", 0) or 0)
+        recurrence_label = f"{recurrence_days} 天" if recurrence_days > 0 else "單次"
         return self.send_email(
             to_email=to_email,
             subject=f"[DCIM] 維護排程提醒 - {schedule.get('target', 'Unknown Target')}",
@@ -129,6 +131,7 @@ class EmailNotificationService:
     <p><strong>維護對象:</strong> {schedule.get('target', '')}</p>
     <p><strong>維護項目:</strong> {schedule.get('task_type', '')}</p>
     <p><strong>排程時間:</strong> {schedule.get('scheduled_at', '')}</p>
+    <p><strong>發送週期:</strong> {recurrence_label}</p>
     <p><strong>負責人:</strong> {schedule.get('assignee_name', '')} ({schedule.get('assignee_username', '')})</p>
     <p><strong>通知信箱:</strong> {to_email}</p>
     <p><strong>備註:</strong> {schedule.get('notes', '') or '無'}</p>

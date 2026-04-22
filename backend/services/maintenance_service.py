@@ -17,10 +17,9 @@ class MaintenanceRepository:
     def list_schedules(self) -> list[dict]:
         return self.storage.list_schedules()
 
-    def list_due_email_schedules(self, now_ts_ms: int, retry_after_ms: int = 300000, limit: int = 20) -> list[dict]:
+    def list_due_email_schedules(self, schedule_date: str, limit: int = 100) -> list[dict]:
         return self.storage.list_due_email_schedules(
-            now_ts_ms=now_ts_ms,
-            retry_after_ms=retry_after_ms,
+            schedule_date=schedule_date,
             limit=limit,
         )
 
@@ -33,8 +32,8 @@ class MaintenanceRepository:
     def delete_schedule(self, schedule_id: str) -> bool:
         return self.storage.delete_schedule(schedule_id)
 
-    def mark_email_sent(self, schedule_id: str) -> None:
-        self.storage.mark_email_sent(schedule_id)
+    def mark_email_sent(self, schedule: dict) -> None:
+        self.storage.mark_email_sent(schedule)
 
     def mark_email_failed(self, schedule_id: str, error: str) -> None:
         self.storage.mark_email_failed(schedule_id, error)
@@ -62,6 +61,7 @@ class MaintenanceService:
         target: str,
         task_type: str,
         scheduled_at: str,
+        recurrence_days: int,
         assignee_username: str,
         assignee_name: str,
         assignee_role: str,
@@ -73,6 +73,7 @@ class MaintenanceService:
             target=target,
             task_type=task_type,
             scheduled_at=scheduled_at,
+            recurrence_days=recurrence_days,
             assignee_username=assignee_username,
             assignee_name=assignee_name,
             assignee_role=assignee_role,
@@ -88,6 +89,7 @@ class MaintenanceService:
         target: str,
         task_type: str,
         scheduled_at: str,
+        recurrence_days: int,
         assignee_username: str,
         assignee_name: str,
         assignee_role: str,
@@ -100,6 +102,7 @@ class MaintenanceService:
             target=target,
             task_type=task_type,
             scheduled_at=scheduled_at,
+            recurrence_days=recurrence_days,
             assignee_username=assignee_username,
             assignee_name=assignee_name,
             assignee_role=assignee_role,
@@ -147,12 +150,12 @@ class MaintenanceService:
             "username": target_user.get("username", triggered_by),
         }
 
-    def process_due_email_schedules(self, now_ts_ms: int, log_event_cb: Callable[[str, str, str], None]) -> None:
-        due_schedules = self.repository.list_due_email_schedules(now_ts_ms)
+    def process_due_email_schedules(self, schedule_date: str, log_event_cb: Callable[[str, str, str], None]) -> None:
+        due_schedules = self.repository.list_due_email_schedules(schedule_date)
         for schedule in due_schedules:
             ok, error = self.email_notifier.send_maintenance_reminder(schedule)
             if ok:
-                self.repository.mark_email_sent(schedule["id"])
+                self.repository.mark_email_sent(schedule)
                 log_event_cb(
                     "MAINTENANCE",
                     "MAINTENANCE_EMAIL_SENT",

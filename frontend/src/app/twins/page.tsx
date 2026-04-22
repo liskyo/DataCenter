@@ -25,6 +25,12 @@ const TwinsSceneCanvas = dynamic(
 import { v4 as uuidv4 } from "uuid";
 import { useLanguage } from "@/shared/i18n/language";
 import { usePolling } from "@/shared/hooks/usePolling";
+import {
+    DeviceCommConfig,
+    DeviceType as CommDeviceType,
+    readDeviceCommConfigsFromStorage,
+    resolveCommMethodByModel,
+} from "@/shared/networkComm";
 
 export default function TwinsPage() {
     useEffect(() => {
@@ -96,6 +102,8 @@ export default function TwinsPage() {
         addServerToRack,
         removeRack,
         updateRackName,
+        updateRackModel,
+        updateRackIp,
         updateRackRotation,
         updateRackConnection,
         removeServerFromRack,
@@ -105,6 +113,7 @@ export default function TwinsPage() {
         removeLocation,
         removeEquipment,
         updateEquipmentName,
+        updateEquipmentModel,
         updateEquipmentRotation,
         updateEquipmentIp,
         updateEquipmentConnectedRacks,
@@ -127,6 +136,8 @@ export default function TwinsPage() {
             addServerToRack: s.addServerToRack,
             removeRack: s.removeRack,
             updateRackName: s.updateRackName,
+            updateRackModel: s.updateRackModel,
+            updateRackIp: s.updateRackIp,
             updateRackRotation: s.updateRackRotation,
             updateRackConnection: s.updateRackConnection,
             removeServerFromRack: s.removeServerFromRack,
@@ -136,6 +147,7 @@ export default function TwinsPage() {
             removeLocation: s.removeLocation,
             removeEquipment: s.removeEquipment,
             updateEquipmentName: s.updateEquipmentName,
+            updateEquipmentModel: s.updateEquipmentModel,
             updateEquipmentRotation: s.updateEquipmentRotation,
             updateEquipmentIp: s.updateEquipmentIp,
             updateEquipmentConnectedRacks: s.updateEquipmentConnectedRacks,
@@ -163,6 +175,8 @@ export default function TwinsPage() {
     // Form State for new server
     const [newServer, setNewServer] = useState<{
         name: string;
+        model?: string;
+        ipAddress: string;
         uPosition: number;
         uHeight: number;
         powerKw: number;
@@ -170,6 +184,8 @@ export default function TwinsPage() {
         status: 'normal' | 'warning' | 'critical' | 'offline';
     }>({
         name: "SERVER-001",
+        model: "",
+        ipAddress: "",
         uPosition: 1,
         uHeight: 2,
         powerKw: 1.5,
@@ -178,12 +194,15 @@ export default function TwinsPage() {
     });
 
     const [telemetry, setTelemetry] = useState<Record<string, any>>({});
+    const [commConfigs, setCommConfigs] = useState<DeviceCommConfig[]>([]);
     /** 網路線與 CDU 管路預設不顯示，由 HUD 按鈕切換 */
     const [showConnectionLines, setShowConnectionLines] = useState(false);
 
     const [editingServerId, setEditingServerId] = useState<string | null>(null);
     const [editingDraft, setEditingDraft] = useState<{
         name: string;
+        model?: string;
+        ipAddress: string;
         uPosition: number;
         uHeight: number;
         powerKw: number;
@@ -216,6 +235,46 @@ export default function TwinsPage() {
         }
     }, [selectedRackId]);
 
+    useEffect(() => {
+        setCommConfigs(readDeviceCommConfigsFromStorage());
+        const onStorage = (event: StorageEvent) => {
+            if (event.key === "dcim.network.comm.profile.v1") {
+                setCommConfigs(readDeviceCommConfigsFromStorage());
+            }
+        };
+        window.addEventListener("storage", onStorage);
+        return () => window.removeEventListener("storage", onStorage);
+    }, []);
+
+    const modelOptionsByType = useMemo(() => {
+        const map: Record<CommDeviceType, string[]> = {
+            server: [],
+            rack: [],
+            tank: [],
+            cdu: [],
+            switch: [],
+        };
+        for (const cfg of commConfigs) {
+            const m = cfg.model.trim();
+            if (!m) continue;
+            if (!map[cfg.deviceType].includes(m)) {
+                map[cfg.deviceType].push(m);
+            }
+        }
+        return map;
+    }, [commConfigs]);
+
+    const commDeviceTypeForRack = (rackType: string): CommDeviceType => {
+        if (rackType === "network") return "switch";
+        if (rackType === "immersion_single" || rackType === "immersion_dual") return "tank";
+        return "rack";
+    };
+    const commDeviceTypeForEquipment = (type: string): CommDeviceType => {
+        if (type === "cdu") return "cdu";
+        if (type === "dashboard") return "server";
+        return "rack";
+    };
+
     usePolling(async () => {
         try {
             const res = await authFetch(apiUrl("/metrics"), { cache: "no-store" });
@@ -242,12 +301,39 @@ export default function TwinsPage() {
                 const servers = racks
                     .filter((r) => r.locationId === currentLocationId)
                     .flatMap((r) => r.servers);
-                const targets = Array.from(new Set([
-                    ...servers.map((s) => normalizeNodeId(s.assetId || s.name)),
-                    ...equipments
-                        .filter((e) => e.locationId === currentLocationId)
-                        .map((e) => normalizeNodeId(e.name)),
-                ]));
+                const racksInLocation = racks.filter((r) => r.locationId === currentLocationId);
+                const equipmentsInLocation = equipments.filter((e) => e.locationId === currentLocationId);
+
+                const methodByTarget: Record<string, string> = {};
+                for (const s of servers) {
+                    const targetId = normalizeNodeId(s.assetId || s.name);
+                    methodByTarget[targetId] = resolveCommMethodByModel(
+                        commConfigs,
+                        s.type === "switch" ? "switch" : "server",
+                        s.model,
+                        { simulationMode: true },
+                    );
+                }
+                for (const r of racksInLocation) {
+                    const targetId = normalizeNodeId(r.name);
+                    methodByTarget[targetId] = resolveCommMethodByModel(
+                        commConfigs,
+                        commDeviceTypeForRack(r.type),
+                        r.model,
+                        { simulationMode: true },
+                    );
+                }
+                for (const e of equipmentsInLocation) {
+                    const targetId = normalizeNodeId(e.name);
+                    methodByTarget[targetId] = resolveCommMethodByModel(
+                        commConfigs,
+                        commDeviceTypeForEquipment(e.type),
+                        e.model,
+                        { simulationMode: true },
+                    );
+                }
+
+                const targets = Object.keys(methodByTarget);
                 if (targets.length === 0) return;
 
                 const bindingItems = servers.map((s) => ({
@@ -272,7 +358,7 @@ export default function TwinsPage() {
             }
         };
         syncTargets();
-    }, [racks, equipments, currentLocationId]);
+    }, [racks, equipments, currentLocationId, commConfigs]);
 
     const handleExport = () => {
         const json = exportState();
@@ -552,6 +638,25 @@ removeLocation(currentLocationId);
                                 onChange={(e) => updateRackName(selectedRack.id, e.target.value)}
                                 className="w-full bg-[#010613] border border-cyan-900/30 p-2 rounded text-cyan-100 text-sm outline-none focus:border-cyan-400 transition-colors"
                             />
+                            <label className="text-[10px] text-slate-500 uppercase tracking-[0.2em] mt-3 mb-2 block">Model</label>
+                            <select
+                                value={selectedRack.model || ""}
+                                onChange={(e) => updateRackModel(selectedRack.id, e.target.value)}
+                                className="w-full bg-[#010613] border border-cyan-900/30 p-2 rounded text-cyan-100 text-sm outline-none focus:border-cyan-400 transition-colors"
+                            >
+                                <option value="">(Custom)</option>
+                                {modelOptionsByType[commDeviceTypeForRack(selectedRack.type)].map((model) => (
+                                    <option key={model} value={model}>{model}</option>
+                                ))}
+                            </select>
+                            <label className="text-[10px] text-slate-500 uppercase tracking-[0.2em] mt-3 mb-2 block">Host / IP</label>
+                            <input
+                                type="text"
+                                value={selectedRack.ipAddress || ""}
+                                onChange={(e) => updateRackIp(selectedRack.id, e.target.value)}
+                                placeholder="e.g. 192.168.1.10"
+                                className="w-full bg-[#010613] border border-cyan-900/30 p-2 rounded text-cyan-100 text-sm outline-none focus:border-cyan-400 transition-colors"
+                            />
 
                             {/* 旋轉控制 */}
                             {isEditMode && (
@@ -656,13 +761,30 @@ removeLocation(currentLocationId);
                                         <div key={`${selectedRack.id}-${server.id}-${idx}`} className="flex flex-col gap-2 text-xs bg-[#0a1e3f] p-2 rounded border border-slate-700">
                                             {editingServerId === server.id && editingDraft ? (
                                                 <div className="flex flex-col gap-2">
-                                                    <div className="flex items-center gap-2">
+                                                    <div className="flex flex-wrap items-center gap-2">
                                                         <input
                                                             type="text"
                                                             value={editingDraft.name || ''}
                                                             onChange={(e) => setEditingDraft({ ...editingDraft, name: e.target.value })}
-                                                            className="flex-1 bg-[#0a1e3f] border border-cyan-800 p-1.5 rounded text-white font-bold outline-none focus:border-cyan-400 text-sm"
+                                                            className="min-w-0 flex-[1_1_10rem] bg-[#0a1e3f] border border-cyan-800 p-1.5 rounded text-white font-bold outline-none focus:border-cyan-400 text-sm"
                                                             placeholder="Server Name"
+                                                        />
+                                                        <select
+                                                            value={editingDraft.model || ""}
+                                                            onChange={(e) => setEditingDraft({ ...editingDraft, model: e.target.value })}
+                                                            className="min-w-0 flex-[1_1_10rem] bg-[#0a1e3f] border border-cyan-800 p-1.5 rounded text-white outline-none focus:border-cyan-400 text-sm"
+                                                        >
+                                                            <option value="">Model</option>
+                                                            {modelOptionsByType[server.type === "switch" ? "switch" : "server"].map((model) => (
+                                                                <option key={model} value={model}>{model}</option>
+                                                            ))}
+                                                        </select>
+                                                        <input
+                                                            type="text"
+                                                            value={editingDraft.ipAddress || ''}
+                                                            onChange={(e) => setEditingDraft({ ...editingDraft, ipAddress: e.target.value })}
+                                                            className="min-w-0 flex-[1_1_10rem] bg-[#0a1e3f] border border-cyan-800 p-1.5 rounded text-white outline-none focus:border-cyan-400 text-sm"
+                                                            placeholder="Host / IP"
                                                         />
                                                         {server.type === 'switch' && (
                                                             <span className="text-[9px] bg-purple-900 border border-purple-500 px-1 rounded text-purple-100 shrink-0">
@@ -773,6 +895,16 @@ removeLocation(currentLocationId);
                                                         <div className="text-slate-400 mt-1">
                                                             U{server.uPosition} - U{server.uPosition + server.uHeight - 1} ({server.uHeight}U) | {server.powerKw}kW
                                                         </div>
+                                                        {server.ipAddress ? (
+                                                            <div className="text-[10px] text-slate-500 mt-1 font-mono break-all">
+                                                                Host / IP: {server.ipAddress}
+                                                            </div>
+                                                        ) : null}
+                                                        {server.model ? (
+                                                            <div className="text-[10px] text-slate-500 mt-1 font-mono break-all">
+                                                                Model: {server.model}
+                                                            </div>
+                                                        ) : null}
                                                         {metricsText && (
                                                             <div className={`mt-1 font-mono text-[10px] ${liveStatus === 'critical' ? 'text-red-300' : liveStatus === 'warning' ? 'text-yellow-300' : (server.type === 'switch' ? 'text-purple-400' : 'text-cyan-700')}`}>
                                                                 {metricsText}
@@ -787,6 +919,8 @@ removeLocation(currentLocationId);
                                                                         setEditingServerId(server.id);
                                                                         setEditingDraft({
                                                                             name: server.name,
+                                                                            model: server.model || "",
+                                                                            ipAddress: server.ipAddress || "",
                                                                             uPosition: server.uPosition,
                                                                             uHeight: server.uHeight,
                                                                             powerKw: server.powerKw,
@@ -833,6 +967,23 @@ removeLocation(currentLocationId);
                                     onChange={(e) => setNewServer({ ...newServer, name: e.target.value })}
                                     className="bg-[#0a1e3f] border border-cyan-800 p-2 rounded text-white outline-none focus:border-cyan-400"
                                     placeholder="Device Name"
+                                />
+                                <select
+                                    value={newServer.model || ""}
+                                    onChange={(e) => setNewServer({ ...newServer, model: e.target.value })}
+                                    className="bg-[#0a1e3f] border border-cyan-800 p-2 rounded text-white outline-none focus:border-cyan-400"
+                                >
+                                    <option value="">Model</option>
+                                    {modelOptionsByType[newServer.type === "switch" ? "switch" : "server"].map((model) => (
+                                        <option key={model} value={model}>{model}</option>
+                                    ))}
+                                </select>
+                                <input
+                                    type="text"
+                                    value={newServer.ipAddress}
+                                    onChange={(e) => setNewServer({ ...newServer, ipAddress: e.target.value })}
+                                    className="bg-[#0a1e3f] border border-cyan-800 p-2 rounded text-white outline-none focus:border-cyan-400"
+                                    placeholder="Host / IP"
                                 />
                                 <div className="flex gap-2">
                                     <div className="flex-1">
@@ -910,6 +1061,25 @@ removeLocation(currentLocationId);
                                 onChange={(e) => updateEquipmentName(selectedEquipment.id, e.target.value)}
                                 className="w-full bg-[#010613] border border-cyan-900/30 p-2 rounded text-cyan-100 text-sm outline-none focus:border-cyan-400 transition-colors mb-4"
                             />
+                            <label className="text-[10px] text-slate-500 uppercase tracking-[0.2em] mb-2 block">Model</label>
+                            <select
+                                value={selectedEquipment.model || ""}
+                                onChange={(e) => updateEquipmentModel(selectedEquipment.id, e.target.value)}
+                                className="w-full bg-[#010613] border border-cyan-900/30 p-2 rounded text-cyan-100 text-sm outline-none focus:border-cyan-400 transition-colors mb-4"
+                            >
+                                <option value="">(Custom)</option>
+                                {modelOptionsByType[commDeviceTypeForEquipment(selectedEquipment.type)].map((model) => (
+                                    <option key={model} value={model}>{model}</option>
+                                ))}
+                            </select>
+                            <label className="text-[10px] text-slate-500 uppercase tracking-[0.2em] mb-2 block">Host / IP</label>
+                            <input
+                                type="text"
+                                value={selectedEquipment.ipAddress || ""}
+                                onChange={(e) => updateEquipmentIp(selectedEquipment.id, e.target.value)}
+                                placeholder="e.g. 192.168.1.100"
+                                className="w-full bg-[#010613] border border-cyan-900/30 p-2 rounded text-cyan-100 text-sm outline-none focus:border-cyan-400 transition-colors mb-4"
+                            />
                             <div className="text-xs text-slate-400 mb-1 uppercase tracking-widest">Facility Type</div>
                             <div className="text-cyan-400 font-bold tracking-widest text-lg">
                                 {selectedEquipment.type === 'crac' && 'CRAC (Cooling HVAC)'}
@@ -938,17 +1108,6 @@ removeLocation(currentLocationId);
 
                         {selectedEquipment.type === 'dashboard' && (
                             <div className="flex flex-col gap-4">
-                                <div className="bg-[#03112b] p-4 rounded-lg border border-cyan-800">
-                                    <label className="text-[10px] text-cyan-700 uppercase tracking-[0.2em] mb-2 block">Management IP</label>
-                                    <input
-                                        type="text"
-                                        value={selectedEquipment.ipAddress || ""}
-                                        onChange={(e) => updateEquipmentIp(selectedEquipment.id, e.target.value)}
-                                        placeholder="e.g. 192.168.1.100"
-                                        className="w-full bg-[#010613] border border-cyan-900 p-2 rounded text-cyan-100 text-xs outline-none focus:border-cyan-400 transition-colors"
-                                    />
-                                </div>
-
                                 <div className="bg-[#03112b] p-4 rounded-lg border border-purple-900/40">
                                     <div className="flex items-center gap-2 mb-3">
                                         <Globe size={14} className="text-purple-400" />

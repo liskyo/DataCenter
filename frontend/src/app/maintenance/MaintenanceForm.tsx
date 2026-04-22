@@ -95,6 +95,24 @@ export function MaintenanceForm({
         </label>
 
         <label className="block">
+          <span className="mb-2 block text-xs font-bold tracking-widest text-slate-400">{t.recurrence}</span>
+          <input
+            type="number"
+            min={0}
+            step={1}
+            inputMode="numeric"
+            value={form.recurrenceDays}
+            onChange={(event) =>
+              onFormChange((prev) => ({ ...prev, recurrenceDays: event.target.value }))
+            }
+            className="w-full rounded-lg border border-[#1e3a8a] bg-[#06101f] px-4 py-3 text-slate-100 outline-none transition-colors focus:border-cyan-500"
+            placeholder={t.placeholderRecurrenceDays}
+            required
+          />
+          <p className="mt-2 text-[11px] tracking-wide text-slate-500">{t.recurrenceHint}</p>
+        </label>
+
+        <label className="block">
           <span className="mb-2 block text-xs font-bold tracking-widest text-slate-400">{t.assigned}</span>
           <select
             value={form.assigneeUsername}
