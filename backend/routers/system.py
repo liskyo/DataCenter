@@ -38,12 +38,13 @@ def toggle_system_mode(
 def set_simulate_targets(
     payload: dict,
     request: Request,
-    _: dict = Depends(require_role("admin", "operator")),
+    _: dict = Depends(get_current_user),
 ):
     container = _container(request)
     targets = payload.get("targets", [])
     if isinstance(targets, list) and targets:
-        normalized_targets: list[str] = []
+        merged_targets = list(container.kafka.simulation_targets)
+        seen = set(merged_targets)
         for t in targets:
             if not isinstance(t, str):
                 continue
@@ -51,8 +52,10 @@ def set_simulate_targets(
             if not n:
                 continue
             container.bind_asset(n, n)
-            normalized_targets.append(n)
-        container.kafka.simulation_targets = normalized_targets
+            if n not in seen:
+                seen.add(n)
+                merged_targets.append(n)
+        container.kafka.simulation_targets = merged_targets
     return {"status": "success", "targets_count": len(container.kafka.simulation_targets)}
 
 
@@ -86,7 +89,7 @@ def bind_id(
 def bulk_bind_id(
     payload: dict,
     request: Request,
-    _: dict = Depends(require_role("admin", "operator")),
+    _: dict = Depends(get_current_user),
 ):
     container = _container(request)
     items = payload.get("items", [])
@@ -142,6 +145,8 @@ def debug(request: Request):
         "consumer_ready": container.kafka.consumer_ready,
         "latest_metrics_len": len(container.telemetry.latest_metrics),
         "system_mode": container.system_mode,
+        "simulation_targets_count": len(container.kafka.simulation_targets),
+        "simulation_targets": container.kafka.simulation_targets,
         "mongo_ready": container.alert_storage.is_ready,
         "user_store_ready": container.user_storage.is_ready,
     }

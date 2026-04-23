@@ -8,28 +8,7 @@ import { Instances } from '@react-three/drei';
 import ImmersionTankModel from './ImmersionTankModel';
 import { U_HEIGHT, RACK_WIDTH, RACK_DEPTH } from './sceneScale';
 import { getDeviceStatus } from '@/shared/status';
-
-function normalizeNodeId(value: string): string {
-    const raw = (value || "").trim().toUpperCase().replace(/\s+/g, "").replace(/_/g, "-");
-    const m = raw.match(/^(SERVER|SW|IMM|CDU)-?(\d+)$/);
-    if (!m) return raw;
-    return `${m[1]}-${String(Number(m[2])).padStart(3, "0")}`;
-}
-
-function pickTelemetry(telemetry: Record<string, any>, assetId: string | undefined, name: string) {
-    const keys = [assetId, name, normalizeNodeId(name)].filter((k): k is string => Boolean(k && k.length));
-    for (const k of keys) {
-        const hit = telemetry[k];
-        if (
-            hit &&
-            typeof hit === "object" &&
-            ("temperature" in hit || "cpu_usage" in hit || "traffic_gbps" in hit || "server_id" in hit || "asset_id" in hit)
-        ) {
-            return hit;
-        }
-    }
-    return undefined;
-}
+import { resolveTelemetryRecordDeep } from '@/shared/nodeId';
 
 export default function RackModel({ data, isSelected, telemetry = {} }: { data: RackData, isSelected: boolean, telemetry?: Record<string, any> }) {
     const rackHeight = data.uCapacity * U_HEIGHT + 0.2; // Add 0.1 bottom + 0.1 top margins
@@ -47,7 +26,7 @@ export default function RackModel({ data, isSelected, telemetry = {} }: { data: 
     let hasWarningServer = false;
 
     data.servers.forEach(server => {
-        const sTel = pickTelemetry(telemetry, server.assetId, server.name);
+        const sTel = resolveTelemetryRecordDeep(telemetry, server.assetId, server.name);
         const status = getDeviceStatus(
             { type: server.type, rackType: data.type },
             sTel,
@@ -69,7 +48,7 @@ export default function RackModel({ data, isSelected, telemetry = {} }: { data: 
 
     // Heatmap data: average temp of servers in this rack
     const temps = data.servers
-        .map((s) => pickTelemetry(telemetry, s.assetId, s.name)?.temperature)
+        .map((s) => resolveTelemetryRecordDeep(telemetry, s.assetId, s.name)?.temperature)
         .map((t) => (typeof t === "number" ? t : Number(t)))
         .filter((t): t is number => Number.isFinite(t));
     const avgTemp = temps.length > 0 ? temps.reduce((a, b) => a + b, 0) / temps.length : 22;
@@ -213,7 +192,7 @@ export default function RackModel({ data, isSelected, telemetry = {} }: { data: 
                                 <ServerBodyInstance
                                     key={`body-${data.id}-${server.id}-${idx}`}
                                     data={server}
-                                    telemetry={pickTelemetry(telemetry, server.assetId, server.name)}
+                                    telemetry={resolveTelemetryRecordDeep(telemetry, server.assetId, server.name)}
                                 />
                             ))}
                         </Instances>
@@ -225,7 +204,7 @@ export default function RackModel({ data, isSelected, telemetry = {} }: { data: 
                                 <ServerLedInstance
                                     key={`led-${data.id}-${server.id}-${idx}`}
                                     data={server}
-                                    telemetry={pickTelemetry(telemetry, server.assetId, server.name)}
+                                    telemetry={resolveTelemetryRecordDeep(telemetry, server.assetId, server.name)}
                                 />
                             ))}
                         </Instances>

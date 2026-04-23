@@ -1,6 +1,14 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage, PersistStorage } from 'zustand/middleware';
 import { get, set, del } from 'idb-keyval';
+import type { AppLanguage } from '@/shared/i18n/language';
+import {
+    createDeviceCommConfig,
+    DEFAULT_DEVICE_COMM_CONFIGS,
+    mergeDeviceCommConfigs,
+    NETWORK_COMM_STORAGE_KEY,
+    type DeviceCommConfig,
+} from '@/shared/networkComm';
 
 const indexedDBStorage: PersistStorage<any> = {
     getItem: async (name) => {
@@ -15,6 +23,8 @@ const indexedDBStorage: PersistStorage<any> = {
 };
 import { v4 as uuidv4 } from 'uuid';
 import { normalizeNodeId } from '@/shared/nodeId';
+
+const LEGACY_LANGUAGE_STORAGE_KEY = 'dcim-language';
 
 export type ServerData = {
     id: string;
@@ -263,7 +273,50 @@ type DcimState = {
 
     exportState: () => string;
     importState: (jsonConfig: string) => boolean;
+
+    deviceCommConfigs: DeviceCommConfig[];
+    setDeviceCommConfigs: (configs: DeviceCommConfig[]) => void;
+    updateDeviceCommConfig: <K extends keyof DeviceCommConfig>(
+        id: string,
+        key: K,
+        value: DeviceCommConfig[K],
+    ) => void;
+    addDeviceCommConfig: () => void;
+    removeDeviceCommConfig: (id: string) => void;
+    resetDeviceCommConfigs: () => void;
+
+    uiLanguage: AppLanguage;
+    setUiLanguage: (lang: AppLanguage) => void;
 };
+
+function migrateDeviceCommConfigs(
+    persisted: Partial<DcimState>,
+    currentState: DcimState,
+): DeviceCommConfig[] {
+    const fromIdb = persisted.deviceCommConfigs;
+    if (Array.isArray(fromIdb) && fromIdb.length > 0) {
+        return mergeDeviceCommConfigs(fromIdb);
+    }
+    if (typeof window !== 'undefined') {
+        try {
+            const legacy = window.localStorage.getItem(NETWORK_COMM_STORAGE_KEY);
+            if (legacy) return mergeDeviceCommConfigs(JSON.parse(legacy));
+        } catch {
+            /* ignore */
+        }
+    }
+    return currentState.deviceCommConfigs;
+}
+
+function migrateUiLanguage(persisted: Partial<DcimState>, currentState: DcimState): AppLanguage {
+    const p = persisted.uiLanguage;
+    if (p === 'en' || p === 'zh-TW') return p;
+    if (typeof window !== 'undefined') {
+        const legacy = window.localStorage.getItem(LEGACY_LANGUAGE_STORAGE_KEY);
+        if (legacy === 'en' || legacy === 'zh-TW') return legacy;
+    }
+    return currentState.uiLanguage;
+}
 
 export const useDcimStore = create<DcimState>()(
     persist(
@@ -284,6 +337,30 @@ export const useDcimStore = create<DcimState>()(
                 { id: uuidv4(), name: 'PDU-B', type: 'pdu', position: [-8, 0, 2], rotation: [0, 0, 0], locationId: 'default-loc' }
             ],
             selectedEquipmentId: null,
+
+            deviceCommConfigs: DEFAULT_DEVICE_COMM_CONFIGS,
+            setDeviceCommConfigs: (configs) => set({ deviceCommConfigs: mergeDeviceCommConfigs(configs) }),
+            updateDeviceCommConfig: (id, key, value) =>
+                set((state) => ({
+                    deviceCommConfigs: state.deviceCommConfigs.map((row) =>
+                        row.id === id ? { ...row, [key]: value } : row,
+                    ),
+                })),
+            addDeviceCommConfig: () =>
+                set((state) => ({
+                    deviceCommConfigs: [
+                        ...state.deviceCommConfigs,
+                        createDeviceCommConfig('server', 'agent_active_pull'),
+                    ],
+                })),
+            removeDeviceCommConfig: (id) =>
+                set((state) => ({
+                    deviceCommConfigs: state.deviceCommConfigs.filter((r) => r.id !== id),
+                })),
+            resetDeviceCommConfigs: () => set({ deviceCommConfigs: DEFAULT_DEVICE_COMM_CONFIGS }),
+
+            uiLanguage: 'zh-TW',
+            setUiLanguage: (lang) => set({ uiLanguage: lang }),
 
             racks: [
                 {
@@ -588,11 +665,13 @@ export const useDcimStore = create<DcimState>()(
         {
             name: 'datacenter-storage-v4', // key in IndexedDB
             storage: createJSONStorage(() => indexedDBStorage),
-            partialize: (state) => ({ 
-                racks: state.racks, 
-                equipments: state.equipments, 
-                locations: state.locations, 
-                currentLocationId: state.currentLocationId 
+            partialize: (state) => ({
+                racks: state.racks,
+                equipments: state.equipments,
+                locations: state.locations,
+                currentLocationId: state.currentLocationId,
+                deviceCommConfigs: state.deviceCommConfigs,
+                uiLanguage: state.uiLanguage,
             }),
             merge: (persistedState, currentState) => {
                 const persisted = (persistedState ?? {}) as Partial<DcimState>;
@@ -638,6 +717,9 @@ export const useDcimStore = create<DcimState>()(
                     ? persisted.currentLocationId
                     : safeLocations[0].id;
 
+                const deviceCommConfigs = migrateDeviceCommConfigs(persisted, currentState);
+                const uiLanguage = migrateUiLanguage(persisted, currentState);
+
                 return {
                     ...currentState,
                     ...persisted,
@@ -649,6 +731,8 @@ export const useDcimStore = create<DcimState>()(
                         : currentState.equipments,
                     locations: safeLocations,
                     currentLocationId,
+                    deviceCommConfigs,
+                    uiLanguage,
                 };
             },
         })

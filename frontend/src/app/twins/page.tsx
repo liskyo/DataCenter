@@ -4,7 +4,7 @@ import { useShallow } from "zustand/react/shallow";
 import { useDcimStore, ServerData } from "@/store/useDcimStore";
 import { apiUrl } from "@/shared/api";
 import { authFetch } from "@/shared/auth";
-import { normalizeNodeId, buildTelemetryKeys } from "@/shared/nodeId";
+import { buildTelemetryKeys, normalizeNodeId, resolveTelemetryRecordDeep } from "@/shared/nodeId";
 import dynamic from "next/dynamic";
 import { Activity, Download, Upload, Server, Trash, Save, Edit, Lock, Thermometer, Zap, Box, MonitorIcon, Globe, Link2, Droplets } from "lucide-react";
 
@@ -26,9 +26,8 @@ import { v4 as uuidv4 } from "uuid";
 import { useLanguage } from "@/shared/i18n/language";
 import { usePolling } from "@/shared/hooks/usePolling";
 import {
-    DeviceCommConfig,
+    DEFAULT_DEVICE_COMM_CONFIGS,
     DeviceType as CommDeviceType,
-    readDeviceCommConfigsFromStorage,
     resolveCommMethodByModel,
 } from "@/shared/networkComm";
 
@@ -117,6 +116,7 @@ export default function TwinsPage() {
         updateEquipmentRotation,
         updateEquipmentIp,
         updateEquipmentConnectedRacks,
+        commConfigs,
     } = useDcimStore(
         useShallow((s) => ({
             racks: s.racks,
@@ -151,6 +151,7 @@ export default function TwinsPage() {
             updateEquipmentRotation: s.updateEquipmentRotation,
             updateEquipmentIp: s.updateEquipmentIp,
             updateEquipmentConnectedRacks: s.updateEquipmentConnectedRacks,
+            commConfigs: s.deviceCommConfigs,
         })),
     );
 
@@ -194,7 +195,6 @@ export default function TwinsPage() {
     });
 
     const [telemetry, setTelemetry] = useState<Record<string, any>>({});
-    const [commConfigs, setCommConfigs] = useState<DeviceCommConfig[]>([]);
     /** 網路線與 CDU 管路預設不顯示，由 HUD 按鈕切換 */
     const [showConnectionLines, setShowConnectionLines] = useState(false);
 
@@ -235,17 +235,6 @@ export default function TwinsPage() {
         }
     }, [selectedRackId]);
 
-    useEffect(() => {
-        setCommConfigs(readDeviceCommConfigsFromStorage());
-        const onStorage = (event: StorageEvent) => {
-            if (event.key === "dcim.network.comm.profile.v1") {
-                setCommConfigs(readDeviceCommConfigsFromStorage());
-            }
-        };
-        window.addEventListener("storage", onStorage);
-        return () => window.removeEventListener("storage", onStorage);
-    }, []);
-
     const modelOptionsByType = useMemo(() => {
         const map: Record<CommDeviceType, string[]> = {
             server: [],
@@ -253,8 +242,18 @@ export default function TwinsPage() {
             tank: [],
             cdu: [],
             switch: [],
+            crac: [],
+            power: [],
         };
         for (const cfg of commConfigs) {
+            const m = cfg.model.trim();
+            if (!m) continue;
+            if (!map[cfg.deviceType].includes(m)) {
+                map[cfg.deviceType].push(m);
+            }
+        }
+        // Fallback to defaults when persisted configs miss specific types (e.g. server).
+        for (const cfg of DEFAULT_DEVICE_COMM_CONFIGS) {
             const m = cfg.model.trim();
             if (!m) continue;
             if (!map[cfg.deviceType].includes(m)) {
@@ -272,6 +271,8 @@ export default function TwinsPage() {
     const commDeviceTypeForEquipment = (type: string): CommDeviceType => {
         if (type === "cdu") return "cdu";
         if (type === "dashboard") return "server";
+        if (type === "crac" || type === "chiller") return "crac";
+        if (type === "pdu" || type === "ups") return "power";
         return "rack";
     };
 
@@ -290,75 +291,87 @@ export default function TwinsPage() {
         } catch (e) { }
     }, { intervalMs: 5000, immediate: true });
 
-    useEffect(() => {
-        const syncTargets = async () => {
-            try {
-                const modeRes = await authFetch(apiUrl("/api/system/mode"), { cache: "no-store" });
-                if (!modeRes.ok) return;
-                const modeJson = await modeRes.json();
-                if (modeJson.mode !== "simulation") return;
+    const syncSimulationTargets = useCallback(async () => {
+        try {
+            const modeRes = await authFetch(apiUrl("/api/system/mode"), { cache: "no-store" });
+            if (!modeRes.ok) return;
+            const modeJson = await modeRes.json();
+            if (modeJson.mode !== "simulation") return;
 
-                const servers = racks
-                    .filter((r) => r.locationId === currentLocationId)
-                    .flatMap((r) => r.servers);
-                const racksInLocation = racks.filter((r) => r.locationId === currentLocationId);
-                const equipmentsInLocation = equipments.filter((e) => e.locationId === currentLocationId);
+            const servers = racks.flatMap((r) => r.servers);
+            const racksInScope = racks;
+            const equipmentsInScope = equipments;
 
-                const methodByTarget: Record<string, string> = {};
-                for (const s of servers) {
-                    const targetId = normalizeNodeId(s.assetId || s.name);
-                    methodByTarget[targetId] = resolveCommMethodByModel(
-                        commConfigs,
-                        s.type === "switch" ? "switch" : "server",
-                        s.model,
-                        { simulationMode: true },
-                    );
-                }
-                for (const r of racksInLocation) {
-                    const targetId = normalizeNodeId(r.name);
-                    methodByTarget[targetId] = resolveCommMethodByModel(
-                        commConfigs,
-                        commDeviceTypeForRack(r.type),
-                        r.model,
-                        { simulationMode: true },
-                    );
-                }
-                for (const e of equipmentsInLocation) {
-                    const targetId = normalizeNodeId(e.name);
-                    methodByTarget[targetId] = resolveCommMethodByModel(
-                        commConfigs,
-                        commDeviceTypeForEquipment(e.type),
-                        e.model,
-                        { simulationMode: true },
-                    );
-                }
+            const cleanTargetName = (value: string | undefined) =>
+                (value || "").trim().toUpperCase().replace(/\s+/g, "").replace(/_/g, "-");
 
-                const targets = Object.keys(methodByTarget);
-                if (targets.length === 0) return;
+            const methodByTarget: Record<string, string> = {};
+            for (const s of servers) {
+                const targetId = cleanTargetName(s.name || s.assetId);
+                if (!targetId) continue;
+                methodByTarget[targetId] = resolveCommMethodByModel(
+                    commConfigs,
+                    s.type === "switch" ? "switch" : "server",
+                    s.model,
+                    { simulationMode: true },
+                );
+            }
+            for (const r of racksInScope) {
+                const targetId = cleanTargetName(r.name);
+                if (!targetId) continue;
+                methodByTarget[targetId] = resolveCommMethodByModel(
+                    commConfigs,
+                    commDeviceTypeForRack(r.type),
+                    r.model,
+                    { simulationMode: true },
+                );
+            }
+            for (const e of equipmentsInScope) {
+                const targetId = cleanTargetName(e.name);
+                if (!targetId) continue;
+                methodByTarget[targetId] = resolveCommMethodByModel(
+                    commConfigs,
+                    commDeviceTypeForEquipment(e.type),
+                    e.model,
+                    { simulationMode: true },
+                );
+            }
 
-                const bindingItems = servers.map((s) => ({
-                    asset_id: normalizeNodeId(s.assetId || s.name),
-                    display_name: normalizeNodeId(s.name),
-                }));
-                if (bindingItems.length > 0) {
-                    await authFetch(apiUrl("/api/system/id_bindings/bulk_bind"), {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ items: bindingItems }),
-                    });
-                }
+            const targets = Object.keys(methodByTarget);
+            if (targets.length === 0) return;
 
-                await authFetch(apiUrl("/api/system/simulate_targets"), {
+            const bindingItems = targets.map((targetId) => ({
+                asset_id: targetId,
+                display_name: targetId,
+            }));
+            if (bindingItems.length > 0) {
+                await authFetch(apiUrl("/api/system/id_bindings/bulk_bind"), {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ targets }),
+                    body: JSON.stringify({ items: bindingItems }),
                 });
-            } catch {
-                // best effort only
             }
-        };
-        syncTargets();
-    }, [racks, equipments, currentLocationId, commConfigs]);
+
+            await authFetch(apiUrl("/api/system/simulate_targets"), {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ targets }),
+            });
+        } catch {
+            // best effort only
+        }
+    }, [racks, equipments, commConfigs]);
+
+    useEffect(() => {
+        syncSimulationTargets();
+    }, [syncSimulationTargets]);
+
+    usePolling(
+        async () => {
+            await syncSimulationTargets();
+        },
+        { intervalMs: 8000, immediate: false },
+    );
 
     const handleExport = () => {
         const json = exportState();
@@ -744,13 +757,12 @@ removeLocation(currentLocationId);
                             <div className="flex flex-col gap-2">
                                 {[...selectedRack.servers].sort((a, b) => b.uPosition - a.uPosition).map((server, idx) => {
                                     let liveStatus = server.status;
-                                    const sTel =
-                                        telemetry[server.assetId || ""] ||
-                                        telemetry[normalizeNodeId(server.assetId || "")] ||
-                                        telemetry[server.name] ||
-                                        telemetry[normalizeNodeId(server.name)] ||
-                                        telemetry[selectedRack.name] ||
-                                        telemetry[normalizeNodeId(selectedRack.name)];
+                                    const sTel = resolveTelemetryRecordDeep(
+                                        telemetry,
+                                        server.assetId,
+                                        server.name,
+                                        selectedRack.name,
+                                    );
                                     const metricsText = sTel
                                         ? (server.type === 'switch'
                                             ? `Traffic: ${Number(sTel.traffic_gbps ?? Math.random() * 10).toFixed(1)} Gbps | Ports: ${Math.floor(Number(sTel.port_usage ?? Math.random()) * 48)}/48`
@@ -1133,7 +1145,11 @@ removeLocation(currentLocationId);
                         )}
                         {/* CDU: Rack Connection Selector + Live Telemetry */}
                         {selectedEquipment.type === 'cdu' && (() => {
-                            const cduTelem = (telemetry as any)[selectedEquipment.name];
+                            const cduTelem = resolveTelemetryRecordDeep(
+                                telemetry,
+                                selectedEquipment.name,
+                                normalizeNodeId(selectedEquipment.name),
+                            ) as Record<string, any> | undefined;
                             const serverRacks = racks.filter(r => r.locationId === currentLocationId && (r.type === 'server' || r.type === 'immersion_single'));
                             const connectedIds: string[] = selectedEquipment.connectedRackIds ?? [];
 

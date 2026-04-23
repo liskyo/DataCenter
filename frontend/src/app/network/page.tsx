@@ -1,16 +1,14 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { Globe, Save, RotateCcw, Plus, Trash2, ChevronDown, ChevronUp } from "lucide-react";
+import { Globe, RotateCcw, Plus, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 import { useLanguage } from "@/shared/i18n/language";
+import { useDcimStore } from "@/store/useDcimStore";
 import {
   CommMethod,
-  createDeviceCommConfig,
-  DEFAULT_DEVICE_COMM_CONFIGS,
   DeviceCommConfig,
+  DEVICE_TYPE_ORDER,
   DeviceType,
-  mergeDeviceCommConfigs,
-  NETWORK_COMM_STORAGE_KEY,
 } from "@/shared/networkComm";
 
 function commFieldsByMethod(method: CommMethod): Array<keyof DeviceCommConfig> {
@@ -33,8 +31,11 @@ function commFieldsByMethod(method: CommMethod): Array<keyof DeviceCommConfig> {
 export default function NetworkPage() {
   const { language } = useLanguage();
   const isEn = language === "en";
-  const [configs, setConfigs] = useState<DeviceCommConfig[]>(DEFAULT_DEVICE_COMM_CONFIGS);
-  const [savedAt, setSavedAt] = useState<string>("");
+  const configs = useDcimStore((s) => s.deviceCommConfigs);
+  const updateDeviceCommConfig = useDcimStore((s) => s.updateDeviceCommConfig);
+  const addDeviceCommConfig = useDcimStore((s) => s.addDeviceCommConfig);
+  const removeDeviceCommConfig = useDcimStore((s) => s.removeDeviceCommConfig);
+  const resetDeviceCommConfigs = useDcimStore((s) => s.resetDeviceCommConfigs);
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
 
   const t = useMemo(
@@ -43,11 +44,11 @@ export default function NetworkPage() {
         ? {
             title: "Network Communication",
             subtitle: "Configure model, device type, and communication method by device",
-            save: "Save Local Profile",
+            persistenceNote:
+              "Changes are saved automatically with the digital twin profile in IndexedDB (single storage).",
             reset: "Restore Defaults",
             add: "Add Device Config",
             remove: "Remove",
-            saved: "Saved",
             model: "Model",
             deviceType: "Device Type",
             method: "Method",
@@ -67,6 +68,8 @@ export default function NetworkPage() {
               tank: "Tank",
               cdu: "CDU",
               switch: "Switch",
+              crac: "CRAC",
+              power: "Power (PDU / UPS)",
             },
             methods: {
               agent_active_pull: "Agent active pull (current default)",
@@ -79,11 +82,10 @@ export default function NetworkPage() {
         : {
             title: "網路通訊設定",
             subtitle: "可依設備設定機型、Device 類型與通訊方式",
-            save: "儲存本機設定",
+            persistenceNote: "變更會與機房雙生場景一併自動寫入 IndexedDB（單一儲存位置）。",
             reset: "還原預設",
             add: "新增設備設定",
             remove: "刪除",
-            saved: "已儲存",
             model: "機型",
             deviceType: "Device 類型",
             method: "通訊方式",
@@ -103,6 +105,8 @@ export default function NetworkPage() {
               tank: "液冷槽",
               cdu: "CDU",
               switch: "交換器",
+              crac: "CRAC",
+              power: "電力設備（PDU / UPS）",
             },
             methods: {
               agent_active_pull: "Agent 主動 pull（現行預設）",
@@ -116,15 +120,6 @@ export default function NetworkPage() {
   );
 
   useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(NETWORK_COMM_STORAGE_KEY);
-      if (raw) setConfigs(mergeDeviceCommConfigs(JSON.parse(raw)));
-    } catch {
-      setConfigs(DEFAULT_DEVICE_COMM_CONFIGS);
-    }
-  }, []);
-
-  useEffect(() => {
     setExpandedRows((prev) => {
       const next: Record<string, boolean> = {};
       for (const row of configs) {
@@ -134,14 +129,8 @@ export default function NetworkPage() {
     });
   }, [configs]);
 
-  const saveProfile = () => {
-    window.localStorage.setItem(NETWORK_COMM_STORAGE_KEY, JSON.stringify(configs));
-    setSavedAt(new Date().toLocaleTimeString());
-  };
-
   const resetProfile = () => {
-    setConfigs(DEFAULT_DEVICE_COMM_CONFIGS);
-    setSavedAt("");
+    resetDeviceCommConfigs();
   };
 
   const update = <K extends keyof DeviceCommConfig>(
@@ -149,15 +138,15 @@ export default function NetworkPage() {
     key: K,
     value: DeviceCommConfig[K],
   ) => {
-    setConfigs((prev) => prev.map((row) => (row.id === id ? { ...row, [key]: value } : row)));
+    updateDeviceCommConfig(id, key, value);
   };
 
   const addRow = () => {
-    setConfigs((prev) => [...prev, createDeviceCommConfig("server", "agent_active_pull")]);
+    addDeviceCommConfig();
   };
 
   const removeRow = (id: string) => {
-    setConfigs((prev) => prev.filter((row) => row.id !== id));
+    removeDeviceCommConfig(id);
     setExpandedRows((prev) => {
       const { [id]: _removed, ...rest } = prev;
       return rest;
@@ -168,7 +157,7 @@ export default function NetworkPage() {
     setExpandedRows((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const deviceOrder: DeviceType[] = ["server", "rack", "tank", "cdu", "switch"];
+  const deviceOrder = [...DEVICE_TYPE_ORDER] as DeviceType[];
   const methodOptions: CommMethod[] = [
     "agent_active_pull",
     "redfish_poll",
@@ -207,16 +196,9 @@ export default function NetworkPage() {
               <RotateCcw size={14} />
               {t.reset}
             </button>
-            <button
-              onClick={saveProfile}
-              className="inline-flex items-center gap-1 rounded border border-cyan-600 bg-cyan-700/30 px-3 py-1.5 text-xs text-cyan-200 hover:bg-cyan-700/50"
-            >
-              <Save size={14} />
-              {t.save}
-            </button>
           </div>
         </div>
-        {savedAt ? <p className="mb-3 text-xs text-emerald-400">{t.saved}: {savedAt}</p> : null}
+        <p className="mb-3 text-[11px] text-slate-500 leading-relaxed">{t.persistenceNote}</p>
 
         <div className="mb-2 text-[11px] text-slate-500">
           {isEn

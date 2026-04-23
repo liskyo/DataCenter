@@ -1,4 +1,18 @@
-export type DeviceType = "server" | "rack" | "tank" | "cdu" | "switch";
+export const DEVICE_TYPE_ORDER = [
+  "server",
+  "rack",
+  "tank",
+  "cdu",
+  "switch",
+  "crac",
+  "power",
+] as const;
+
+export type DeviceType = (typeof DEVICE_TYPE_ORDER)[number];
+
+function isDeviceType(value: unknown): value is DeviceType {
+  return typeof value === "string" && (DEVICE_TYPE_ORDER as readonly string[]).includes(value);
+}
 export type CommMethod =
   | "agent_active_pull"
   | "redfish_poll"
@@ -22,6 +36,7 @@ export type DeviceCommConfig = {
   notes: string;
 };
 
+/** 舊版網路通訊設定鍵；遷移後改由 `useDcimStore`（IndexedDB）統一保存。 */
 export const NETWORK_COMM_STORAGE_KEY = "dcim.network.comm.profile.v1";
 
 export function createDeviceCommConfig(
@@ -47,14 +62,16 @@ export function createDeviceCommConfig(
   };
 }
 
-type LegacyCommProfile = Record<
-  DeviceType,
-  {
-    method: CommMethod;
-    endpoint: string;
-    enabled: boolean;
-    notes: string;
-  }
+type LegacyCommProfile = Partial<
+  Record<
+    DeviceType,
+    {
+      method: CommMethod;
+      endpoint: string;
+      enabled: boolean;
+      notes: string;
+    }
+  >
 >;
 
 export const DEFAULT_DEVICE_COMM_CONFIGS: DeviceCommConfig[] = [
@@ -75,11 +92,30 @@ export const DEFAULT_DEVICE_COMM_CONFIGS: DeviceCommConfig[] = [
     port: "29093",
     mqttTopic: "telemetry/cdu",
   }),
+  createDeviceCommConfig("crac", "snmp_poll_trap", {
+    model: "Stulz CyberAir",
+    endpoint: "snmp://10.10.10.40",
+    port: "161",
+    snmpCommunity: "public",
+  }),
+  createDeviceCommConfig("power", "snmp_poll_trap", {
+    model: "APC PDU",
+    endpoint: "snmp://10.10.10.50",
+    port: "161",
+    snmpCommunity: "public",
+  }),
 ];
+
+function ensureServerConfig(configs: DeviceCommConfig[]): DeviceCommConfig[] {
+  const hasServer = configs.some((c) => c.deviceType === "server");
+  if (hasServer) return configs;
+  const defaultServer = DEFAULT_DEVICE_COMM_CONFIGS.find((c) => c.deviceType === "server");
+  return defaultServer ? [...configs, createDeviceCommConfig("server", defaultServer.method, defaultServer)] : configs;
+}
 
 function migrateLegacyProfile(raw: LegacyCommProfile): DeviceCommConfig[] {
   const rows: DeviceCommConfig[] = [];
-  const order: DeviceType[] = ["server", "rack", "tank", "cdu", "switch"];
+  const order = ["server", "rack", "tank", "cdu", "switch"] as const;
   for (const type of order) {
     const item = raw[type];
     if (!item) continue;
@@ -96,14 +132,14 @@ function migrateLegacyProfile(raw: LegacyCommProfile): DeviceCommConfig[] {
 }
 
 export function mergeDeviceCommConfigs(raw: unknown): DeviceCommConfig[] {
-  if (!raw) return DEFAULT_DEVICE_COMM_CONFIGS;
+  if (!raw) return ensureServerConfig(DEFAULT_DEVICE_COMM_CONFIGS);
   if (Array.isArray(raw)) {
-    return raw
+    const rows = raw
       .filter((row) => row && typeof row === "object")
       .map((row) => {
         const input = row as Partial<DeviceCommConfig> & { name?: string };
         return createDeviceCommConfig(
-          (input.deviceType as DeviceType) || "server",
+          isDeviceType(input.deviceType) ? input.deviceType : "server",
           (input.method as CommMethod) || "agent_active_pull",
           {
             ...input,
@@ -112,21 +148,12 @@ export function mergeDeviceCommConfigs(raw: unknown): DeviceCommConfig[] {
           },
         );
       });
+    return ensureServerConfig(rows.length > 0 ? rows : DEFAULT_DEVICE_COMM_CONFIGS);
   }
   if (typeof raw === "object") {
-    return migrateLegacyProfile(raw as LegacyCommProfile);
+    return ensureServerConfig(migrateLegacyProfile(raw as LegacyCommProfile));
   }
-  return DEFAULT_DEVICE_COMM_CONFIGS;
-}
-
-export function readDeviceCommConfigsFromStorage(): DeviceCommConfig[] {
-  if (typeof window === "undefined") return DEFAULT_DEVICE_COMM_CONFIGS;
-  try {
-    const raw = window.localStorage.getItem(NETWORK_COMM_STORAGE_KEY);
-    return raw ? mergeDeviceCommConfigs(JSON.parse(raw)) : DEFAULT_DEVICE_COMM_CONFIGS;
-  } catch {
-    return DEFAULT_DEVICE_COMM_CONFIGS;
-  }
+  return ensureServerConfig(DEFAULT_DEVICE_COMM_CONFIGS);
 }
 
 export function resolveCommMethodByModel(

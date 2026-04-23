@@ -4,6 +4,7 @@ import json
 import random
 import threading
 import time
+import re
 from typing import Callable, Dict
 
 from kafka import KafkaConsumer, KafkaProducer
@@ -123,10 +124,28 @@ class KafkaRuntimeService:
         system_mode_getter: Callable[[], str],
         fallback_on_message: Callable[[dict], None] | None = None,
     ) -> None:
+        def normalize_name(value: str) -> str:
+            return re.sub(r"\s+", "", (value or "").strip().upper().replace("_", "-"))
+
+        def infer_kind(node_id: str) -> str:
+            sid = normalize_name(node_id)
+            if sid.startswith("SW-") or "SWITCH" in sid:
+                return "switch"
+            if sid.startswith("CDU-") or "CDU" in sid:
+                return "cdu"
+            if sid.startswith("IMM-") or sid.startswith("TANK") or "IMMERSION" in sid:
+                return "tank"
+            if sid.startswith("CRAC") or "CHILLER" in sid:
+                return "cooling"
+            if sid.startswith("PDU") or sid.startswith("UPS") or "POWER" in sid:
+                return "power"
+            return "server"
+
         base_metrics: Dict[str, Dict[str, float]] = {}
         active_critical = None
         active_warning = None
         loops = 0
+        last_logged_targets: tuple[str, ...] = ()
 
         while not self.stop_event.is_set():
             mode = system_mode_getter()
@@ -137,6 +156,11 @@ class KafkaRuntimeService:
                         servers = [f"SERVER-{str(i).zfill(3)}" for i in range(1, 19)]
                         switches = [f"SW-{str(i).zfill(3)}" for i in range(1, 4)]
                         all_ids = servers + switches
+
+                    current_targets = tuple(all_ids)
+                    if current_targets != last_logged_targets:
+                        print(f"[SimulationWorker] targets={list(current_targets)}")
+                        last_logged_targets = current_targets
 
                     for s_id in all_ids:
                         if s_id not in base_metrics:
@@ -177,7 +201,8 @@ class KafkaRuntimeService:
                     for s_id in all_ids:
                         if mode == "simulation":
                             base = base_metrics[s_id]
-                            if s_id.startswith("SW-"):
+                            kind = infer_kind(s_id)
+                            if kind == "switch":
                                 payload = {
                                     "server_id": s_id,
                                     "is_simulated": True,
@@ -188,7 +213,7 @@ class KafkaRuntimeService:
                                     "temperature": round(base["temp"], 2),
                                     "timestamp": int(time.time() * 1000),
                                 }
-                            elif s_id.startswith("CDU-"):
+                            elif kind == "cdu":
                                 payload = {
                                     "server_id": s_id,
                                     "is_simulated": True,
@@ -207,7 +232,7 @@ class KafkaRuntimeService:
                                     "leak_detected": False,
                                     "timestamp": int(time.time() * 1000),
                                 }
-                            elif s_id.startswith("IMM-"):
+                            elif kind == "tank":
                                 payload = {
                                     "server_id": s_id,
                                     "is_simulated": True,
@@ -216,6 +241,22 @@ class KafkaRuntimeService:
                                     "pressure_bar": round(1.02 + random.uniform(-0.02, 0.05), 2),
                                     "coolant_level": random.randint(92, 98),
                                     "cpu_usage": round(base["cpu"] * 0.2, 1),
+                                    "timestamp": int(time.time() * 1000),
+                                }
+                            elif kind == "cooling":
+                                payload = {
+                                    "server_id": s_id,
+                                    "is_simulated": True,
+                                    "temperature": round(20.0 + random.uniform(2.0, 8.0), 1),
+                                    "cpu_usage": round(base["cpu"] * 0.15, 1),
+                                    "timestamp": int(time.time() * 1000),
+                                }
+                            elif kind == "power":
+                                payload = {
+                                    "server_id": s_id,
+                                    "is_simulated": True,
+                                    "temperature": round(24.0 + random.uniform(0.5, 4.0), 1),
+                                    "cpu_usage": round(base["cpu"] * 0.1, 1),
                                     "timestamp": int(time.time() * 1000),
                                 }
                             else:
@@ -243,9 +284,12 @@ class KafkaRuntimeService:
                                 "timestamp": int(time.time() * 1000),
                             }
 
-                        self.emit_or_fallback(payload, fallback_on_message)
-                    if self.producer is not None:
-                        self.producer.flush()
+                        # Simulation data is local synthetic state; write it directly to the app cache
+                        # to avoid Kafka backlog or stale targets delaying frontend updates.
+                        if fallback_on_message is not None:
+                            fallback_on_message(payload)
+                        else:
+                            self.emit_or_fallback(payload, fallback_on_message)
                 except Exception:
                     try:
                         import traceback

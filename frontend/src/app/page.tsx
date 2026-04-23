@@ -120,42 +120,94 @@ const LiquidCoolingPanel = memo(({ title, cduData, className = "" }: { title: st
             <div className="flex justify-between items-center mb-3">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></div>
-                <span className="font-mono font-bold text-cyan-100 text-sm">{cdu.server_id}</span>
+                <span className="font-mono font-bold text-cyan-100 text-sm">{cdu.name || cdu.server_id}</span>
               </div>
               <div className="text-[10px] bg-blue-950 border border-blue-800 px-1.5 py-0.5 rounded text-blue-400 font-mono">
                 DLC-MODE
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <div className="flex justify-between items-center text-[10px]">
-                  <span className="text-slate-500 flex items-center gap-1"><Thermometer size={10} /> SUPPLY</span>
-                  <span className="font-mono text-sky-400 font-bold">{cdu.inlet_temp?.toFixed(1) ?? "--"}°C</span>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[10px]">
+              {[
+                {
+                  label: "SUPPLY",
+                  icon: <Thermometer size={10} />,
+                  value: cdu.inlet_temp?.toFixed(1) ?? "--",
+                  suffix: "°C",
+                  color: "text-sky-400",
+                },
+                {
+                  label: "RETURN",
+                  icon: <Thermometer size={10} />,
+                  value: cdu.outlet_temp?.toFixed(1) ?? "--",
+                  suffix: "°C",
+                  color: cdu.outlet_temp > 45 ? "text-red-400" : "text-orange-400",
+                },
+                {
+                  label: "FLOW",
+                  icon: <Droplets size={10} />,
+                  value: cdu.flow_rate_lpm?.toFixed(1) ?? "--",
+                  suffix: " LPM",
+                  color: cdu.flow_rate_lpm < 5 ? "text-red-400" : "text-cyan-400",
+                },
+                {
+                  label: "PRESSURE",
+                  icon: <Gauge size={10} />,
+                  value: cdu.pressure_bar?.toFixed(2) ?? "--",
+                  suffix: " bar",
+                  color: "text-violet-400",
+                },
+                {
+                  label: "PUMP A",
+                  icon: <Activity size={10} />,
+                  value: cdu.pump_a_rpm ?? "---",
+                  suffix: " RPM",
+                  color: "text-emerald-400",
+                },
+                {
+                  label: "PUMP B",
+                  icon: <Activity size={10} />,
+                  value: cdu.pump_b_rpm ?? "---",
+                  suffix: " RPM",
+                  color: "text-emerald-400",
+                },
+                {
+                  label: "TANK",
+                  icon: <Zap size={10} />,
+                  value: cdu.reservoir_level ?? "--",
+                  suffix: "%",
+                  color: cdu.reservoir_level < 30 ? "text-red-400" : "text-slate-300",
+                },
+                {
+                  label: "VALVE",
+                  icon: <Gauge size={10} />,
+                  value: cdu.valve_position ?? "---",
+                  suffix: "%",
+                  color: "text-slate-300",
+                },
+                {
+                  label: "CHW↓",
+                  icon: <Thermometer size={10} />,
+                  value: cdu.facility_supply_temp?.toFixed(1) ?? "--",
+                  suffix: "°C",
+                  color: "text-sky-300",
+                },
+                {
+                  label: "CHW↑",
+                  icon: <Thermometer size={10} />,
+                  value: cdu.facility_return_temp?.toFixed(1) ?? "--",
+                  suffix: "°C",
+                  color: "text-sky-300",
+                },
+              ].map((row) => (
+                <div key={row.label} className="flex justify-between items-center gap-2">
+                  <span className="text-slate-500 flex items-center gap-1">
+                    {row.icon}
+                    {row.label}
+                  </span>
+                  <span className={`font-mono font-bold ${row.color}`}>{row.value}{row.suffix}</span>
                 </div>
-                <div className="flex justify-between items-center text-[10px]">
-                  <span className="text-slate-500 flex items-center gap-1"><Thermometer size={10} /> RETURN</span>
-                  <span className={`font-mono font-bold ${cdu.outlet_temp > 45 ? 'text-red-400' : 'text-orange-400'}`}>{cdu.outlet_temp?.toFixed(1) ?? "--"}°C</span>
-                </div>
-                <div className="flex justify-between items-center text-[10px]">
-                  <span className="text-slate-500 flex items-center gap-1"><Droplets size={10} /> FLOW</span>
-                  <span className="font-mono text-cyan-400 font-bold">{cdu.flow_rate_lpm?.toFixed(1) ?? "--"} LPM</span>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <div className="flex justify-between items-center text-[10px]">
-                  <span className="text-slate-500 flex items-center gap-1"><Gauge size={10} /> PRESSURE</span>
-                  <span className="font-mono text-violet-400 font-bold">{cdu.pressure_bar?.toFixed(2) ?? "--"} bar</span>
-                </div>
-                <div className="flex justify-between items-center text-[10px]">
-                  <span className="text-slate-500 flex items-center gap-1"><Zap size={10} /> TANK</span>
-                  <span className={`font-mono font-bold ${cdu.reservoir_level < 30 ? 'text-red-400' : 'text-slate-300'}`}>{cdu.reservoir_level ?? "--"}%</span>
-                </div>
-                <div className="flex justify-between items-center text-[10px]">
-                  <span className="text-slate-500 flex items-center gap-1"><Activity size={10} /> PUMPS</span>
-                  <span className="font-mono text-emerald-400 font-bold">{cdu.pump_a_rpm ? 'ON' : 'OFF'}</span>
-                </div>
-              </div>
+              ))}
             </div>
 
             {cdu.leak_detected && (
@@ -790,6 +842,20 @@ export default function Dashboard() {
     return set;
   }, [allGridItems, locationEquipments, locationRacks]);
 
+  const simulationTargetSet = useMemo(() => {
+    const set = new Set<string>();
+    const add = (raw?: string) => {
+      if (!raw || typeof raw !== "string" || !raw.trim()) return;
+      const t = raw.trim().toUpperCase().replace(/\s+/g, "").replace(/_/g, "-");
+      if (!t) return;
+      set.add(t);
+    };
+    allGridItems.forEach((i) => add(i.name || i.assetId));
+    equipments.forEach((e) => add(e.name));
+    racks.forEach((r) => add(r.name));
+    return set;
+  }, [allGridItems, equipments, racks]);
+
   const filteredActiveStoreData = useMemo(
     () =>
       data
@@ -810,7 +876,7 @@ export default function Dashboard() {
     const expectedCdus = locationEquipments.filter((e) => e.type === "cdu");
     return expectedCdus.map((e) => {
       const row = findTelemetryForItem(telemetryById, normalizeNodeId(e.name), e.name);
-      return { ...e, server_id: e.name, ...row };
+      return { ...row, ...e, server_id: e.name, asset_id: e.name };
     });
   }, [locationEquipments, telemetryById]);
 
@@ -884,14 +950,14 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (simMode !== "simulation") return;
-    const targets = Array.from(itemNameSet);
+    const targets = Array.from(simulationTargetSet);
     if (targets.length === 0) return;
     authFetch(apiUrl("/api/system/simulate_targets"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ targets })
     }).catch(() => {});
-  }, [itemNameSet, simMode]);
+  }, [simulationTargetSet, simMode]);
 
   return (
     <div className="w-full bg-[#010613] text-slate-300 font-sans flex flex-col overflow-x-hidden selection:bg-cyan-900">

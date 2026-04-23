@@ -11,6 +11,7 @@ import NetworkLines from "@/components/3d/NetworkLines";
 import CoolantFlow from "@/components/3d/CoolantFlow";
 import HeatmapOverlay from "@/components/3d/HeatmapOverlay";
 import { useDcimStore } from "@/store/useDcimStore";
+import { normalizeNodeId, resolveTelemetryRecordDeep } from "@/shared/nodeId";
 
 export type TwinsSceneCanvasProps = {
   locationRacks: RackData[];
@@ -81,7 +82,11 @@ function TwinsSceneCanvasInner({
           .filter((eq) => eq.type === "cdu")
           .flatMap((cdu) => {
             const cduPos: [number, number, number] = [cdu.position[0], 0, cdu.position[2]];
-            const cduTelem = telemetry[cdu.name] as { flow_rate_lpm?: number } | undefined;
+            const cduTelem = resolveTelemetryRecordDeep(
+              telemetry as Record<string, unknown>,
+              cdu.name,
+              normalizeNodeId(cdu.name),
+            ) as { flow_rate_lpm?: number } | undefined;
             const flowRate = cduTelem?.flow_rate_lpm ?? 8.0;
 
             const allServerRacks = locationRacks.filter(

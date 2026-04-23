@@ -2,31 +2,23 @@
 import React, { useMemo } from "react";
 import * as THREE from "three";
 import { RackData } from "@/store/useDcimStore";
+import { resolveTelemetryRecordDeep } from "@/shared/nodeId";
 
 type Props = {
   racks: RackData[];
   telemetry: Record<string, any>;
 };
 
-function normalizeNodeId(value: string): string {
-  const raw = (value || "").trim().toUpperCase().replace(/\s+/g, "").replace(/_/g, "-");
-  const m = raw.match(/^(SERVER|SW|IMM|CDU)-?(\d+)$/);
-  if (!m) return raw;
-  return `${m[1]}-${String(Number(m[2])).padStart(3, "0")}`;
-}
-
 function rackMaxTemp(rack: RackData, telemetry: Record<string, any>): number {
   if (rack.type !== "server" && rack.type !== "immersion_single" && rack.type !== "immersion_dual") {
     return 25;
   }
   const temps = rack.servers.map((s) => {
-    const keys = [s.assetId, s.name, normalizeNodeId(s.name)].filter((k): k is string => Boolean(k && k.length));
-    for (const k of keys) {
-      const raw = telemetry[k]?.temperature;
-      if (raw === undefined || raw === null) continue;
-      const n = typeof raw === "number" ? raw : Number(raw);
-      if (Number.isFinite(n)) return n;
-    }
+    const row = resolveTelemetryRecordDeep(telemetry, s.assetId, s.name);
+    const raw = row?.temperature;
+    if (raw === undefined || raw === null) return undefined;
+    const n = typeof raw === "number" ? raw : Number(raw);
+    if (Number.isFinite(n)) return n;
     return undefined;
   });
   const finite = temps.filter((t): t is number => t !== undefined);
