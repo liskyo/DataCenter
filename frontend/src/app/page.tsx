@@ -568,59 +568,48 @@ const ServerMatrixPanel = memo(function ServerMatrixPanel({
   );
 });
 
-const CpuByNodePanel = memo(function CpuByNodePanel({
+const FacilityPanel = memo(function FacilityPanel({
   title,
-  chartData,
-  totalDataCount,
-  limitNotice,
+  facilityItems,
+  telemetryById,
 }: {
   title: string;
-  chartData: ServerTelemetry[];
-  totalDataCount: number;
-  limitNotice: string;
+  facilityItems: any[];
+  telemetryById: Map<string, any>;
 }) {
-  const tickInterval = chartData.length > 140 ? 4 : chartData.length > 90 ? 2 : chartData.length > 45 ? 1 : 0;
-  const chartHeight = Math.max(200, chartData.length * 18);
-
   return (
     <TechPanel title={title} className="h-[400px]">
-      <ClientOnlyChart placeholderClassName="h-full w-full min-h-[200px]">
-        <div className="h-full w-full overflow-y-auto pr-1 overflow-x-hidden custom-scrollbar">
-          {totalDataCount > chartData.length && (
-            <div className="text-[10px] text-cyan-500/80 font-mono mb-2">
-              {limitNotice}
-            </div>
-          )}
-          <div style={{ height: `${chartHeight}px` }} className="w-full">
-            <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1} initialDimension={{ width: 100, height: 200 }}>
-              <BarChart data={chartData} layout="vertical" margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-                <XAxis type="number" domain={[0, 100]} hide />
-                <YAxis
-                  dataKey="server_id"
-                  type="category"
-                  stroke="#1e3a8a"
-                  fontSize={9}
-                  width={75}
-                  tick={{ fill: '#06b6d4' }}
-                  interval={tickInterval}
-                />
-                <RechartsTooltip cursor={{ fill: '#1e3a8a' }} contentStyle={{ backgroundColor: '#020b1a', borderColor: '#06b6d4', color: '#fff' }} />
-                <Bar dataKey="cpu_usage" isAnimationActive={false} barSize={12}>
-                  {chartData.map((entry, index) => {
-                    const isOff = entry.power_state === 'off';
-                    return (
-                      <Cell
-                        key={`cell-${index}`}
-                        fill={isOff ? '#64748b' : (entry.cpu_usage > 85 ? '#ef4444' : '#06b6d4')}
-                      />
-                    );
-                  })}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      </ClientOnlyChart>
+      <div className="flex flex-col gap-2 p-2 h-full overflow-y-auto custom-scrollbar">
+        {facilityItems.length === 0 ? (
+          <div className="flex items-center justify-center h-full text-cyan-800 text-sm font-mono tracking-widest">NO FACILITY DATA</div>
+        ) : (
+          facilityItems.map(item => {
+            const srv = findTelemetryForItem(telemetryById, item.assetId, item.name);
+            const status = getDeviceStatus(item, srv);
+            const statusColor = status === 'critical' ? 'text-red-400' : status === 'warning' ? 'text-yellow-400' : 'text-cyan-400';
+            const bgColor = status === 'critical' ? 'bg-red-500/10 border-red-500/30' : status === 'warning' ? 'bg-yellow-500/10 border-yellow-500/30' : 'bg-cyan-950/20 border-cyan-800/40';
+            
+            return (
+              <div key={item.id} className={`flex items-center justify-between p-3 border ${bgColor} rounded-sm transition-colors hover:bg-cyan-900/30`}>
+                <div className="flex flex-col">
+                  <span className={`text-sm font-bold ${status === 'critical' ? 'text-red-300' : status === 'warning' ? 'text-yellow-300' : 'text-cyan-100'}`}>{item.name}</span>
+                  <span className="text-[10px] text-cyan-600 uppercase tracking-widest mt-1">{item.type}</span>
+                </div>
+                <div className="flex gap-4 text-xs font-mono">
+                  <div className="flex flex-col items-end">
+                    <span className="text-slate-500 text-[9px]">CPU</span>
+                    <span className={statusColor}>{(srv?.cpu_usage_percent || 0).toFixed(1)}%</span>
+                  </div>
+                  <div className="flex flex-col items-end">
+                    <span className="text-slate-500 text-[9px]">TEMP</span>
+                    <span className={statusColor}>{(srv?.temperature || 0).toFixed(1)}°C</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
     </TechPanel>
   );
 });
@@ -739,21 +728,28 @@ export default function Dashboard() {
     if (nowTs - lastHistoryAtRef.current < 2000) return;
 
     const validCpu = data
-      .map((cur) => Number(cur.cpu_usage))
+      .map((cur) => Number(cur.cpu_usage_percent || cur.cpu_usage || 0))
       .filter((v) => Number.isFinite(v));
     const validTemp = data
-      .map((cur) => Number(cur.temperature))
+      .map((cur) => Number(cur.temperature || 0))
       .filter((v) => Number.isFinite(v));
     if (validCpu.length === 0 || validTemp.length === 0) return;
 
     lastHistoryAtRef.current = nowTs;
     const now = new Date(nowTs);
-    const avgCpu = validCpu.reduce((acc, cur) => acc + cur, 0) / validCpu.length;
-    const avgTemp = validTemp.reduce((acc, cur) => acc + cur, 0) / validTemp.length;
+    
+    // 為了讓趨勢圖更具代表性且能看出波動，我們取最高負載/溫度的前 5% 來計算平均 (Peak Average)
+    validCpu.sort((a, b) => b - a);
+    validTemp.sort((a, b) => b - a);
+    const topCount = Math.max(1, Math.floor(validCpu.length * 0.05));
+
+    const topCpuAvg = validCpu.slice(0, topCount).reduce((acc, cur) => acc + cur, 0) / topCount;
+    const topTempAvg = validTemp.slice(0, topCount).reduce((acc, cur) => acc + cur, 0) / topCount;
+
     const newPoint = {
-      time: now.toLocaleTimeString("zh-TW", { hour12: false, minute: "2-digit", second: "2-digit" }),
-      avgCpu: Number(avgCpu.toFixed(1)),
-      avgTemp: Number(avgTemp.toFixed(1)),
+      time: now.toLocaleTimeString("zh-TW", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+      avgCpu: Number(topCpuAvg.toFixed(1)),
+      avgTemp: Number(topTempAvg.toFixed(1)),
     };
     setHistory((prev) => {
       const next = [...prev, newPoint];
@@ -908,6 +904,15 @@ export default function Dashboard() {
     return [];
   }, [locationRacks, telemetryById, simMode]);
 
+  const facilityItems = useMemo(() => {
+    return allGridItems.filter(item => 
+      item.type !== 'server' && 
+      item.type !== 'switch' && 
+      item.type !== 'cdu' && 
+      item.type !== 'immersion_dual'
+    );
+  }, [allGridItems]);
+
   const serverMatrixItems = useMemo(
     () =>
       allGridItems
@@ -1042,8 +1047,8 @@ export default function Dashboard() {
                       <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <XAxis dataKey="time" stroke="#1e3a8a" fontSize={10} tickMargin={5} />
-                  <YAxis stroke="#1e3a8a" fontSize={10} domain={[0, 100]} />
+                  <XAxis dataKey="time" stroke="#1e3a8a" tick={{ fill: '#94a3b8' }} fontSize={10} tickMargin={5} />
+                  <YAxis stroke="#1e3a8a" tick={{ fill: '#94a3b8' }} fontSize={10} domain={[0, 100]} />
                   <RechartsTooltip contentStyle={{ backgroundColor: '#020b1a', borderColor: '#06b6d4', color: '#fff' }} />
                   <Area type="monotone" dataKey="avgCpu" stroke="#06b6d4" fillOpacity={1} fill="url(#colorCpu)" isAnimationActive={false} />
                 </AreaChart>
@@ -1069,8 +1074,8 @@ export default function Dashboard() {
                       <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <XAxis dataKey="time" stroke="#1e3a8a" fontSize={10} tickMargin={5} />
-                  <YAxis stroke="#1e3a8a" fontSize={10} domain={[10, 60]} />
+                  <XAxis dataKey="time" stroke="#1e3a8a" tick={{ fill: '#94a3b8' }} fontSize={10} tickMargin={5} />
+                  <YAxis stroke="#1e3a8a" tick={{ fill: '#94a3b8' }} fontSize={10} domain={[10, 60]} />
                   <RechartsTooltip contentStyle={{ backgroundColor: '#020b1a', borderColor: '#ef4444', color: '#fff' }} />
                   <Area type="monotone" dataKey="avgTemp" stroke="#ef4444" fillOpacity={1} fill="url(#colorTemp)" isAnimationActive={false} />
                 </AreaChart>
@@ -1192,11 +1197,10 @@ export default function Dashboard() {
             </div>
           </TechPanel>
 
-          <CpuByNodePanel
-            title={t.cpuByNode}
-            chartData={deferredActiveStoreData}
-            totalDataCount={filteredActiveStoreData.length}
-            limitNotice={cpuChartLimitNotice}
+          <FacilityPanel
+            title={language === "en" ? "Facility Monitor" : "基礎設施監控 (Facility)"}
+            facilityItems={facilityItems}
+            telemetryById={telemetryById}
           />
 
           <TechPanel title={t.alarms} className="flex-1">
