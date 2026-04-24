@@ -1154,15 +1154,15 @@ export default function Dashboard() {
 
                 return (
                   <div key={i} className="flex flex-col items-center relative w-1/4 h-full justify-center">
-                    <ClientOnlyChart placeholderClassName="h-[90px] w-[90px]">
-                      <ResponsiveContainer width={90} height={90} initialDimension={{ width: 90, height: 90 }}>
+                    <ClientOnlyChart placeholderClassName="h-[105px] w-[105px]">
+                      <ResponsiveContainer width={105} height={105} initialDimension={{ width: 105, height: 105 }}>
                         <PieChart>
                           <Pie
                             data={groupPieData}
                             cx="50%"
                             cy="50%"
-                            innerRadius={32}
-                            outerRadius={44}
+                            innerRadius={38}
+                            outerRadius={52}
                             paddingAngle={5}
                             dataKey="value"
                             isAnimationActive={false}

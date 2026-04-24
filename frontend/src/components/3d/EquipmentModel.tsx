@@ -206,7 +206,8 @@ export default function EquipmentModel({ data, telemetry }: { data: EquipmentDat
         const surfaceTop = cabinetTop + D.workT;
         const monW = 0.32;
         const monH = 0.22;
-        const dx = D.w * 0.2;
+        // 螢幕寬度固定為 0.32，因此給予絕對的中心偏移量 0.175 (總距 0.35) 確保就算旋轉也不會互相重疊
+        const dx = 0.175;
         /** 螢幕組中心較檯面抬高（與 poleH 協調） */
         const armY = surfaceTop + 0.2;
         const metal = isSelected ? "#475569" : "#3d4a5c";
@@ -306,13 +307,13 @@ export default function EquipmentModel({ data, telemetry }: { data: EquipmentDat
                         <planeGeometry args={[monW * 0.94, monH * 0.94]} />
                         <meshBasicMaterial color="#06b6d4" transparent opacity={0.26} />
                     </mesh>
-                    <Text position={[0, monH * 0.28, 0.018]} fontSize={0.042} color="#06b6d4" anchorX="center" anchorY="middle">
+                    <Text position={[0, monH * 0.36, 0.018]} fontSize={0.038} color="#06b6d4" anchorX="center" anchorY="middle">
                         TRAFFIC
                     </Text>
-                    <Text position={[0, 0.02, 0.018]} fontSize={0.11} color="#fff" anchorX="center" anchorY="middle">
+                    <Text position={[0, 0, 0.018]} fontSize={0.09} color="#fff" anchorX="center" anchorY="middle">
                         {stats.traffic.toFixed(1)}
                     </Text>
-                    <Text position={[0, -monH * 0.32, 0.018]} fontSize={0.035} color="#0e7490" anchorX="center" anchorY="middle">
+                    <Text position={[0, -monH * 0.35, 0.018]} fontSize={0.032} color="#0e7490" anchorX="center" anchorY="middle">
                         Gbps
                     </Text>
                 </group>
@@ -330,13 +331,13 @@ export default function EquipmentModel({ data, telemetry }: { data: EquipmentDat
                         <planeGeometry args={[monW * 0.94, monH * 0.94]} />
                         <meshBasicMaterial color={isCriticalHub ? "#ef4444" : "#10b981"} transparent opacity={0.26} />
                     </mesh>
-                    <Text position={[0, monH * 0.28, 0.018]} fontSize={0.042} color={isCriticalHub ? "#f87171" : "#34d399"} anchorX="center" anchorY="middle">
+                    <Text position={[0, monH * 0.36, 0.018]} fontSize={0.038} color={isCriticalHub ? "#f87171" : "#34d399"} anchorX="center" anchorY="middle">
                         ALARMS
                     </Text>
-                    <Text position={[0, 0.02, 0.018]} fontSize={0.13} color={isCriticalHub ? "#ef4444" : "#10b981"} anchorX="center" anchorY="middle">
+                    <Text position={[0, 0, 0.018]} fontSize={0.11} color={isCriticalHub ? "#ef4444" : "#10b981"} anchorX="center" anchorY="middle">
                         {stats.alarms}
                     </Text>
-                    <Text position={[0, -monH * 0.32, 0.018]} fontSize={0.03} color={isCriticalHub ? "#991b1b" : "#064e3b"} anchorX="center" anchorY="middle">
+                    <Text position={[0, -monH * 0.35, 0.018]} fontSize={0.032} color={isCriticalHub ? "#991b1b" : "#064e3b"} anchorX="center" anchorY="middle">
                         {isCriticalHub ? "CRITICAL" : "OPTIMAL"}
                     </Text>
                 </group>
