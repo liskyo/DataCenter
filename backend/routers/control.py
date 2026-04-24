@@ -1,7 +1,8 @@
 from __future__ import annotations
 import time
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, Depends, Request, HTTPException
 
+from core.auth_middleware import require_role
 from core.container import AppContainer
 
 # 如果未來有真實硬體，可以在這裡安裝並引入 Redfish 函式庫
@@ -69,7 +70,12 @@ def check_interlocks(container: AppContainer, server_id: str, action: str) -> st
 
 
 @router.post("/{server_id}/power")
-def control_power(request: Request, server_id: str, payload: dict):
+def control_power(
+    request: Request,
+    server_id: str,
+    payload: dict,
+    _: dict = Depends(require_role("admin", "operator")),
+):
     # payload: {"action": "on" | "off" | "reboot"}
     action = payload.get("action", "").lower()
     

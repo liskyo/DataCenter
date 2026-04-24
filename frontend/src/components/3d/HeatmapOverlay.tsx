@@ -1,111 +1,87 @@
 "use client";
-import React, { useMemo, useEffect } from 'react';
-import * as THREE from 'three';
-import { RackData } from '@/store/useDcimStore';
+import React, { useMemo } from "react";
+import * as THREE from "three";
+import { RackData } from "@/store/useDcimStore";
+import { resolveTelemetryRecordDeep } from "@/shared/nodeId";
 
 type Props = {
-    racks: RackData[];
-    telemetry: Record<string, any>;
-    xMin: number;
-    xMax: number;
-    zMin: number;
-    zMax: number;
+  racks: RackData[];
+  telemetry: Record<string, any>;
 };
 
-// Normalize names similar to RackModel
-function normalizeNodeId(value: string): string {
-    const raw = (value || "").trim().toUpperCase().replace(/\s+/g, "").replace(/_/g, "-");
-    const m = raw.match(/^(SERVER|SW|IMM|CDU)-?(\d+)$/);
-    if (!m) return raw;
-    return `${m[1]}-${String(Number(m[2])).padStart(3, "0")}`;
+function rackMaxTemp(rack: RackData, telemetry: Record<string, any>): number {
+  if (rack.type !== "server" && rack.type !== "immersion_single" && rack.type !== "immersion_dual") {
+    return 25;
+  }
+  const temps = rack.servers.map((s) => {
+    const row = resolveTelemetryRecordDeep(telemetry, s.assetId, s.name);
+    const raw = row?.temperature;
+    if (raw === undefined || raw === null) return undefined;
+    const n = typeof raw === "number" ? raw : Number(raw);
+    if (Number.isFinite(n)) return n;
+    return undefined;
+  });
+  const finite = temps.filter((t): t is number => t !== undefined);
+  if (finite.length === 0) return 25;
+  const m = Math.max(...finite);
+  return Number.isFinite(m) ? m : 25;
 }
 
-export default function HeatmapOverlay({ racks, telemetry, xMin, xMax, zMin, zMax }: Props) {
-    const width = xMax - xMin;
-    const depth = zMax - zMin;
-    const centerX = (xMin + xMax) / 2;
-    const centerZ = (zMin + zMax) / 2;
-    
-    // We use a high-res canvas (e.g. 512x512) for smoother gradients
-    const canvasRes = 512;
-    const { canvas, ctx, texture } = useMemo(() => {
-        const c = document.createElement("canvas");
-        c.width = canvasRes;
-        c.height = canvasRes;
-        const context = c.getContext("2d");
-        const tex = new THREE.CanvasTexture(c);
-        return { canvas: c, ctx: context, texture: tex };
-    }, []);
+/**
+ * 地板熱區：改為純幾何 + meshBasicMaterial，不使用 CanvasTexture。
+ * 遙測更新時僅改 React props／Three 材質色，避免動態貼圖上傳在部分驅動造成整屏白畫面。
+ */
+export default function HeatmapOverlay({ racks, telemetry }: Props) {
+  const decals = useMemo(() => {
+    const out: {
+      key: string;
+      x: number;
+      z: number;
+      radius: number;
+      color: string;
+      opacity: number;
+    }[] = [];
 
-    // Perform drawing only when telemetry or layout changes (120x optimization vs useFrame)
-    useEffect(() => {
-        if (!ctx) return;
-        
-        // Clear canvas
-        ctx.clearRect(0, 0, canvasRes, canvasRes);
-        ctx.globalCompositeOperation = 'screen';
+    for (const rack of racks) {
+      if (rack.type !== "server" && rack.type !== "immersion_single" && rack.type !== "immersion_dual") continue;
+      const maxTemp = rackMaxTemp(rack, telemetry);
+      if (maxTemp <= 35) continue;
 
-        // Draw heat sources
-        let hasHeat = false;
-        racks.forEach(rack => {
-            if (rack.type !== 'server' && rack.type !== 'immersion_single' && rack.type !== 'immersion_dual') return;
-            
-            // Calculate average temperature
-            const temps = rack.servers.map(s => {
-                const keys = [s.assetId, s.name, normalizeNodeId(s.name)].filter((k): k is string => Boolean(k && k.length));
-                for (const k of keys) {
-                    if (telemetry[k]?.temperature !== undefined) {
-                        return telemetry[k].temperature;
-                    }
-                }
-                return undefined;
-            }).filter((t): t is number => t !== undefined);
-            
-            const maxTemp = temps.length > 0 ? Math.max(...temps) : 25;
-            
-            // Only draw heat if > 35 degrees (configurable threshold for glowing)
-            if (maxTemp <= 35) return;
-            hasHeat = true;
-            
-            // Normalize rack coordinates to canvas space [0, canvasRes]
-            const rX = rack.position[0];
-            const rZ = rack.position[2];
-            
-            const cx = ((rX - xMin) / width) * canvasRes;
-            const cy = ((rZ - zMin) / depth) * canvasRes; 
-            
-            // Intensity based on temp (e.g. 35 -> 0, 85 -> 1)
-            const intensity = Math.min(1, (maxTemp - 35) / 50);
-            const radius = 50 + intensity * 60;
-            
-            const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
-            const colorR = Math.floor(255);
-            const colorG = Math.floor(200 * (1 - intensity)); 
-            const colorB = Math.floor(50 * (1 - Math.min(1, intensity * 2))); 
-            
-            gradient.addColorStop(0, `rgba(${colorR}, ${colorG}, ${colorB}, ${0.85 * intensity})`);
-            gradient.addColorStop(1, "rgba(255, 0, 0, 0)");
-            
-            ctx.fillStyle = gradient;
-            ctx.beginPath();
-            ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-            ctx.fill();
-        });
+      const intensity = Math.min(1, (maxTemp - 35) / 50);
+      const c = new THREE.Color().setHSL(0.02 + intensity * 0.05, 0.85, 0.42 + 0.15 * (1 - intensity));
+      out.push({
+        key: rack.id,
+        x: rack.position[0],
+        z: rack.position[2],
+        radius: 0.42 + intensity * 0.55,
+        color: `#${c.getHexString()}`,
+        opacity: 0.14 + intensity * 0.32,
+      });
+    }
+    return out;
+  }, [racks, telemetry]);
 
-        // Trigger memory flush if there was heat drawn, or if we just cleared previous heat
-        texture.needsUpdate = true;
-    }, [racks, telemetry, width, depth, xMin, zMin, texture, ctx]);
+  if (decals.length === 0) return null;
 
-    useEffect(() => {
-        return () => {
-            texture.dispose();
-        }
-    }, [texture]);
-
-    return (
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[centerX, 0.02, centerZ]} receiveShadow>
-            <planeGeometry args={[width, depth]} />
-            <meshBasicMaterial map={texture} transparent opacity={0.7} depthWrite={false} blending={THREE.AdditiveBlending} />
+  return (
+    <group>
+      {decals.map((d) => (
+        <mesh
+          key={d.key}
+          rotation={[-Math.PI / 2, 0, 0]}
+          position={[d.x, 0.028, d.z]}
+          renderOrder={1}
+        >
+          <circleGeometry args={[d.radius, 48]} />
+          <meshBasicMaterial
+            color={d.color}
+            transparent
+            opacity={d.opacity}
+            depthWrite={false}
+            toneMapped={false}
+          />
         </mesh>
-    );
+      ))}
+    </group>
+  );
 }

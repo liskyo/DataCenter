@@ -1,14 +1,17 @@
 from __future__ import annotations
 
+import os
 import time
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 import threading
 import re
 
 from services.kafka_service import KafkaRuntimeService
-from services.storage_service import AlertStorageService, InfluxService
+from services.storage_service import AlertStorageService, InfluxService, MaintenanceStorageService, UserStorageService
+from services.maintenance_service import MaintenanceRepository, MaintenanceService
 from services.telemetry_service import TelemetryService
-from services.notification_service import NotificationService
+from services.notification_service import EmailNotificationService, NotificationService
 from services.sse_manager import SSEManager
 from services.ml_worker import AnomalyDetectionEngine
 from services.remediation_service import AutoRemediationEngine
@@ -25,14 +28,22 @@ def _temperature_tier(temp: float) -> str:
 
 @dataclass
 class AppSettings:
-    kafka_broker: str = "localhost:29093"
+    kafka_broker: str = "127.0.0.1:29093"
     topic: str = "telemetry"
     influx_url: str = "http://localhost:8087"
     influx_token: str = "adminpassword"
     influx_org: str = "datacenter"
     influx_bucket: str = "telemetry"
     mongo_uri: str = "mongodb://admin:adminpassword@localhost:27018/"
-    line_notify_token: str = ""
+    line_notify_token: str = os.environ.get("LINE_NOTIFY_TOKEN", "")
+    smtp_host: str = os.environ.get("SMTP_HOST", "")
+    smtp_port: int = int(os.environ.get("SMTP_PORT", "587"))
+    smtp_username: str = os.environ.get("SMTP_USER", "")
+    smtp_password: str = os.environ.get("SMTP_PASS", "")
+    smtp_from_email: str = os.environ.get("SMTP_FROM_EMAIL", "")
+    smtp_from_name: str = os.environ.get("SMTP_FROM_NAME", "DCIM System")
+    smtp_use_tls: bool = os.environ.get("SMTP_USE_TLS", "true").lower() not in {"0", "false", "no"}
+    maintenance_email_scan_seconds: int = int(os.environ.get("MAINTENANCE_EMAIL_SCAN_SECONDS", "60"))
 
 
 class AppContainer:
@@ -40,6 +51,8 @@ class AppContainer:
         self.settings = settings or AppSettings()
         self.telemetry = TelemetryService(history_window=60)
         self.alert_storage = AlertStorageService(mongo_uri=self.settings.mongo_uri)
+        self.user_storage = UserStorageService(mongo_uri=self.settings.mongo_uri)
+        self.maintenance_storage = MaintenanceStorageService(mongo_uri=self.settings.mongo_uri)
         self.influx = InfluxService(
             url=self.settings.influx_url,
             token=self.settings.influx_token,
@@ -48,6 +61,20 @@ class AppContainer:
         )
         self.kafka = KafkaRuntimeService(broker=self.settings.kafka_broker, topic=self.settings.topic)
         self.notifier = NotificationService(token=self.settings.line_notify_token)
+        self.email_notifier = EmailNotificationService(
+            host=self.settings.smtp_host,
+            port=self.settings.smtp_port,
+            username=self.settings.smtp_username,
+            password=self.settings.smtp_password,
+            from_email=self.settings.smtp_from_email,
+            from_name=self.settings.smtp_from_name,
+            use_tls=self.settings.smtp_use_tls,
+        )
+        self.maintenance_repository = MaintenanceRepository(self.maintenance_storage)
+        self.maintenance_service = MaintenanceService(
+            repository=self.maintenance_repository,
+            email_notifier=self.email_notifier,
+        )
         self.sse = SSEManager()
         self.ml_engine = AnomalyDetectionEngine()
         self.remediation_engine = AutoRemediationEngine(continuous_seconds=15)
@@ -112,6 +139,17 @@ class AppContainer:
         self.alert_storage.insert_alert(alert_doc)
         self.notifier.send_alert(server_id, msg_type, message)
         print(f"[Webhook] {msg_type} FOR {server_id}: {message}")
+
+    def log_system_event(self, source: str, event_type: str, message: str) -> None:
+        self.alert_storage.insert_alert(
+            {
+                "server_id": source,
+                "type": event_type,
+                "message": message,
+                "timestamp": int(time.time() * 1000),
+            }
+        )
+        print(f"[SystemLog] {event_type} FOR {source}: {message}")
 
     def process_message(self, data: dict) -> None:
         asset_id, server_id = self.resolve_ids(data)
@@ -240,8 +278,34 @@ class AppContainer:
         # SSE: broadcast to all connected frontends in real-time
         self.sse.broadcast(data)
 
+    @staticmethod
+    def _next_maintenance_email_run(now: datetime) -> datetime:
+        base = now.replace(second=0, microsecond=0)
+        retry_minutes = (0, 5, 10)
+        for minute in retry_minutes:
+            slot = base.replace(hour=8, minute=minute)
+            if now < slot:
+                return slot
+        tomorrow = base + timedelta(days=1)
+        return tomorrow.replace(hour=8, minute=0)
+
+    def maintenance_email_worker(self) -> None:
+        while not self.kafka.stop_event.is_set():
+            now = datetime.now()
+            next_run = self._next_maintenance_email_run(now)
+            wait_seconds = max((next_run - now).total_seconds(), 1)
+            if self.kafka.stop_event.wait(wait_seconds):
+                break
+            if self.maintenance_service.is_ready:
+                self.maintenance_service.process_due_email_schedules(
+                    datetime.now().date().isoformat(),
+                    self.log_system_event,
+                )
+
     def startup(self) -> None:
         self.alert_storage.init()
+        self.user_storage.init()
+        self.maintenance_storage.init()
         self.kafka.ensure_kafka_producer_thread()
         if self._workers_started:
             return
@@ -255,9 +319,14 @@ class AppContainer:
             ),
             threading.Thread(
                 target=self.kafka.simulation_worker,
-                args=(lambda: self.system_mode,),
+                args=(lambda: self.system_mode, self.process_message),
                 daemon=True,
                 name="kafka-simulation-worker",
+            ),
+            threading.Thread(
+                target=self.maintenance_email_worker,
+                daemon=True,
+                name="maintenance-email-worker",
             ),
         ]
         for t in self._worker_threads:
@@ -271,4 +340,6 @@ class AppContainer:
         self._worker_threads = []
         self._workers_started = False
         self.alert_storage.close()
+        self.user_storage.close()
+        self.maintenance_storage.close()
         self.influx.close()

@@ -7,23 +7,7 @@ import CDUModel from './CDUModel';
 import { GRID, CRAC, PDU, CHILLER, DASHBOARD } from './sceneScale';
 // 與首頁共用 getDeviceStatus，3D Dashboard 告警數與狀態總覽一致。
 import { getDeviceStatus } from '@/shared/status';
-
-function normalizeNodeId(value: string): string {
-    const raw = (value || "").trim().toUpperCase().replace(/\s+/g, "").replace(/_/g, "-");
-    const m = raw.match(/^(SERVER|SW|IMM|CDU)-?(\d+)$/);
-    if (!m) return raw;
-    return `${m[1]}-${String(Number(m[2])).padStart(3, "0")}`;
-}
-
-function pickTelemetry(telemetry: Record<string, any> | undefined, assetId: string | undefined, name: string) {
-    if (!telemetry) return undefined;
-    const keys = [assetId, name, normalizeNodeId(name)].filter((k): k is string => Boolean(k && k.length));
-    for (const k of keys) {
-        const hit = telemetry[k];
-        if (hit) return hit;
-    }
-    return undefined;
-}
+import { normalizeNodeId, resolveTelemetryRecordDeep } from '@/shared/nodeId';
 
 export default function EquipmentModel({ data, telemetry }: { data: EquipmentData, telemetry?: any }) {
     const isEditMode = useDcimStore(state => state.isEditMode);
@@ -203,11 +187,12 @@ export default function EquipmentModel({ data, telemetry }: { data: EquipmentDat
 
         const stats = {
             traffic: allItems.reduce((acc: number, itemInStore: any) => {
-                const s = pickTelemetry(telemetry, itemInStore.assetId, itemInStore.name);
-                return acc + (s?.traffic_gbps || 0);
+                const s = resolveTelemetryRecordDeep(telemetry, itemInStore.assetId, itemInStore.name);
+                const traffic = Number((s as Record<string, unknown> | undefined)?.traffic_gbps ?? 0);
+                return acc + (Number.isFinite(traffic) ? traffic : 0);
             }, 0),
             alarms: allItems.filter((itemInStore: any) => {
-                const s = pickTelemetry(telemetry, itemInStore.assetId, itemInStore.name);
+                const s = resolveTelemetryRecordDeep(telemetry, itemInStore.assetId, itemInStore.name);
                 const status = getDeviceStatus(itemInStore, s);
                 return status === 'warning' || status === 'critical';
             }).length,

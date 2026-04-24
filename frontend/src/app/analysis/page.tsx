@@ -6,6 +6,7 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianG
 import { ClientOnlyChart } from "@/components/ClientOnlyChart";
 import { usePolling } from "@/shared/hooks/usePolling";
 import { apiUrl } from "@/shared/api";
+import { authFetch } from "@/shared/auth";
 import { useLanguage } from "@/shared/i18n/language";
 
 type HistoryData = {
@@ -33,7 +34,7 @@ export default function AnalysisPage() {
 
   usePolling(async () => {
     try {
-      const res = await fetch(apiUrl("/history"));
+      const res = await authFetch(apiUrl("/history"));
       if (res.ok) {
         const json = await res.json();
         setHistory(json.data);

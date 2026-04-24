@@ -1,74 +1,139 @@
-# DataCenter 整體資料庫架構及開發環境與流程指南 (1150325)
+# DataCenter 整體資料庫架構及開發環境及流程指南 (1150325)
 
-本文件詳細說明 DataCenter 系統的儲存架構與資料流向，並提供開發者如何「進入」資料庫進行除錯與驗證的具體步驟。
-
----
-
-## 🏛️ 一、 資料庫三巨頭連線資訊 (Access Guide)
-
-若要手動查看或修改資料庫內容，請使用以下連線設定：
-
-### 1. MongoDB (事件與日誌)
-- **連線位址**: `mongodb://localhost:27018`
-- **推薦工具**: [MongoDB Compass](https://www.mongodb.com/products/compass)
-- **登入資訊 (Authentication)**:
-  - Method: `Username / Password`
-  - Username: `admin`
-  - Password: `adminpassword`
-  - Auth DB: `admin`
-- **主要標的**:
-  - Database: `datacenter`
-  - Collection: `alerts` (存儲 AI 異常與系統告警)
-
-### 2. InfluxDB (時序數據/圖表數值)
-- **連線位址**: `http://localhost:8087` (直接使用瀏覽器開啟)
-- **登入帳密**:
-  - User: `admin`
-  - Password: `adminpassword`
-- **關鍵參數**:
-  - Bucket: `telemetry`
-  - Token: `my-super-secret-auth-token`
-- **功能**: 點擊左側「Data Explorer」即可透過 Flux 語法查詢所有伺服器的即時效能指標。
-
-### 3. Apache Kafka (串流緩衝)
-- **連線位址**: `localhost:29093` (外部存取埠)
-- **預設 Topic**: `telemetry`
-- **推薦工具**: [Offset Explorer](https://www.kafkatool.com/)
-
-### 4. 其他基礎設施
-- **Zookeeper**: `localhost:2182`
-- **Grafana**: `http://localhost:3002` (帳密均為 `admin`)
+本文件說明目前專案的資料儲存架構與實際連線資訊，內容以 `docker-compose.yml` 與 `backend/services/storage_service.py` 現況為準。
 
 ---
 
-## 🏗️ 二、 混合式儲存架構 (Hybrid Storage)
+## 1. 儲存架構總覽
 
-### 1. 遙測串流路徑 (Telemetry Flow)
-1. **收集層**：`client_agent.py` 採集數據。
-2. **傳輸層**：數據推播至 FastAPI 的 `/ingest` 接口，並寫入 **Kafka**。
-3. **分發層**：後端 Worker 從 Kafka 讀取數據，同時寫入：
-   - **InfluxDB**: 儲存 `cpu_usage` 與 `temperature` 的時間細分紀錄。
-   - **MongoDB**: 若偵測到數值異常，則寫入一筆 Alert 紀錄。
+本系統採用分工式儲存：
 
-### 2. 空間配置資料 (Layout Data)
-- **dcim_layout.json**: 儲存機房的靜態/初始佈局（3D 機櫃位置、U 位配置）。
-- **LocalStorage**: 用於暫存前端操作員的即時拖拉調整，提供無感知的持久化體驗。
+- `Kafka`：事件匯流排與緩衝層
+- `InfluxDB`：時序資料
+- `MongoDB`：告警、使用者、維運等文件資料
+- `Redis`：SSE 事件傳遞輔助
+- `LocalStorage / IndexedDB`：前端局部狀態保存
 
 ---
 
-## 🛠️ 三、 維運常用指令 (Operations)
+## 2. 主要資料流
 
-### 一鍵啟動
-```bash
-docker-compose up -d
+```text
+Telemetry payload
+   -> /ingest
+   -> Kafka(topic: telemetry)
+   -> Consumer / Processing
+   -> InfluxDB(server_metrics)
+   -> MongoDB(alerts / maintenance / users)
+   -> SSE to frontend
 ```
 
-### 資料徹底清空 (Hard Reset)
-當測試數據過亂，需要還原至純淨狀態時：
-```bash
-docker-compose down -v
-```
-*(注意：`-v` 會刪除所有磁碟卷宗中的數據，請謹慎使用。)*
+資料分工如下：
+
+- 高頻數值與趨勢查詢放在 InfluxDB
+- 事件、告警、帳號、維運資料放在 MongoDB
+- Redis 不作為主要業務資料庫，而是即時事件通道輔助
 
 ---
-*文件更新日期：2026-03-25 (1150325 更新版)*
+
+## 3. 連線資訊
+
+### 3.1 MongoDB
+
+- Host：`localhost`
+- Port：`27018`
+- Auth DB：`admin`
+- 主要 DB：`datacenter`
+
+常見集合：
+
+- `alerts`
+- `users`
+- `maintenance_schedules`
+
+### 3.2 InfluxDB
+
+- URL：`http://localhost:8087`
+- 主要 bucket：`telemetry`
+- 常見 measurement：`server_metrics`
+
+常見欄位：
+
+- `temperature`
+- `cpu_usage`
+
+常見 tag：
+
+- `server_id`
+
+### 3.3 Kafka
+
+- Host Port：`29093`
+- Topic：`telemetry`
+
+### 3.4 其他基礎服務
+
+- ZooKeeper：`2182`
+- Redis：`6379`
+- Grafana：`http://localhost:3002`
+- Mailpit：`http://localhost:8025`
+
+---
+
+## 4. 資料模型摘要
+
+### 4.1 InfluxDB
+
+適合：
+
+- CPU、溫度、流量、壓力等連續型指標
+- 歷史走勢與圖表查詢
+
+### 4.2 MongoDB
+
+適合：
+
+- 告警事件
+- 使用者資料
+- 維護排程
+- 通知與稽核資料
+
+### 4.3 前端本地儲存
+
+前端部分狀態會保存在本地：
+
+- 版面與操作狀態
+- 某些互動設定或快取資料
+
+這些資料不等同後端正式資料來源，文件應避免混淆。
+
+---
+
+## 5. 常用操作
+
+### 啟動基礎設施
+
+```bash
+docker compose up -d
+```
+
+### 重建資料環境
+
+```bash
+docker compose down -v
+docker compose up -d
+```
+
+注意：`down -v` 會刪除卷宗資料，僅適用於開發或測試重置。
+
+---
+
+## 6. 文件同步注意事項
+
+- 舊版文件若仍寫 `MongoDB 27017`、`InfluxDB 8086`、`Kafka 29092`，請視為過時描述；目前對外埠已偏移為 `27018`、`8087`、`29093`
+- `.env.example` 仍可見部分與實際容器不完全一致的設定，部署前應先核對程式與 compose
+- 專案目前沒有主 compose 中的 Postgres 正式資料路徑，若文件提到 Postgres 主資料庫，應另行確認是否屬外部或舊規劃
+
+---
+
+*文件更新日期：2026-04-21*

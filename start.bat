@@ -1,5 +1,5 @@
 @echo off
-setlocal EnableExtensions
+setlocal EnableExtensions EnableDelayedExpansion
 cd /d "%~dp0"
 if errorlevel 1 (
   echo [ERROR] Cannot change to folder.
@@ -32,6 +32,15 @@ if errorlevel 1 (
   exit /b 1
 )
 
+if exist "%ROOT%\.env" (
+  echo [INFO] Loading environment variables from .env ...
+  for /f "usebackq eol=# tokens=1* delims==" %%A in ("%ROOT%\.env") do (
+    if not "%%~A"=="" call set "%%~A=%%~B"
+  )
+) else (
+  echo [INFO] .env not found. Using current system environment.
+)
+
 echo ==============================================
 echo   DataCenter Monitoring System - Startup
 echo ==============================================
@@ -39,10 +48,26 @@ echo Root:   %ROOT%
 echo Python: %VENV_PY%
 echo.
 
-echo [1/4] Starting Docker containers - Kafka, InfluxDB, MongoDB, Grafana
+echo [1/4] Starting Docker containers - Kafka, InfluxDB, MongoDB, Mailpit, Grafana
 docker compose up -d 2>nul
 if errorlevel 1 docker-compose up -d 2>nul
 if errorlevel 1 echo [WARN] Docker step skipped - install Docker Desktop or add compose to PATH.
+
+set "KAFKA_CID="
+for /f %%i in ('docker compose ps -q kafka 2^>nul') do set "KAFKA_CID=%%i"
+if not defined KAFKA_CID for /f %%i in ('docker-compose ps -q kafka 2^>nul') do set "KAFKA_CID=%%i"
+if defined KAFKA_CID (
+  echo Waiting for Kafka healthcheck...
+  set "KAFKA_STATUS="
+  for /L %%n in (1,1,30) do (
+    for /f %%s in ('docker inspect -f "{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}" !KAFKA_CID! 2^>nul') do set "KAFKA_STATUS=%%s"
+    if /I "!KAFKA_STATUS!"=="healthy" goto kafka_ready
+    if /I "!KAFKA_STATUS!"=="running" goto kafka_ready
+    timeout /t 2 /nobreak >nul
+  )
+  echo [WARN] Kafka did not become healthy in time. Backend will still start and use fallback mode.
+)
+:kafka_ready
 
 echo.
 echo [2/4] Setting up Python Backend...
@@ -78,6 +103,7 @@ echo.
 echo Backend API : http://127.0.0.1:9000/docs
 echo Frontend    : http://127.0.0.1:9001
 echo Grafana     : http://127.0.0.1:3002
+echo Mailpit UI  : http://127.0.0.1:8025
 echo.
 echo Agents      : SERVER-015 standard, CDU-001 DLC
 echo Auth Login  : POST http://127.0.0.1:9000/api/auth/login

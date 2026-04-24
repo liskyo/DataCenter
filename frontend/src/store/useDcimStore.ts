@@ -1,6 +1,14 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage, PersistStorage } from 'zustand/middleware';
 import { get, set, del } from 'idb-keyval';
+import type { AppLanguage } from '@/shared/i18n/language';
+import {
+    createDeviceCommConfig,
+    DEFAULT_DEVICE_COMM_CONFIGS,
+    mergeDeviceCommConfigs,
+    NETWORK_COMM_STORAGE_KEY,
+    type DeviceCommConfig,
+} from '@/shared/networkComm';
 
 const indexedDBStorage: PersistStorage<any> = {
     getItem: async (name) => {
@@ -16,10 +24,14 @@ const indexedDBStorage: PersistStorage<any> = {
 import { v4 as uuidv4 } from 'uuid';
 import { normalizeNodeId } from '@/shared/nodeId';
 
+const LEGACY_LANGUAGE_STORAGE_KEY = 'dcim-language';
+
 export type ServerData = {
     id: string;
     assetId?: string; // Stable telemetry identity, independent from display name
     name: string;
+    model?: string;
+    ipAddress?: string;
     uPosition: number; // 0 ~ 41 (Assuming 42U rack)
     uHeight: number;   // 1U, 2U, 4U etc.
     powerKw: number;
@@ -32,6 +44,7 @@ export type EquipmentType = 'crac' | 'pdu' | 'cdu' | 'ups' | 'chiller' | 'dashbo
 export type EquipmentData = {
     id: string;
     name: string;
+    model?: string;
     type: EquipmentType;
     position: [number, number, number];
     rotation: [number, number, number];
@@ -58,6 +71,8 @@ export type RackType = 'server' | 'network' | 'immersion_single' | 'immersion_du
 export type RackData = {
     id: string;
     name: string;
+    model?: string;
+    ipAddress?: string;
     type: RackType;
     position: [number, number, number];
     rotation: [number, number, number];
@@ -94,6 +109,8 @@ const normalizeImportedRacks = (rawRacks: any[]): RackData[] => {
                         ? normalizeNodeId(server.assetId)
                         : normalizeNodeId(typeof server?.name === "string" ? server.name : nextId),
                     name: typeof server?.name === "string" ? server.name : `SERVER-${Math.floor(Math.random() * 1000)}`,
+                    model: typeof server?.model === "string" ? server.model : "",
+                    ipAddress: typeof server?.ipAddress === "string" ? server.ipAddress : "",
                     uPosition: Number.isFinite(server?.uPosition) ? Math.max(1, Math.floor(server.uPosition)) : 1,
                     uHeight: Number.isFinite(server?.uHeight) ? Math.max(1, Math.floor(server.uHeight)) : 1,
                     powerKw: Number.isFinite(server?.powerKw) ? Number(server.powerKw) : 0.5,
@@ -110,6 +127,8 @@ const normalizeImportedRacks = (rawRacks: any[]): RackData[] => {
 
             return {
                 ...rack,
+                model: typeof rack?.model === "string" ? rack.model : "",
+                ipAddress: typeof rack?.ipAddress === "string" ? rack.ipAddress : "",
                 servers: safeServers,
             };
         });
@@ -234,6 +253,8 @@ type DcimState = {
     updateRackRotation: (id: string, rotation: [number, number, number]) => void;
     updateRackConnection: (id: string, networkRackId: string | null, switchId?: string | null) => void;
     updateRackName: (id: string, name: string) => void;
+    updateRackModel: (id: string, model: string) => void;
+    updateRackIp: (id: string, ip: string) => void;
     removeRack: (id: string) => void;
     addServerToRack: (rackId: string, server: Omit<ServerData, 'id' | 'assetId'>) => boolean; // Returns false if no space
     removeServerFromRack: (rackId: string, serverId: string) => void;
@@ -247,11 +268,55 @@ type DcimState = {
     selectEquipment: (id: string | null) => void;
     updateEquipmentIp: (id: string, ip: string) => void;
     updateEquipmentName: (id: string, name: string) => void;
+    updateEquipmentModel: (id: string, model: string) => void;
     updateEquipmentConnectedRacks: (id: string, rackIds: string[]) => void;
 
     exportState: () => string;
     importState: (jsonConfig: string) => boolean;
+
+    deviceCommConfigs: DeviceCommConfig[];
+    setDeviceCommConfigs: (configs: DeviceCommConfig[]) => void;
+    updateDeviceCommConfig: <K extends keyof DeviceCommConfig>(
+        id: string,
+        key: K,
+        value: DeviceCommConfig[K],
+    ) => void;
+    addDeviceCommConfig: () => void;
+    removeDeviceCommConfig: (id: string) => void;
+    resetDeviceCommConfigs: () => void;
+
+    uiLanguage: AppLanguage;
+    setUiLanguage: (lang: AppLanguage) => void;
 };
+
+function migrateDeviceCommConfigs(
+    persisted: Partial<DcimState>,
+    currentState: DcimState,
+): DeviceCommConfig[] {
+    const fromIdb = persisted.deviceCommConfigs;
+    if (Array.isArray(fromIdb) && fromIdb.length > 0) {
+        return mergeDeviceCommConfigs(fromIdb);
+    }
+    if (typeof window !== 'undefined') {
+        try {
+            const legacy = window.localStorage.getItem(NETWORK_COMM_STORAGE_KEY);
+            if (legacy) return mergeDeviceCommConfigs(JSON.parse(legacy));
+        } catch {
+            /* ignore */
+        }
+    }
+    return currentState.deviceCommConfigs;
+}
+
+function migrateUiLanguage(persisted: Partial<DcimState>, currentState: DcimState): AppLanguage {
+    const p = persisted.uiLanguage;
+    if (p === 'en' || p === 'zh-TW') return p;
+    if (typeof window !== 'undefined') {
+        const legacy = window.localStorage.getItem(LEGACY_LANGUAGE_STORAGE_KEY);
+        if (legacy === 'en' || legacy === 'zh-TW') return legacy;
+    }
+    return currentState.uiLanguage;
+}
 
 export const useDcimStore = create<DcimState>()(
     persist(
@@ -272,6 +337,30 @@ export const useDcimStore = create<DcimState>()(
                 { id: uuidv4(), name: 'PDU-B', type: 'pdu', position: [-8, 0, 2], rotation: [0, 0, 0], locationId: 'default-loc' }
             ],
             selectedEquipmentId: null,
+
+            deviceCommConfigs: DEFAULT_DEVICE_COMM_CONFIGS,
+            setDeviceCommConfigs: (configs) => set({ deviceCommConfigs: mergeDeviceCommConfigs(configs) }),
+            updateDeviceCommConfig: (id, key, value) =>
+                set((state) => ({
+                    deviceCommConfigs: state.deviceCommConfigs.map((row) =>
+                        row.id === id ? { ...row, [key]: value } : row,
+                    ),
+                })),
+            addDeviceCommConfig: () =>
+                set((state) => ({
+                    deviceCommConfigs: [
+                        ...state.deviceCommConfigs,
+                        createDeviceCommConfig('server', 'agent_active_pull'),
+                    ],
+                })),
+            removeDeviceCommConfig: (id) =>
+                set((state) => ({
+                    deviceCommConfigs: state.deviceCommConfigs.filter((r) => r.id !== id),
+                })),
+            resetDeviceCommConfigs: () => set({ deviceCommConfigs: DEFAULT_DEVICE_COMM_CONFIGS }),
+
+            uiLanguage: 'zh-TW',
+            setUiLanguage: (lang) => set({ uiLanguage: lang }),
 
             racks: [
                 {
@@ -317,6 +406,8 @@ export const useDcimStore = create<DcimState>()(
                 const newRack: RackData = {
                     id: uuidv4(),
                     name: nameMap[type],
+                    model: "",
+                    ipAddress: "",
                     type,
                     position,
                     rotation: [0, 0, 0],
@@ -342,6 +433,13 @@ export const useDcimStore = create<DcimState>()(
 
             updateRackName: (id, name) => set((state) => ({
                 racks: state.racks.map(r => r.id === id ? { ...r, name } : r)
+            })),
+            updateRackModel: (id, model) => set((state) => ({
+                racks: state.racks.map(r => r.id === id ? { ...r, model } : r)
+            })),
+
+            updateRackIp: (id, ip) => set((state) => ({
+                racks: state.racks.map(r => r.id === id ? { ...r, ipAddress: ip } : r)
             })),
 
             removeRack: (id) => set((state) => ({
@@ -457,6 +555,7 @@ export const useDcimStore = create<DcimState>()(
                     {
                         id: uuidv4(),
                         name: `${type.toUpperCase()}-${Math.floor(Math.random() * 1000)}`,
+                        model: "",
                         type,
                         position,
                         rotation: [0, 0, 0],
@@ -486,6 +585,9 @@ export const useDcimStore = create<DcimState>()(
 
             updateEquipmentName: (id, name) => set((state: any) => ({
                 equipments: state.equipments.map((e: any) => e.id === id ? { ...e, name } : e)
+            })),
+            updateEquipmentModel: (id, model) => set((state: any) => ({
+                equipments: state.equipments.map((e: any) => e.id === id ? { ...e, model } : e)
             })),
 
             updateEquipmentConnectedRacks: (id, rackIds) => set((state: any) => ({
@@ -563,11 +665,13 @@ export const useDcimStore = create<DcimState>()(
         {
             name: 'datacenter-storage-v4', // key in IndexedDB
             storage: createJSONStorage(() => indexedDBStorage),
-            partialize: (state) => ({ 
-                racks: state.racks, 
-                equipments: state.equipments, 
-                locations: state.locations, 
-                currentLocationId: state.currentLocationId 
+            partialize: (state) => ({
+                racks: state.racks,
+                equipments: state.equipments,
+                locations: state.locations,
+                currentLocationId: state.currentLocationId,
+                deviceCommConfigs: state.deviceCommConfigs,
+                uiLanguage: state.uiLanguage,
             }),
             merge: (persistedState, currentState) => {
                 const persisted = (persistedState ?? {}) as Partial<DcimState>;
@@ -613,6 +717,9 @@ export const useDcimStore = create<DcimState>()(
                     ? persisted.currentLocationId
                     : safeLocations[0].id;
 
+                const deviceCommConfigs = migrateDeviceCommConfigs(persisted, currentState);
+                const uiLanguage = migrateUiLanguage(persisted, currentState);
+
                 return {
                     ...currentState,
                     ...persisted,
@@ -624,6 +731,8 @@ export const useDcimStore = create<DcimState>()(
                         : currentState.equipments,
                     locations: safeLocations,
                     currentLocationId,
+                    deviceCommConfigs,
+                    uiLanguage,
                 };
             },
         })

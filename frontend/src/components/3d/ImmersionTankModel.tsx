@@ -7,25 +7,9 @@ import { RackData } from '@/store/useDcimStore';
 import { ServerData } from '@/store/useDcimStore';
 import { RACK_WIDTH, RACK_DEPTH, U_HEIGHT } from './sceneScale';
 import { getDeviceStatus } from '@/shared/status';
+import { resolveTelemetryRecordDeep } from '@/shared/nodeId';
 const SERVER_WIDTH = 0.44; // 19 inch rack standard (same as ServerModel)
 const SERVER_DEPTH = 0.8;  // same depth as ServerModel
-
-function normalizeNodeId(value: string): string {
-    const raw = (value || "").trim().toUpperCase().replace(/\s+/g, "").replace(/_/g, "-");
-    const m = raw.match(/^(SERVER|SW|IMM|CDU)-?(\d+)$/);
-    if (!m) return raw;
-    return `${m[1]}-${String(Number(m[2])).padStart(3, "0")}`;
-}
-
-function pickTelemetry(telemetry: Record<string, any>, assetId: string | undefined, name: string, fallbackName?: string) {
-    const keys = [assetId, name, normalizeNodeId(name), fallbackName, fallbackName ? normalizeNodeId(fallbackName) : undefined]
-        .filter((k): k is string => Boolean(k && k.length));
-    for (const k of keys) {
-        const hit = telemetry[k];
-        if (hit) return hit;
-    }
-    return undefined;
-}
 
 // ─────────────────────────────────────────────
 // Vertical Server Blade (Immersion Style)
@@ -172,7 +156,7 @@ export default function ImmersionTankModel({
     let hasCriticalServer = false;
     let hasWarningServer = false;
     data.servers.forEach(server => {
-        const sTel = pickTelemetry(telemetry, server.assetId, server.name, data.name);
+        const sTel = resolveTelemetryRecordDeep(telemetry, server.assetId, server.name, data.name);
         const status = getDeviceStatus(
             { type: server.type, rackType: data.type },
             sTel,
@@ -308,7 +292,7 @@ export default function ImmersionTankModel({
                 <ImmersionServerBlade
                     key={`${data.id}-${server.id}-${i}`}
                     data={server}
-                    telemetry={pickTelemetry(telemetry, server.assetId, server.name, data.name)}
+                    telemetry={resolveTelemetryRecordDeep(telemetry, server.assetId, server.name, data.name)}
                     index={i}
                     totalSlots={data.uCapacity}
                     tankInnerDepth={TANK_INNER_DEPTH}

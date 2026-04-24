@@ -1,76 +1,124 @@
 # DataCenter 混合監控與 Redfish 管理架構實施指南
 
-**日期：** 115/04/01 (2026/04/01)
-**專案：** DataCenter 3D Digital Twin - 混合監測與硬體控制方案
-
-## 0. 核心設計理念 (Design Philosophy)
-本系統導入了業界領先的「混合管理模式」，將監控維運拆分為兩個維度：
-1. **頻內遙測 (In-band Telemetry)：** 模擬 **guchii Telemetry** 標準，透過 Agent 主動推送作業系統層級（OS Level）的高精度數據。
-2. **頻外控制 (Out-of-band Control)：** 模擬 **Redfish (DMTF)** 標準，透過 BMC (Baseboard Management Controller) 介面對硬體下達強制指令。
+**日期：** 2026-04-21  
+**用途：** 說明目前專案中「頻內遙測 + 頻外控制」的混合監控架構，並明確區分已落地與預留整合項目。
 
 ---
 
-## 1. 實作流程第一階段：頻內遙測擷取 (In-band Agent)
-這部分由 `backend/client_agent.py` 負責，透過 `psutil` 庫對作業系統進行非侵入式採樣。
+## 1. 核心概念
 
-### 技術細節：
-- **傳輸模式：** 支援 HTTP PUSH。Agent 會將封裝好的 JSON 數據發送至中控伺服器的 `/ingest` 端點。
-- **數據內容：** 包含 `cpu_usage`, `temperature`, `memory_usage` 等即時數值。
-- **實作邏輯：**
-    ```python
-    # 核心邏輯架構 (client_agent.py)
-    data = {
-        "server_id": args.server_id,
-        "cpu_usage": psutil.cpu_percent(),
-        "temperature": get_temp(), # 抓取 CPU Core Temp
-        "timestamp": time.time()
-    }
-    requests.post(f"{SERVER_URL}/ingest", json=data)
-    ```
+本系統的混合監控分成兩條路徑：
 
-### 執行指南：
-在任何要監測的實體伺服器上執行：
-```bash
-python backend/client_agent.py --server-id SERVER-015 --server-url http://[中控IP]:9000
+1. **頻內遙測 (In-band Telemetry)**  
+   由 Agent 或設備資料來源提供作業系統與應用層指標，走 `/ingest -> Kafka -> 後端處理 -> 前端展示` 主幹。
+
+2. **頻外控制 (Out-of-band Control)**  
+   由控制 API 提供電源或設備控制入口，未來可進一步串接真實 BMC / Redfish。
+
+---
+
+## 2. 已落地的部分
+
+### 2.1 頻內遙測
+
+已具備：
+
+- Agent / 模擬資料上送
+- `POST /ingest`
+- Kafka `telemetry` topic
+- 後端背景處理
+- InfluxDB / MongoDB 落庫
+- SSE 對前端廣播
+
+典型用途：
+
+- CPU、溫度、記憶體等遙測資料
+- 告警與異常分析
+- Dashboard 與 3D Twins 即時更新
+
+### 2.2 控制 API 介面
+
+已具備：
+
+- `POST /api/control/{server_id}/power`
+- 控制狀態流與回應格式
+- 前端控制畫面對應操作流程
+
+目前狀態：
+
+- 以應用層模擬與狀態變更為主
+- Redfish 真實 BMC 呼叫仍屬預留整合點
+
+---
+
+## 3. 預留整合項目
+
+下列能力可作為下一階段擴充：
+
+- Redfish 真實電源控制
+- BMC 認證與憑證管理
+- Redfish Eventing / Webhook
+- SNMP / Modbus / gNMI 等異質設備監控整合
+
+文件中若提到「已直接控制真實硬體」，目前應解讀為架構方向，而非既有量產能力。
+
+---
+
+## 4. 實作主幹
+
+### 4.1 遙測主幹
+
+```text
+Agent / Device
+   -> POST /ingest
+   -> Kafka
+   -> Backend processing
+   -> InfluxDB / MongoDB
+   -> SSE
+   -> Frontend
+```
+
+### 4.2 控制主幹
+
+```text
+Frontend Control Page
+   -> POST /api/control/{server_id}/power
+   -> Backend control router
+   -> current stub / simulated action
+   -> response to frontend
 ```
 
 ---
 
-## 2. 實作流程第二階段：頻外控制介面 (Out-of-band / Redfish)
-這部分由 `backend/routers/control.py` 負責，定義了標準化的控制流程，對應 Redfish 的 `ComputerSystem.Reset` 動作。
+## 5. 前端控制畫面角色
 
-### 技術細節：
-- **API 路由：** `POST /api/control/{device_id}/power`
-- **控制動作：** 支援 `on`, `off`, `reboot` 三種狀態。
-- **非同步設計：** 為了模擬真實硬體反應時間並提供前端 Loading 顯示，我們引入了 1.5s 的非同步延遲。
-- **Redfish 對接預留點：**
-    *   **技嘉伺服器 BMC 路徑：** `/redfish/v1/Systems/Self/Actions/ComputerSystem.Reset`
-    *   目前使用 `time.sleep` 模擬，未來只需移除註解並填入 BMC 憑證即可真正控制硬體電源。
+前端控制頁的主要責任是：
 
----
+- 發送控制請求
+- 顯示 loading / success / failure 狀態
+- 對應後端控制 API 回應
 
-## 3. 實作流程第三階段：前端控制編排 (Frontend Orchestration)
-這部分在 `frontend/src/app/control/page.tsx` 中實作，將複雜的後端連線狀態視覺化。
-
-### 技術介接細節：
-- **狀態管理：** 使用 React `useState` 追蹤每個設備的 `isChanging` (正在切換中) 狀態。
-- **Fetch 流程：**
-    1. 使用者點擊按鈕 (如 Reboot)。
-    2. 前端向 `control.py` 發送 POST 請求。
-    3. 按鈕顯示旋轉進度條 (Spinner / Loading State)。
-    4. 後端完成 Redfish 指令模擬（或真實重啟時間）。
-    5. 前端收到 `Success` 回報，按鈕恢復正常，並更新狀態文字。
+這部分已具備 UI 與流程意義，但不應在文件中誤寫成「已全面接管真實機櫃電源」。
 
 ---
 
-## 4. 驗證與測試流程 (Verification)
-1. **啟動後端：** 執行 `python backend/main.py` 啟動 FastAPI。
-2. **啟動 Agent：** 執行 `python client_agent.py --server-id SERVER-015`。
-3. **進入監測：** 在首頁 Dashboard 檢查 SERVER-015 是否有真實溫度波動。
-4. **執行控制：** 導航至「設備控制 (Control Console)」，對 SERVER-015 點擊「Restart」。
-5. **觀察結果：** 指令發送成功後，終端機會記錄 `[Control] Sending Redfish Reset to SERVER-015`，前端按鈕同步顯示等候狀態。
+## 6. 驗證建議
+
+1. 啟動基礎設施與後端
+2. 啟動前端
+3. 啟動模擬資料或真機 Agent
+4. 在 Dashboard 驗證即時資料是否更新
+5. 在 Control 頁驗證控制 API 是否有回應
+6. 若進行真實 Redfish 串接，再額外驗證 BMC 路徑、認證與安全性
 
 ---
 
-> **架構展望：**
-> 這套「DataCenter Hybrid Framework」不僅能管理虛擬機，更能無縫過渡至實體數據中心。透過標準化的 Redfish 與 Telemetry 介面，我們已經為未來的機櫃上架做好了 100% 的軟體準備。
+## 7. 文件同步原則
+
+- 遙測現況請以 `HTTP ingest + Kafka + SSE` 為準
+- Redfish 現況請以「控制介面已預留、真實串接待整合」為準
+- 若要寫客戶版或提案版文件，可描述混合監控藍圖，但要標示是否已實作
+
+---
+
+*文件更新日期：2026-04-21*

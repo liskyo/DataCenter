@@ -20,17 +20,26 @@ JWT_SECRET = os.environ.get("JWT_SECRET", "datacenter-secret-key-change-in-produ
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRE_SECONDS = 86400  # 24 hours
 
-# Simple in-memory user store (replace with database in production)
-USERS_DB = {
-    "admin": {"password": "admin123", "role": "admin", "name": "系統管理員"},
-    "operator": {"password": "operator123", "role": "operator", "name": "維運人員"},
-    "agent": {"password": "agent-api-key", "role": "agent", "name": "Agent Service"},
-}
-
 # API Key for agent authentication (simpler than JWT for machine-to-machine)
 AGENT_API_KEY = os.environ.get("AGENT_API_KEY", "dc-agent-key-2026")
 
 security = HTTPBearer(auto_error=False)
+
+
+def get_user_storage(request: Request):
+    container = getattr(request.app.state, "container", None)
+    storage = getattr(container, "user_storage", None)
+    if storage is None or not getattr(storage, "is_ready", False):
+        raise HTTPException(status_code=503, detail="User storage unavailable")
+    return storage
+
+
+def get_user_record(request: Request, username: str) -> dict:
+    storage = get_user_storage(request)
+    user = storage.get_user_by_username(username)
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+    return user
 
 
 def create_token(username: str, role: str) -> str:
@@ -59,18 +68,29 @@ async def get_current_user(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)] = None,
     request: Request = None,
 ) -> dict:
-    """FastAPI dependency: extract and verify current user from Bearer token or API key."""
+    """FastAPI dependency: extract and verify current user from Bearer token, query token, or API key."""
     # Check for API key in header (for agent auth)
     if request:
         api_key = request.headers.get("X-API-Key")
         if api_key == AGENT_API_KEY:
             return {"sub": "agent", "role": "agent"}
 
+        query_token = request.query_params.get("token")
+        if query_token:
+            payload = verify_token(query_token)
+            user = get_user_record(request, payload.get("sub", ""))
+            payload["role"] = user.get("role", payload.get("role"))
+            return payload
+
     # Check for Bearer token
     if not credentials:
-        raise HTTPException(status_code=401, detail="Authentication required. Provide a Bearer token or API key.")
+        raise HTTPException(status_code=401, detail="Authentication required. Provide a Bearer token, query token, or API key.")
 
-    return verify_token(credentials.credentials)
+    payload = verify_token(credentials.credentials)
+    if request is not None:
+        user = get_user_record(request, payload.get("sub", ""))
+        payload["role"] = user.get("role", payload.get("role"))
+    return payload
 
 
 def require_role(*roles: str):

@@ -2,12 +2,21 @@
 
 import { useEffect, useRef, useCallback, useState } from "react";
 import { BACKEND_BASE_URL } from "@/shared/api";
+import { authFetch, buildAuthorizedUrl } from "@/shared/auth";
+
+type TelemetryEvent = Record<string, unknown> & {
+  asset_id?: string;
+  server_id?: string;
+  node_id?: string;
+  device_id?: string;
+  timestamp?: number;
+};
 
 type SSEOptions = {
   /** Fallback polling interval in ms if SSE fails (default: 3000) */
   fallbackPollingMs?: number;
   /** Called with the full metrics map on every update */
-  onUpdate: (metrics: Record<string, any>) => void;
+  onUpdate: (metrics: Record<string, TelemetryEvent>) => void;
   /** URL for fallback polling */
   fallbackUrl?: string;
   /** Batch UI updates to avoid rerendering per-event */
@@ -21,13 +30,24 @@ type SSEOptions = {
  *
  * Falls back to polling `/metrics` if SSE connection fails.
  */
-export function useSSE({ onUpdate, fallbackPollingMs = 3000, fallbackUrl, updateIntervalMs = 250 }: SSEOptions) {
-  const metricsRef = useRef<Record<string, any>>({});
+export function useSSE({ onUpdate, fallbackPollingMs = 3000, fallbackUrl, updateIntervalMs = 500 }: SSEOptions) {
+  const metricsRef = useRef<Record<string, TelemetryEvent>>({});
   const [connected, setConnected] = useState(false);
   const [mode, setMode] = useState<"sse" | "polling" | "connecting">("connecting");
   const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingRef = useRef(false);
   const lastMessageAtRef = useRef(0);
+
+  const scheduleFlush = useCallback(() => {
+    pendingRef.current = true;
+    if (flushTimerRef.current) return;
+    flushTimerRef.current = setTimeout(() => {
+      flushTimerRef.current = null;
+      if (!pendingRef.current) return;
+      pendingRef.current = false;
+      onUpdate(metricsRef.current);
+    }, updateIntervalMs);
+  }, [onUpdate, updateIntervalMs]);
 
   const normalizeNodeId = useCallback((value: string): string => {
     const raw = (value || "").trim().toUpperCase().replace(/\s+/g, "").replace(/_/g, "-");
@@ -36,11 +56,11 @@ export function useSSE({ onUpdate, fallbackPollingMs = 3000, fallbackUrl, update
     return `${m[1]}-${String(Number(m[2])).padStart(3, "0")}`;
   }, []);
 
-  const collectKeys = useCallback((item: any): string[] => {
+  const collectKeys = useCallback((item: TelemetryEvent): string[] => {
     const keys = new Set<string>();
     [item?.asset_id, item?.server_id, item?.node_id, item?.device_id]
       .filter((v) => typeof v === "string")
-      .forEach((id: any) => {
+      .forEach((id) => {
         keys.add(id);
         keys.add(normalizeNodeId(id));
       });
@@ -50,7 +70,7 @@ export function useSSE({ onUpdate, fallbackPollingMs = 3000, fallbackUrl, update
   const handleEvent = useCallback(
     (raw: string) => {
       try {
-        const data = JSON.parse(raw);
+        const data = JSON.parse(raw) as TelemetryEvent;
         const keys = collectKeys(data);
         if (keys.length > 0) {
           const primaryKey = keys[0];
@@ -64,21 +84,13 @@ export function useSSE({ onUpdate, fallbackPollingMs = 3000, fallbackUrl, update
           keys.forEach((k) => {
             metricsRef.current[k] = data;
           });
-          pendingRef.current = true;
-          if (!flushTimerRef.current) {
-            flushTimerRef.current = setTimeout(() => {
-              flushTimerRef.current = null;
-              if (!pendingRef.current) return;
-              pendingRef.current = false;
-              onUpdate(metricsRef.current);
-            }, updateIntervalMs);
-          }
+          scheduleFlush();
         }
       } catch {
         // ignore malformed events
       }
     },
-    [onUpdate, updateIntervalMs]
+    [collectKeys, scheduleFlush]
   );
 
   useEffect(() => {
@@ -92,11 +104,12 @@ export function useSSE({ onUpdate, fallbackPollingMs = 3000, fallbackUrl, update
 
     const pollOnce = async () => {
       try {
-        const res = await fetch(pollUrl);
-        const json = await res.json();
+        const res = await authFetch(pollUrl, { cache: "no-store" });
+        if (!res.ok) return;
+        const json = (await res.json()) as { data?: TelemetryEvent[] };
         if (json.data && Array.isArray(json.data)) {
-          const map: Record<string, any> = {};
-          json.data.forEach((item: any) => {
+          const map: Record<string, TelemetryEvent> = {};
+          json.data.forEach((item) => {
             collectKeys(item).forEach((k) => {
               map[k] = item;
             });
@@ -105,7 +118,7 @@ export function useSSE({ onUpdate, fallbackPollingMs = 3000, fallbackUrl, update
           if (Object.keys(map).length > 0) {
             lastMessageAtRef.current = Date.now();
           }
-          onUpdate(map);
+          scheduleFlush();
         }
       } catch {
         // ignore polling errors
@@ -151,7 +164,7 @@ export function useSSE({ onUpdate, fallbackPollingMs = 3000, fallbackUrl, update
 
     const openSSE = () => {
       if (cancelled || eventSource) return;
-      const url = `${BACKEND_BASE_URL}/stream`;
+      const url = buildAuthorizedUrl(`${BACKEND_BASE_URL}/stream`);
       const es = new EventSource(url);
       eventSource = es;
 
@@ -203,7 +216,7 @@ export function useSSE({ onUpdate, fallbackPollingMs = 3000, fallbackUrl, update
       }
       pendingRef.current = false;
     };
-  }, [collectKeys, fallbackPollingMs, fallbackUrl, handleEvent, onUpdate]);
+  }, [collectKeys, fallbackPollingMs, fallbackUrl, handleEvent, scheduleFlush]);
 
   return { connected, mode };
 }

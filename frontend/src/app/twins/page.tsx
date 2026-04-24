@@ -3,7 +3,8 @@ import React, { useRef, useState, useEffect, useMemo, useCallback } from "react"
 import { useShallow } from "zustand/react/shallow";
 import { useDcimStore, ServerData } from "@/store/useDcimStore";
 import { apiUrl } from "@/shared/api";
-import { normalizeNodeId, buildTelemetryKeys } from "@/shared/nodeId";
+import { authFetch } from "@/shared/auth";
+import { buildTelemetryKeys, normalizeNodeId, resolveTelemetryRecordDeep } from "@/shared/nodeId";
 import dynamic from "next/dynamic";
 import { Activity, Download, Upload, Server, Trash, Save, Edit, Lock, Thermometer, Zap, Box, MonitorIcon, Globe, Link2, Droplets } from "lucide-react";
 
@@ -24,6 +25,11 @@ const TwinsSceneCanvas = dynamic(
 import { v4 as uuidv4 } from "uuid";
 import { useLanguage } from "@/shared/i18n/language";
 import { usePolling } from "@/shared/hooks/usePolling";
+import {
+    DEFAULT_DEVICE_COMM_CONFIGS,
+    DeviceType as CommDeviceType,
+    resolveCommMethodByModel,
+} from "@/shared/networkComm";
 
 export default function TwinsPage() {
     useEffect(() => {
@@ -95,6 +101,8 @@ export default function TwinsPage() {
         addServerToRack,
         removeRack,
         updateRackName,
+        updateRackModel,
+        updateRackIp,
         updateRackRotation,
         updateRackConnection,
         removeServerFromRack,
@@ -104,9 +112,11 @@ export default function TwinsPage() {
         removeLocation,
         removeEquipment,
         updateEquipmentName,
+        updateEquipmentModel,
         updateEquipmentRotation,
         updateEquipmentIp,
         updateEquipmentConnectedRacks,
+        commConfigs,
     } = useDcimStore(
         useShallow((s) => ({
             racks: s.racks,
@@ -126,6 +136,8 @@ export default function TwinsPage() {
             addServerToRack: s.addServerToRack,
             removeRack: s.removeRack,
             updateRackName: s.updateRackName,
+            updateRackModel: s.updateRackModel,
+            updateRackIp: s.updateRackIp,
             updateRackRotation: s.updateRackRotation,
             updateRackConnection: s.updateRackConnection,
             removeServerFromRack: s.removeServerFromRack,
@@ -135,9 +147,11 @@ export default function TwinsPage() {
             removeLocation: s.removeLocation,
             removeEquipment: s.removeEquipment,
             updateEquipmentName: s.updateEquipmentName,
+            updateEquipmentModel: s.updateEquipmentModel,
             updateEquipmentRotation: s.updateEquipmentRotation,
             updateEquipmentIp: s.updateEquipmentIp,
             updateEquipmentConnectedRacks: s.updateEquipmentConnectedRacks,
+            commConfigs: s.deviceCommConfigs,
         })),
     );
 
@@ -162,6 +176,8 @@ export default function TwinsPage() {
     // Form State for new server
     const [newServer, setNewServer] = useState<{
         name: string;
+        model?: string;
+        ipAddress: string;
         uPosition: number;
         uHeight: number;
         powerKw: number;
@@ -169,6 +185,8 @@ export default function TwinsPage() {
         status: 'normal' | 'warning' | 'critical' | 'offline';
     }>({
         name: "SERVER-001",
+        model: "",
+        ipAddress: "",
         uPosition: 1,
         uHeight: 2,
         powerKw: 1.5,
@@ -182,6 +200,9 @@ export default function TwinsPage() {
 
     const [editingServerId, setEditingServerId] = useState<string | null>(null);
     const [editingDraft, setEditingDraft] = useState<{
+        name: string;
+        model?: string;
+        ipAddress: string;
         uPosition: number;
         uHeight: number;
         powerKw: number;
@@ -214,9 +235,50 @@ export default function TwinsPage() {
         }
     }, [selectedRackId]);
 
+    const modelOptionsByType = useMemo(() => {
+        const map: Record<CommDeviceType, string[]> = {
+            server: [],
+            rack: [],
+            tank: [],
+            cdu: [],
+            switch: [],
+            crac: [],
+            power: [],
+        };
+        for (const cfg of commConfigs) {
+            const m = cfg.model.trim();
+            if (!m) continue;
+            if (!map[cfg.deviceType].includes(m)) {
+                map[cfg.deviceType].push(m);
+            }
+        }
+        // Fallback to defaults when persisted configs miss specific types (e.g. server).
+        for (const cfg of DEFAULT_DEVICE_COMM_CONFIGS) {
+            const m = cfg.model.trim();
+            if (!m) continue;
+            if (!map[cfg.deviceType].includes(m)) {
+                map[cfg.deviceType].push(m);
+            }
+        }
+        return map;
+    }, [commConfigs]);
+
+    const commDeviceTypeForRack = (rackType: string): CommDeviceType => {
+        if (rackType === "network") return "switch";
+        if (rackType === "immersion_single" || rackType === "immersion_dual") return "tank";
+        return "rack";
+    };
+    const commDeviceTypeForEquipment = (type: string): CommDeviceType => {
+        if (type === "cdu") return "cdu";
+        if (type === "dashboard") return "server";
+        if (type === "crac" || type === "chiller") return "crac";
+        if (type === "pdu" || type === "ups") return "power";
+        return "rack";
+    };
+
     usePolling(async () => {
         try {
-            const res = await fetch(apiUrl("/metrics"), { cache: "no-store" });
+            const res = await authFetch(apiUrl("/metrics"), { cache: "no-store" });
             if (!res.ok) return;
             const json = await res.json();
             const tMap: Record<string, any> = {};
@@ -229,48 +291,87 @@ export default function TwinsPage() {
         } catch (e) { }
     }, { intervalMs: 5000, immediate: true });
 
-    useEffect(() => {
-        const syncTargets = async () => {
-            try {
-                const modeRes = await fetch(apiUrl("/api/system/mode"), { cache: "no-store" });
-                if (!modeRes.ok) return;
-                const modeJson = await modeRes.json();
-                if (modeJson.mode !== "simulation") return;
+    const syncSimulationTargets = useCallback(async () => {
+        try {
+            const modeRes = await authFetch(apiUrl("/api/system/mode"), { cache: "no-store" });
+            if (!modeRes.ok) return;
+            const modeJson = await modeRes.json();
+            if (modeJson.mode !== "simulation") return;
 
-                const servers = racks
-                    .filter((r) => r.locationId === currentLocationId)
-                    .flatMap((r) => r.servers);
-                const targets = Array.from(new Set([
-                    ...servers.map((s) => normalizeNodeId(s.assetId || s.name)),
-                    ...equipments
-                        .filter((e) => e.locationId === currentLocationId)
-                        .map((e) => normalizeNodeId(e.name)),
-                ]));
-                if (targets.length === 0) return;
+            const servers = racks.flatMap((r) => r.servers);
+            const racksInScope = racks;
+            const equipmentsInScope = equipments;
 
-                const bindingItems = servers.map((s) => ({
-                    asset_id: normalizeNodeId(s.assetId || s.name),
-                    display_name: normalizeNodeId(s.name),
-                }));
-                if (bindingItems.length > 0) {
-                    await fetch(apiUrl("/api/system/id_bindings/bulk_bind"), {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ items: bindingItems }),
-                    });
-                }
+            const cleanTargetName = (value: string | undefined) =>
+                (value || "").trim().toUpperCase().replace(/\s+/g, "").replace(/_/g, "-");
 
-                await fetch(apiUrl("/api/system/simulate_targets"), {
+            const methodByTarget: Record<string, string> = {};
+            for (const s of servers) {
+                const targetId = cleanTargetName(s.name || s.assetId);
+                if (!targetId) continue;
+                methodByTarget[targetId] = resolveCommMethodByModel(
+                    commConfigs,
+                    s.type === "switch" ? "switch" : "server",
+                    s.model,
+                    { simulationMode: true },
+                );
+            }
+            for (const r of racksInScope) {
+                const targetId = cleanTargetName(r.name);
+                if (!targetId) continue;
+                methodByTarget[targetId] = resolveCommMethodByModel(
+                    commConfigs,
+                    commDeviceTypeForRack(r.type),
+                    r.model,
+                    { simulationMode: true },
+                );
+            }
+            for (const e of equipmentsInScope) {
+                const targetId = cleanTargetName(e.name);
+                if (!targetId) continue;
+                methodByTarget[targetId] = resolveCommMethodByModel(
+                    commConfigs,
+                    commDeviceTypeForEquipment(e.type),
+                    e.model,
+                    { simulationMode: true },
+                );
+            }
+
+            const targets = Object.keys(methodByTarget);
+            if (targets.length === 0) return;
+
+            const bindingItems = targets.map((targetId) => ({
+                asset_id: targetId,
+                display_name: targetId,
+            }));
+            if (bindingItems.length > 0) {
+                await authFetch(apiUrl("/api/system/id_bindings/bulk_bind"), {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ targets }),
+                    body: JSON.stringify({ items: bindingItems }),
                 });
-            } catch {
-                // best effort only
             }
-        };
-        syncTargets();
-    }, [racks, equipments, currentLocationId]);
+
+            await authFetch(apiUrl("/api/system/simulate_targets"), {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ targets }),
+            });
+        } catch {
+            // best effort only
+        }
+    }, [racks, equipments, commConfigs]);
+
+    useEffect(() => {
+        syncSimulationTargets();
+    }, [syncSimulationTargets]);
+
+    usePolling(
+        async () => {
+            await syncSimulationTargets();
+        },
+        { intervalMs: 8000, immediate: false },
+    );
 
     const handleExport = () => {
         const json = exportState();
@@ -550,6 +651,25 @@ removeLocation(currentLocationId);
                                 onChange={(e) => updateRackName(selectedRack.id, e.target.value)}
                                 className="w-full bg-[#010613] border border-cyan-900/30 p-2 rounded text-cyan-100 text-sm outline-none focus:border-cyan-400 transition-colors"
                             />
+                            <label className="text-[10px] text-slate-500 uppercase tracking-[0.2em] mt-3 mb-2 block">Model</label>
+                            <select
+                                value={selectedRack.model || ""}
+                                onChange={(e) => updateRackModel(selectedRack.id, e.target.value)}
+                                className="w-full bg-[#010613] border border-cyan-900/30 p-2 rounded text-cyan-100 text-sm outline-none focus:border-cyan-400 transition-colors"
+                            >
+                                <option value="">(Custom)</option>
+                                {modelOptionsByType[commDeviceTypeForRack(selectedRack.type)].map((model) => (
+                                    <option key={model} value={model}>{model}</option>
+                                ))}
+                            </select>
+                            <label className="text-[10px] text-slate-500 uppercase tracking-[0.2em] mt-3 mb-2 block">Host / IP</label>
+                            <input
+                                type="text"
+                                value={selectedRack.ipAddress || ""}
+                                onChange={(e) => updateRackIp(selectedRack.id, e.target.value)}
+                                placeholder="e.g. 192.168.1.10"
+                                className="w-full bg-[#010613] border border-cyan-900/30 p-2 rounded text-cyan-100 text-sm outline-none focus:border-cyan-400 transition-colors"
+                            />
 
                             {/* 旋轉控制 */}
                             {isEditMode && (
@@ -637,30 +757,46 @@ removeLocation(currentLocationId);
                             <div className="flex flex-col gap-2">
                                 {[...selectedRack.servers].sort((a, b) => b.uPosition - a.uPosition).map((server, idx) => {
                                     let liveStatus = server.status;
-                                    const sTel =
-                                        telemetry[server.assetId || ""] ||
-                                        telemetry[normalizeNodeId(server.assetId || "")] ||
-                                        telemetry[server.name] ||
-                                        telemetry[normalizeNodeId(server.name)] ||
-                                        telemetry[selectedRack.name] ||
-                                        telemetry[normalizeNodeId(selectedRack.name)];
+                                    const sTel = resolveTelemetryRecordDeep(
+                                        telemetry,
+                                        server.assetId,
+                                        server.name,
+                                        selectedRack.name,
+                                    );
                                     const metricsText = sTel
                                         ? (server.type === 'switch'
-                                            ? `Traffic: ${(sTel.traffic_gbps || (Math.random() * 10)).toFixed(1)} Gbps | Ports: ${Math.floor((sTel.port_usage || Math.random()) * 48)}/48`
-                                            : `CPU: ${sTel.cpu_usage.toFixed(1)}% | TEMP: ${sTel.temperature.toFixed(1)}°C`)
+                                            ? `Traffic: ${Number(sTel.traffic_gbps ?? Math.random() * 10).toFixed(1)} Gbps | Ports: ${Math.floor(Number(sTel.port_usage ?? Math.random()) * 48)}/48`
+                                            : `CPU: ${Number(sTel.cpu_usage ?? 0).toFixed(1)}% | TEMP: ${Number(sTel.temperature ?? 0).toFixed(1)}°C`)
                                         : "";
 
                                     return (
                                         <div key={`${selectedRack.id}-${server.id}-${idx}`} className="flex flex-col gap-2 text-xs bg-[#0a1e3f] p-2 rounded border border-slate-700">
                                             {editingServerId === server.id && editingDraft ? (
                                                 <div className="flex flex-col gap-2">
-                                                    <div className="flex items-center gap-2">
+                                                    <div className="flex flex-wrap items-center gap-2">
                                                         <input
                                                             type="text"
                                                             value={editingDraft.name || ''}
                                                             onChange={(e) => setEditingDraft({ ...editingDraft, name: e.target.value })}
-                                                            className="flex-1 bg-[#0a1e3f] border border-cyan-800 p-1.5 rounded text-white font-bold outline-none focus:border-cyan-400 text-sm"
+                                                            className="min-w-0 flex-[1_1_10rem] bg-[#0a1e3f] border border-cyan-800 p-1.5 rounded text-white font-bold outline-none focus:border-cyan-400 text-sm"
                                                             placeholder="Server Name"
+                                                        />
+                                                        <select
+                                                            value={editingDraft.model || ""}
+                                                            onChange={(e) => setEditingDraft({ ...editingDraft, model: e.target.value })}
+                                                            className="min-w-0 flex-[1_1_10rem] bg-[#0a1e3f] border border-cyan-800 p-1.5 rounded text-white outline-none focus:border-cyan-400 text-sm"
+                                                        >
+                                                            <option value="">Model</option>
+                                                            {modelOptionsByType[server.type === "switch" ? "switch" : "server"].map((model) => (
+                                                                <option key={model} value={model}>{model}</option>
+                                                            ))}
+                                                        </select>
+                                                        <input
+                                                            type="text"
+                                                            value={editingDraft.ipAddress || ''}
+                                                            onChange={(e) => setEditingDraft({ ...editingDraft, ipAddress: e.target.value })}
+                                                            className="min-w-0 flex-[1_1_10rem] bg-[#0a1e3f] border border-cyan-800 p-1.5 rounded text-white outline-none focus:border-cyan-400 text-sm"
+                                                            placeholder="Host / IP"
                                                         />
                                                         {server.type === 'switch' && (
                                                             <span className="text-[9px] bg-purple-900 border border-purple-500 px-1 rounded text-purple-100 shrink-0">
@@ -771,6 +907,16 @@ removeLocation(currentLocationId);
                                                         <div className="text-slate-400 mt-1">
                                                             U{server.uPosition} - U{server.uPosition + server.uHeight - 1} ({server.uHeight}U) | {server.powerKw}kW
                                                         </div>
+                                                        {server.ipAddress ? (
+                                                            <div className="text-[10px] text-slate-500 mt-1 font-mono break-all">
+                                                                Host / IP: {server.ipAddress}
+                                                            </div>
+                                                        ) : null}
+                                                        {server.model ? (
+                                                            <div className="text-[10px] text-slate-500 mt-1 font-mono break-all">
+                                                                Model: {server.model}
+                                                            </div>
+                                                        ) : null}
                                                         {metricsText && (
                                                             <div className={`mt-1 font-mono text-[10px] ${liveStatus === 'critical' ? 'text-red-300' : liveStatus === 'warning' ? 'text-yellow-300' : (server.type === 'switch' ? 'text-purple-400' : 'text-cyan-700')}`}>
                                                                 {metricsText}
@@ -785,6 +931,8 @@ removeLocation(currentLocationId);
                                                                         setEditingServerId(server.id);
                                                                         setEditingDraft({
                                                                             name: server.name,
+                                                                            model: server.model || "",
+                                                                            ipAddress: server.ipAddress || "",
                                                                             uPosition: server.uPosition,
                                                                             uHeight: server.uHeight,
                                                                             powerKw: server.powerKw,
@@ -831,6 +979,23 @@ removeLocation(currentLocationId);
                                     onChange={(e) => setNewServer({ ...newServer, name: e.target.value })}
                                     className="bg-[#0a1e3f] border border-cyan-800 p-2 rounded text-white outline-none focus:border-cyan-400"
                                     placeholder="Device Name"
+                                />
+                                <select
+                                    value={newServer.model || ""}
+                                    onChange={(e) => setNewServer({ ...newServer, model: e.target.value })}
+                                    className="bg-[#0a1e3f] border border-cyan-800 p-2 rounded text-white outline-none focus:border-cyan-400"
+                                >
+                                    <option value="">Model</option>
+                                    {modelOptionsByType[newServer.type === "switch" ? "switch" : "server"].map((model) => (
+                                        <option key={model} value={model}>{model}</option>
+                                    ))}
+                                </select>
+                                <input
+                                    type="text"
+                                    value={newServer.ipAddress}
+                                    onChange={(e) => setNewServer({ ...newServer, ipAddress: e.target.value })}
+                                    className="bg-[#0a1e3f] border border-cyan-800 p-2 rounded text-white outline-none focus:border-cyan-400"
+                                    placeholder="Host / IP"
                                 />
                                 <div className="flex gap-2">
                                     <div className="flex-1">
@@ -908,6 +1073,25 @@ removeLocation(currentLocationId);
                                 onChange={(e) => updateEquipmentName(selectedEquipment.id, e.target.value)}
                                 className="w-full bg-[#010613] border border-cyan-900/30 p-2 rounded text-cyan-100 text-sm outline-none focus:border-cyan-400 transition-colors mb-4"
                             />
+                            <label className="text-[10px] text-slate-500 uppercase tracking-[0.2em] mb-2 block">Model</label>
+                            <select
+                                value={selectedEquipment.model || ""}
+                                onChange={(e) => updateEquipmentModel(selectedEquipment.id, e.target.value)}
+                                className="w-full bg-[#010613] border border-cyan-900/30 p-2 rounded text-cyan-100 text-sm outline-none focus:border-cyan-400 transition-colors mb-4"
+                            >
+                                <option value="">(Custom)</option>
+                                {modelOptionsByType[commDeviceTypeForEquipment(selectedEquipment.type)].map((model) => (
+                                    <option key={model} value={model}>{model}</option>
+                                ))}
+                            </select>
+                            <label className="text-[10px] text-slate-500 uppercase tracking-[0.2em] mb-2 block">Host / IP</label>
+                            <input
+                                type="text"
+                                value={selectedEquipment.ipAddress || ""}
+                                onChange={(e) => updateEquipmentIp(selectedEquipment.id, e.target.value)}
+                                placeholder="e.g. 192.168.1.100"
+                                className="w-full bg-[#010613] border border-cyan-900/30 p-2 rounded text-cyan-100 text-sm outline-none focus:border-cyan-400 transition-colors mb-4"
+                            />
                             <div className="text-xs text-slate-400 mb-1 uppercase tracking-widest">Facility Type</div>
                             <div className="text-cyan-400 font-bold tracking-widest text-lg">
                                 {selectedEquipment.type === 'crac' && 'CRAC (Cooling HVAC)'}
@@ -936,17 +1120,6 @@ removeLocation(currentLocationId);
 
                         {selectedEquipment.type === 'dashboard' && (
                             <div className="flex flex-col gap-4">
-                                <div className="bg-[#03112b] p-4 rounded-lg border border-cyan-800">
-                                    <label className="text-[10px] text-cyan-700 uppercase tracking-[0.2em] mb-2 block">Management IP</label>
-                                    <input
-                                        type="text"
-                                        value={selectedEquipment.ipAddress || ""}
-                                        onChange={(e) => updateEquipmentIp(selectedEquipment.id, e.target.value)}
-                                        placeholder="e.g. 192.168.1.100"
-                                        className="w-full bg-[#010613] border border-cyan-900 p-2 rounded text-cyan-100 text-xs outline-none focus:border-cyan-400 transition-colors"
-                                    />
-                                </div>
-
                                 <div className="bg-[#03112b] p-4 rounded-lg border border-purple-900/40">
                                     <div className="flex items-center gap-2 mb-3">
                                         <Globe size={14} className="text-purple-400" />
@@ -972,7 +1145,11 @@ removeLocation(currentLocationId);
                         )}
                         {/* CDU: Rack Connection Selector + Live Telemetry */}
                         {selectedEquipment.type === 'cdu' && (() => {
-                            const cduTelem = (telemetry as any)[selectedEquipment.name];
+                            const cduTelem = resolveTelemetryRecordDeep(
+                                telemetry,
+                                selectedEquipment.name,
+                                normalizeNodeId(selectedEquipment.name),
+                            ) as Record<string, any> | undefined;
                             const serverRacks = racks.filter(r => r.locationId === currentLocationId && (r.type === 'server' || r.type === 'immersion_single'));
                             const connectedIds: string[] = selectedEquipment.connectedRackIds ?? [];
 

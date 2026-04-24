@@ -1,29 +1,93 @@
 # 現代 DataCenter 監控架構演進：從 Pull 到 Push
 
-您提到的 **SNMP** 與 **Redfish** 是機房監控的經典傳奇，但現代的超大型資料中心（如 Google, AWS, Meta）與雲端原生架構已經全面轉向了 **「Telemetry Streaming (遙測串流)」** 這項新技術思維。這也是本專案所採用的核心概念。
-
-以下為您解析這兩代技術的關鍵差異：
-
-## 1. 傳統架構：Pull-based (拉取式)
-代表技術：`SNMP`, `IPMI`, `Redfish`
-運作方式：監控中心（Zabbix / Cacti / PRTG）扮演「主管」的角色。
-
-* **流程**：主管手中必須有一份寫滿幾千名員工（伺服器）的「通訊錄 (IP 清單)」。每隔 5 分鐘，主管就要嚴格按照名單，一個一個打電話（打 API / SNMP Get）問員工：「你現在溫度多少？」。
-* **缺點**：
-  - **維護地獄**：每買一台新伺服器，網管人員就必須到監管軟體裡手動新增一次 IP 與社群字串 (Community String)。如果機器換了 IP，監控立刻斷線。
-  - **效能瓶頸**：當機房擴展到上千台時，中心主管每分鐘要打上千通電話，網路併發數太高，且輪詢（Polling）常會面臨 Timeout 等不到回應的問題。
-
-## 2. 現代架構：Push-based (推播式 / 串流式) - **⭐ 本專案架構**
-代表技術：`Kafka即時串流`, `Influx Telegraf`, `Prometheus Pushgateway`, `OpenTelemetry`
-運作方式：監控中心（本專案 Dashboard）扮演「郵政信箱」或「廣播電台接收塔」。
-
-* **流程**：主管不需要任何人的電話號碼（不用設定 IP）。員工（伺服器）只要一開機，裡面的 Agent（如 `client_agent.py`）就會主動把包含自己名字的 JSON Payload **POST** 到後端 API 的 `/ingest`；由後端接收後，再把資料寫入 Kafka Broker。
-* **優點**：
-  - **隨插即用 (Plug & Play)**：網管人員把新伺服器上架、插上網路線開機。Dashboard 上瞬間就會自動長出這台機器的數據，**完全零配置 (Zero Configuration)**。
-  - **超高吞吐量**：透過 Kafka 這種分散式事件串流平台，同時接收十萬台機器的即時推播也不會卡頓。這就是為何本專案能做到「每秒級別」的即時 3D 動態反饋，而以前的 SNMP 通常只能做到「每 5 分鐘」更新一次圖表。
+本文件用來說明傳統輪詢式監控與現代推播式監控的差異，並標示本專案目前採用的主幹架構。
 
 ---
-**可以混用嗎？**
-當然可以！其實 Redfish 的最新協定（Redfish Eventing）也已經開始支援 Push 模式（Webhook Subscriptions），也就是機器硬體發生變化時主動推播告訴中心。
 
-本專案強烈建議使用 Agent 主動推播（Push）的方式，除了效能優勢外，這也是為何您「幾乎不需要在網頁上設定任何通訊參數，只要名字對了資料就會流進來」的真正魔法所在！
+## 1. Pull-based 架構
+
+典型代表：
+
+- `SNMP`
+- `IPMI`
+- `Redfish Polling`
+
+特性：
+
+- 監控中心主動向設備查詢狀態
+- 需要維護設備清單、位址與認證資訊
+- 隨設備數量增加，輪詢成本與延遲會提高
+
+適合：
+
+- 傳統網通設備
+- 僅提供管理介面的設備
+- 以標準協定定期盤點為主的場景
+
+---
+
+## 2. Push-based 架構
+
+典型代表：
+
+- Agent Push
+- Event Streaming
+- Kafka 類型事件平台
+- OpenTelemetry 類型管線
+
+特性：
+
+- 資料來源主動把事件送到平台
+- 平台可解耦接收、處理、落庫與展示
+- 較適合高頻遙測與即時畫面
+
+適合：
+
+- 高頻監控
+- 即時告警
+- 多資料來源整合
+
+---
+
+## 3. 本專案採用方式
+
+本專案目前主幹偏向 Push-based：
+
+```text
+Agent / Simulation
+   -> HTTP /ingest
+   -> Kafka
+   -> Backend processing
+   -> InfluxDB / MongoDB
+   -> SSE to frontend
+```
+
+補充說明：
+
+- 前端即時畫面以 `SSE` 為主
+- `SNMP`、`Redfish`、`Modbus` 等屬可整合協定，但不是目前主資料流核心
+
+---
+
+## 4. 混合模式的必要性
+
+實務上通常不會只用單一路徑：
+
+- Server OS 指標：Agent Push
+- 硬體健康或電源控制：Redfish
+- 網通與機電設備：SNMP / Modbus
+- 前端即時更新：SSE
+
+因此本專案是以 Push-based 為主幹，再保留 Pull-based 與異質設備整合空間。
+
+---
+
+## 5. 結論
+
+- Pull-based 適合標準查詢與既有設備納管
+- Push-based 適合即時、高頻、可擴充的資料主幹
+- 本專案目前以 `HTTP ingest + Kafka + SSE` 為核心設計
+
+---
+
+*文件更新日期：2026-04-21*

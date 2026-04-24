@@ -4,6 +4,7 @@ import { useState } from "react";
 import { FileText } from "lucide-react";
 import { usePolling } from "@/shared/hooks/usePolling";
 import { apiUrl } from "@/shared/api";
+import { authFetch } from "@/shared/auth";
 import { useLanguage } from "@/shared/i18n/language";
 
 type AlertLog = {
@@ -30,7 +31,7 @@ export default function LogsPage() {
 
   usePolling(async () => {
     try {
-      const res = await fetch(apiUrl("/alerts"));
+      const res = await authFetch(apiUrl("/alerts"));
       if (res.ok) {
         const json = await res.json();
         setLogs(json.data);
@@ -71,6 +72,10 @@ export default function LogsPage() {
               const rowStyle =
                 log.type === "AI_ANOMALY"
                   ? "text-rose-400 bg-rose-950/20"
+                  : log.type === "MAINTENANCE_EMAIL_FAILED"
+                    ? "text-red-400 bg-red-950/20"
+                    : log.type === "MAINTENANCE_EMAIL_SENT"
+                      ? "text-emerald-400 bg-emerald-950/20"
                   : log.type === "HIGH_TEMPERATURE"
                     ? "text-red-400 bg-red-950/20"
                     : log.type === "HIGH_TEMPERATURE_WARNING"
@@ -81,6 +86,10 @@ export default function LogsPage() {
               const tagStyle =
                 log.type === "AI_ANOMALY"
                   ? "text-rose-500"
+                  : log.type === "MAINTENANCE_EMAIL_FAILED"
+                    ? "text-red-500"
+                    : log.type === "MAINTENANCE_EMAIL_SENT"
+                      ? "text-emerald-500"
                   : log.type === "HIGH_TEMPERATURE"
                     ? "text-red-500"
                     : log.type === "HIGH_TEMPERATURE_WARNING"
