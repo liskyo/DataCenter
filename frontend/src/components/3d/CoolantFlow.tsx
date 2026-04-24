@@ -28,7 +28,8 @@ export default function CoolantFlow({
   to,
   flowRate = 8.0,
   type,
-  particleCount = 24,
+  /** Number of particles per line (default 64) */
+  particleCount = 64,
 }: CoolantFlowProps) {
   const pointsRef = useRef<THREE.Points>(null!);
 
@@ -37,7 +38,24 @@ export default function CoolantFlow({
     const start = new THREE.Vector3(...from);
     const end = new THREE.Vector3(...to);
     const mid = start.clone().lerp(end, 0.5);
-    mid.y += 1.2; // arc height above floor
+
+    // 計算水平方向的垂直向量 (Perpendicular vector on XZ plane)
+    const dir = end.clone().sub(start);
+    const perp = new THREE.Vector3().crossVectors(dir, new THREE.Vector3(0, 1, 0)).normalize();
+    
+    // 強制讓弧線朝向 Z 軸正方向（機房的「前方」走道）
+    // 若機房是直向排列（即 perp.z 趨近 0），則強制朝向 X 軸正方向
+    if (Math.abs(perp.z) > 0.1) {
+        if (perp.z < 0) perp.negate();
+    } else {
+        if (perp.x < 0) perp.negate();
+    }
+    
+    // 統一往前拋出 1.5 單位
+    mid.add(perp.multiplyScalar(1.5));
+    
+    // 將水管路線壓低至貼近地面
+    mid.y = 0.1;
 
     return new THREE.CatmullRomCurve3([start, mid, end]);
   }, [from, to]);
@@ -61,6 +79,11 @@ export default function CoolantFlow({
 
   const color = type === "supply" ? SUPPLY_COLOR : RETURN_COLOR;
 
+  // 建立一條半透明的實體管線作為軌道，讓水路痕跡更加明顯
+  const tubeGeometry = useMemo(() => {
+    return new THREE.TubeGeometry(curve, 64, 0.015, 8, false);
+  }, [curve]);
+
   // Normal speed at 8 LPM = 0.004 per frame; scales linearly
   const speed = (flowRate / 8.0) * 0.004;
 
@@ -81,15 +104,23 @@ export default function CoolantFlow({
   });
 
   return (
-    <points ref={pointsRef} geometry={geometry}>
-      <pointsMaterial
-        color={color}
-        size={0.06}
-        sizeAttenuation
-        transparent
-        opacity={0.85}
-        depthWrite={false}
-      />
-    </points>
+    <group>
+      {/* 底部半透明管線軌道，確保就算粒子很稀疏也能看出路線 */}
+      <mesh geometry={tubeGeometry}>
+        <meshBasicMaterial color={color} transparent opacity={0.3} depthTest={false} depthWrite={false} />
+      </mesh>
+      {/* 表面流動的大顆粒子 */}
+      <points ref={pointsRef} geometry={geometry}>
+        <pointsMaterial
+          color={color}
+          size={0.08}
+          sizeAttenuation
+          transparent
+          opacity={0.95}
+          depthWrite={false}
+          depthTest={false} // 關閉深度測試，讓水路粒子可以穿透機櫃顯示（X-ray 效果）
+        />
+      </points>
+    </group>
   );
 }

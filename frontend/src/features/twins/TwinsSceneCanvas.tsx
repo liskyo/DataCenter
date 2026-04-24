@@ -108,7 +108,6 @@ function TwinsSceneCanvasInner({
               const rackPos: [number, number, number] = [rack.position[0], 0, rack.position[2]];
               return [
                 <CoolantFlow key={`supply-${cdu.id}-${rack.id}`} from={cduPos} to={rackPos} type="supply" flowRate={flowRate} />,
-                <CoolantFlow key={`return-${rack.id}-${cdu.id}`} from={rackPos} to={cduPos} type="return" flowRate={flowRate} />,
               ];
             });
           })}
