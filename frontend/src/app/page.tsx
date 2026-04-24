@@ -359,13 +359,15 @@ const ServerMatrixPanel = memo(function ServerMatrixPanel({
   filteredServerMatrixItems,
   matrixPage,
   totalMatrixPages,
+  totalServerCount,
+  totalSwitchCount,
   onPrevPage,
   onNextPage,
   telemetryById,
 }: {
   title: string;
   pageLabel: string;
-  pageInfo: (current: number, total: number, pageCount: number, allCount: number) => string;
+  pageInfo: (current: number, total: number, pageCount: number, serverCount: number, switchCount: number, allCount: number) => string;
   prevPage: string;
   nextPage: string;
   searchPlaceholder: string;
@@ -379,6 +381,8 @@ const ServerMatrixPanel = memo(function ServerMatrixPanel({
   filteredServerMatrixItems: MatrixItem[];
   matrixPage: number;
   totalMatrixPages: number;
+  totalServerCount: number;
+  totalSwitchCount: number;
   onPrevPage: () => void;
   onNextPage: () => void;
   telemetryById: Map<string, ServerTelemetry>;
@@ -422,7 +426,7 @@ const ServerMatrixPanel = memo(function ServerMatrixPanel({
         {(filteredServerMatrixItems.length > MATRIX_ITEMS_PER_PAGE || matrixQuery) && (
           <div className="flex items-center justify-between gap-3 text-[10px] text-cyan-500/80 font-mono">
             <div>
-              {pageLabel}：{pageInfo(matrixPage + 1, totalMatrixPages, matrixRows.length, filteredServerMatrixItems.length)}
+              {pageLabel}：{pageInfo(matrixPage + 1, totalMatrixPages, matrixRows.length, totalServerCount, totalSwitchCount, filteredServerMatrixItems.length)}
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -644,8 +648,8 @@ export default function Dashboard() {
         liquidCooling: "CDU Liquid Cooling",
         immersionCooling: "Immersion Monitoring",
         pageLabel: "Paging",
-        pageInfo: (current: number, total: number, pageCount: number, allCount: number) =>
-          `Page ${current} / ${total} (${pageCount} shown, ${allCount} total)`,
+        pageInfo: (current: number, total: number, pageCount: number, serverCount: number, switchCount: number, allCount: number) =>
+          `Page ${current} / ${total} (${pageCount} shown, Server: ${serverCount}, Switch: ${switchCount}, Total: ${allCount})`,
         prevPage: "Prev",
         nextPage: "Next",
         matrixSearchPlaceholder: "Search by server or rack name",
@@ -668,8 +672,8 @@ export default function Dashboard() {
       liquidCooling: "CDU 液冷監控 (Liquid Cooling)",
       immersionCooling: "雙相浸沒式監控 (Immersion Cooling)",
       pageLabel: "分頁顯示",
-      pageInfo: (current: number, total: number, pageCount: number, allCount: number) =>
-        `第 ${current} / ${total} 頁（本頁 ${pageCount} 台，總計 ${allCount} 台）`,
+      pageInfo: (current: number, total: number, pageCount: number, serverCount: number, switchCount: number, allCount: number) =>
+        `第 ${current} / ${total} 頁（本頁 ${pageCount} 台，Server: ${serverCount} 台, Switch: ${switchCount} 台，總計: ${allCount} 台）`,
       prevPage: "上一頁",
       nextPage: "下一頁",
       matrixSearchPlaceholder: "可輸入伺服器名稱或所在機櫃搜尋",
@@ -786,12 +790,16 @@ export default function Dashboard() {
   // Calculate stats based on store servers (Filtered by location)
   const allGridItems = useMemo(() => {
     const rackServers = locationRacks
-      .flatMap(r => r.servers.map(s => ({ ...s, assetId: s.assetId || normalizeNodeId(s.name), rackName: r.name, rackType: r.type })));
+      .flatMap(r => r.servers.map(s => ({ ...s, assetId: s.assetId || normalizeNodeId(s.name), rackName: r.name, rackType: r.type, type: s.type || 'server' })));
     
     const standaloneEquips = locationEquipments
       .map(e => ({ id: e.id, assetId: normalizeNodeId(e.name), name: e.name, type: e.type, rackName: 'Facility', rackType: 'equipment' }));
       
-    return [...rackServers, ...standaloneEquips];
+    const immersionTanks = locationRacks
+      .filter(r => r.type === 'immersion_dual')
+      .map(r => ({ id: r.id, assetId: normalizeNodeId(r.name), name: r.name, type: 'immersion_dual', rackName: r.name, rackType: r.type }));
+
+    return [...rackServers, ...standaloneEquips, ...immersionTanks];
   }, [locationRacks, locationEquipments]);
 
   const totalServers = allGridItems.length;
@@ -807,22 +815,27 @@ export default function Dashboard() {
     [allGridItems, telemetryById]
   );
 
-  const { healthData, pieData } = useMemo(() => {
-    const health = gridStatusRows.reduce((acc, row) => {
+  const { serverHealth, switchHealth, cduHealth, immersionHealth, healthData } = useMemo(() => {
+    const calc = (rows: typeof gridStatusRows) => rows.reduce((acc, row) => {
       const status = row.status;
       if (status === 'critical') acc.critical++;
       else if (status === 'warning') acc.warning++;
       else acc.normal++;
       return acc;
-    }, { normal: 0, warning: 0, critical: 0 });
+    }, { normal: 0, warning: 0, critical: 0, total: rows.length });
 
-    const pie = [
-      { name: '正常 (Normal)', value: health.normal, color: '#06b6d4' },
-      { name: '警告 (Warning)', value: health.warning, color: '#fbbf24' },
-      { name: '異常 (Critical)', value: health.critical, color: '#ef4444' }
-    ].filter(d => d.value > 0);
+    const serverRows = gridStatusRows.filter(r => r.item.type === 'server');
+    const switchRows = gridStatusRows.filter(r => r.item.type === 'switch');
+    const cduRows = gridStatusRows.filter(r => r.item.type === 'cdu');
+    const immersionRows = gridStatusRows.filter(r => r.item.type === 'immersion_dual');
 
-    return { healthData: health, pieData: pie };
+    return {
+      serverHealth: calc(serverRows),
+      switchHealth: calc(switchRows),
+      cduHealth: calc(cduRows),
+      immersionHealth: calc(immersionRows),
+      healthData: calc(gridStatusRows)
+    };
   }, [gridStatusRows]);
 
   const itemNameSet = useMemo(() => {
@@ -897,10 +910,10 @@ export default function Dashboard() {
 
   const serverMatrixItems = useMemo(
     () =>
-      locationRacks
-        .flatMap((r) => (r.servers || []).map((s) => ({ ...s, rackName: r.name })))
+      allGridItems
+        .filter((item) => item.type === 'server' || item.type === 'switch')
         .sort((a, b) => a.name.localeCompare(b.name)),
-    [locationRacks]
+    [allGridItems]
   );
   const filteredServerMatrixItems = useMemo(() => {
     const query = deferredMatrixQuery.trim().toLowerCase();
@@ -1100,6 +1113,8 @@ export default function Dashboard() {
             filteredServerMatrixItems={filteredServerMatrixItems}
             matrixPage={matrixPage}
             totalMatrixPages={totalMatrixPages}
+            totalServerCount={serverHealth.total}
+            totalSwitchCount={switchHealth.total}
             onPrevPage={handlePrevMatrixPage}
             onNextPage={handleNextMatrixPage}
             telemetryById={telemetryById}
@@ -1110,47 +1125,70 @@ export default function Dashboard() {
         <div className="col-span-3 flex flex-col gap-6">
           {/* Health Distribution moved here */}
           <TechPanel title={t.health} className="h-[220px] shrink-0">
-            <div className="h-[150px] w-full relative flex items-center justify-center">
-              <ClientOnlyChart placeholderClassName="h-[150px] w-[220px]">
-              <ResponsiveContainer width={220} height={150} initialDimension={{ width: 220, height: 150 }}>
-                <PieChart>
-                  <Pie
-                    data={pieData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={54}
-                    outerRadius={74}
-                    paddingAngle={5}
-                    dataKey="value"
-                    isAnimationActive={false}
-                  >
-                    {pieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <RechartsTooltip contentStyle={{ backgroundColor: '#020b1a', borderColor: '#1e3a8a', color: '#fff' }} />
-                </PieChart>
-              </ResponsiveContainer>
-              </ClientOnlyChart>
-              {/* 中間文字 */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-1">
-                <span className="text-2xl font-black text-white leading-none">{totalServers}</span>
-                <span className="text-[8px] text-cyan-600 font-bold uppercase tracking-widest">Total</span>
-              </div>
+            <div className="flex justify-between items-center h-[150px] w-full px-2 mt-2">
+              {[
+                { title: 'SERVER', data: serverHealth, colorNorm: '#06b6d4' },
+                { title: 'SWITCH', data: switchHealth, colorNorm: '#10b981' },
+                { title: 'CDU', data: cduHealth, colorNorm: '#3b82f6' },
+                { title: '2P_IMMERSION', data: immersionHealth, colorNorm: '#a855f7' }
+              ].map((group, i) => {
+                const groupPieData = [
+                  { name: '正常 (Normal)', value: group.data.normal, color: group.colorNorm },
+                  { name: '警告 (Warning)', value: group.data.warning, color: '#fbbf24' },
+                  { name: '異常 (Critical)', value: group.data.critical, color: '#ef4444' }
+                ].filter(d => d.value > 0);
+                
+                // 為了避免 0 資料時圖表不渲染或出錯，加入一個灰底的 placeholder
+                if (groupPieData.length === 0) {
+                  groupPieData.push({ name: '無資料', value: 1, color: '#1e293b' });
+                }
+
+                const titleColor = group.colorNorm === '#06b6d4' ? 'text-cyan-300' : 
+                                   group.colorNorm === '#10b981' ? 'text-emerald-300' : 
+                                   group.colorNorm === '#3b82f6' ? 'text-blue-300' : 'text-purple-300';
+
+                return (
+                  <div key={i} className="flex flex-col items-center relative w-1/4 h-full justify-center">
+                    <ClientOnlyChart placeholderClassName="h-[90px] w-[90px]">
+                      <ResponsiveContainer width={90} height={90} initialDimension={{ width: 90, height: 90 }}>
+                        <PieChart>
+                          <Pie
+                            data={groupPieData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={32}
+                            outerRadius={44}
+                            paddingAngle={5}
+                            dataKey="value"
+                            isAnimationActive={false}
+                            stroke="none"
+                          >
+                            {groupPieData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          {group.data.total > 0 && <RechartsTooltip contentStyle={{ backgroundColor: '#020b1a', borderColor: '#1e3a8a', color: '#fff', fontSize: '10px', padding: '4px' }} itemStyle={{ padding: 0 }} />}
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </ClientOnlyChart>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none -mt-4">
+                      <span className="text-sm font-black text-white leading-none">{group.data.total}</span>
+                    </div>
+                    <span className={`text-[9px] font-bold uppercase tracking-widest mt-2 ${titleColor}`}>{group.title}</span>
+                  </div>
+                );
+              })}
             </div>
-            <div className="mt-2 grid grid-cols-3 gap-2 text-[10px] font-mono">
-              <div className="flex items-center justify-center gap-1 border border-cyan-900/40 bg-cyan-950/20 py-1">
-                <span className="inline-block h-2 w-2 bg-cyan-400 rounded-full"></span>
-                <span className="text-cyan-300">{healthData.normal}</span>
-              </div>
-              <div className="flex items-center justify-center gap-1 border border-yellow-900/40 bg-yellow-950/20 py-1">
-                <span className="inline-block h-2 w-2 bg-yellow-400 rounded-full"></span>
-                <span className="text-yellow-300">{healthData.warning}</span>
-              </div>
-              <div className="flex items-center justify-center gap-1 border border-red-900/40 bg-red-950/20 py-1">
-                <span className="inline-block h-2 w-2 bg-red-500 rounded-full"></span>
-                <span className="text-red-300">{healthData.critical}</span>
-              </div>
+            <div className="mt-2 grid grid-cols-3 gap-2 text-[10px] font-mono border-t border-cyan-900/40 pt-2 px-2">
+               <div className="flex items-center justify-center gap-1">
+                 <span className="inline-block h-2 w-2 bg-[#06b6d4] rounded-full"></span><span className="text-cyan-300">Norm: {healthData.normal}</span>
+               </div>
+               <div className="flex items-center justify-center gap-1">
+                 <span className="inline-block h-2 w-2 bg-yellow-400 rounded-full"></span><span className="text-yellow-300">Warn: {healthData.warning}</span>
+               </div>
+               <div className="flex items-center justify-center gap-1">
+                 <span className="inline-block h-2 w-2 bg-red-500 rounded-full"></span><span className="text-red-300">Crit: {healthData.critical}</span>
+               </div>
             </div>
           </TechPanel>
 

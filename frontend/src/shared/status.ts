@@ -15,6 +15,16 @@ export function getDeviceStatus(item: any, srv: any): DeviceStatus {
     return "normal";
   }
 
+  // 雙相浸沒：液位、壓力、溫度
+  if (item.type === "immersion_dual") {
+    const level = srv.coolant_level || 0;
+    const press = srv.pressure_bar || 0;
+    const temp = srv.temperature || 0;
+    if (level < 60 || press > 1.8 || temp > 50) return "critical";
+    if (level < 80 || press > 1.5 || temp > 45) return "warning";
+    return "normal";
+  }
+
   // 交換器／網路機櫃：流量、啟用埠、管理面 CPU／機殼溫度
   if (item.type === "switch" || item.rackType === "network") {
     const traffic = srv.traffic_gbps || 0;
