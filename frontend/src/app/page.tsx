@@ -904,21 +904,59 @@ export default function Dashboard() {
   );
   const filteredServerMatrixItems = useMemo(() => {
     const query = deferredMatrixQuery.trim().toLowerCase();
-    if (!query) return serverMatrixItems;
-    return serverMatrixItems.filter((item) =>
-      item.name.toLowerCase().includes(query) || item.rackName.toLowerCase().includes(query)
-    );
-  }, [serverMatrixItems, deferredMatrixQuery]);
+    let result = serverMatrixItems;
+    if (query) {
+      result = result.filter((item) =>
+        item.name.toLowerCase().includes(query) || item.rackName.toLowerCase().includes(query)
+      );
+    }
+    
+    // 將有警報的伺服器排序到最上方 (critical > warning > normal)
+    return [...result].sort((a, b) => {
+      const srvA = findTelemetryForItem(telemetryById, a.assetId, a.name);
+      const statusA = getDeviceStatus(a as any, srvA);
+      
+      const srvB = findTelemetryForItem(telemetryById, b.assetId, b.name);
+      const statusB = getDeviceStatus(b as any, srvB);
+      
+      const score = (s: string) => {
+        if (s === 'critical') return 3;
+        if (s === 'warning') return 2;
+        return 1;
+      };
+      
+      const diff = score(statusB) - score(statusA);
+      if (diff !== 0) return diff;
+      return a.name.localeCompare(b.name);
+    });
+  }, [serverMatrixItems, deferredMatrixQuery, telemetryById]);
   const [matrixPage, setMatrixPage] = useState(0);
-  const totalMatrixPages = Math.max(1, Math.ceil(filteredServerMatrixItems.length / MATRIX_ITEMS_PER_PAGE));
-  const visibleMatrixItems = useMemo(
-    () =>
-      filteredServerMatrixItems.slice(
-        matrixPage * MATRIX_ITEMS_PER_PAGE,
-        (matrixPage + 1) * MATRIX_ITEMS_PER_PAGE
-      ),
-    [filteredServerMatrixItems, matrixPage]
-  );
+  const { alarmedItems, normalItems } = useMemo(() => {
+    const alarmed: typeof serverMatrixItems = [];
+    const normal: typeof serverMatrixItems = [];
+    
+    filteredServerMatrixItems.forEach((item) => {
+      const srv = findTelemetryForItem(telemetryById, item.assetId, item.name);
+      const status = getDeviceStatus(item as any, srv);
+      if (status === 'critical' || status === 'warning') {
+        alarmed.push(item);
+      } else {
+        normal.push(item);
+      }
+    });
+    return { alarmedItems: alarmed, normalItems: normal };
+  }, [filteredServerMatrixItems, telemetryById]);
+
+  const normalItemsPerPage = Math.max(1, MATRIX_ITEMS_PER_PAGE - alarmedItems.length);
+  const totalMatrixPages = Math.max(1, Math.ceil(normalItems.length / normalItemsPerPage));
+
+  const visibleMatrixItems = useMemo(() => {
+    const normalSlice = normalItems.slice(
+      matrixPage * normalItemsPerPage,
+      (matrixPage + 1) * normalItemsPerPage
+    );
+    return [...alarmedItems, ...normalSlice];
+  }, [alarmedItems, normalItems, matrixPage, normalItemsPerPage]);
   const handlePrevMatrixPage = useCallback(() => {
     setMatrixPage((p) => Math.max(0, p - 1));
   }, []);
@@ -1070,6 +1108,52 @@ export default function Dashboard() {
 
         {/* Right Column (Alarms & Details) */}
         <div className="col-span-3 flex flex-col gap-6">
+          {/* Health Distribution moved here */}
+          <TechPanel title={t.health} className="h-[220px] shrink-0">
+            <div className="h-[150px] w-full relative flex items-center justify-center">
+              <ClientOnlyChart placeholderClassName="h-[150px] w-[220px]">
+              <ResponsiveContainer width={220} height={150} initialDimension={{ width: 220, height: 150 }}>
+                <PieChart>
+                  <Pie
+                    data={pieData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={54}
+                    outerRadius={74}
+                    paddingAngle={5}
+                    dataKey="value"
+                    isAnimationActive={false}
+                  >
+                    {pieData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <RechartsTooltip contentStyle={{ backgroundColor: '#020b1a', borderColor: '#1e3a8a', color: '#fff' }} />
+                </PieChart>
+              </ResponsiveContainer>
+              </ClientOnlyChart>
+              {/* 中間文字 */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-1">
+                <span className="text-2xl font-black text-white leading-none">{totalServers}</span>
+                <span className="text-[8px] text-cyan-600 font-bold uppercase tracking-widest">Total</span>
+              </div>
+            </div>
+            <div className="mt-2 grid grid-cols-3 gap-2 text-[10px] font-mono">
+              <div className="flex items-center justify-center gap-1 border border-cyan-900/40 bg-cyan-950/20 py-1">
+                <span className="inline-block h-2 w-2 bg-cyan-400 rounded-full"></span>
+                <span className="text-cyan-300">{healthData.normal}</span>
+              </div>
+              <div className="flex items-center justify-center gap-1 border border-yellow-900/40 bg-yellow-950/20 py-1">
+                <span className="inline-block h-2 w-2 bg-yellow-400 rounded-full"></span>
+                <span className="text-yellow-300">{healthData.warning}</span>
+              </div>
+              <div className="flex items-center justify-center gap-1 border border-red-900/40 bg-red-950/20 py-1">
+                <span className="inline-block h-2 w-2 bg-red-500 rounded-full"></span>
+                <span className="text-red-300">{healthData.critical}</span>
+              </div>
+            </div>
+          </TechPanel>
+
           <CpuByNodePanel
             title={t.cpuByNode}
             chartData={deferredActiveStoreData}
@@ -1133,52 +1217,6 @@ export default function Dashboard() {
                 })}
                 </>
               )}
-            </div>
-          </TechPanel>
-
-          {/* Health Distribution moved here */}
-          <TechPanel title={t.health} className="h-[220px] shrink-0">
-            <div className="h-[150px] w-full relative flex items-center justify-center">
-              <ClientOnlyChart placeholderClassName="h-[150px] w-[220px]">
-              <ResponsiveContainer width={220} height={150} initialDimension={{ width: 220, height: 150 }}>
-                <PieChart>
-                  <Pie
-                    data={pieData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={54}
-                    outerRadius={74}
-                    paddingAngle={5}
-                    dataKey="value"
-                    isAnimationActive={false}
-                  >
-                    {pieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <RechartsTooltip contentStyle={{ backgroundColor: '#020b1a', borderColor: '#1e3a8a', color: '#fff' }} />
-                </PieChart>
-              </ResponsiveContainer>
-              </ClientOnlyChart>
-              {/* 中間文字 */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-1">
-                <span className="text-2xl font-black text-white leading-none">{totalServers}</span>
-                <span className="text-[8px] text-cyan-600 font-bold uppercase tracking-widest">Total</span>
-              </div>
-            </div>
-            <div className="mt-2 grid grid-cols-3 gap-2 text-[10px] font-mono">
-              <div className="flex items-center justify-center gap-1 border border-cyan-900/40 bg-cyan-950/20 py-1">
-                <span className="inline-block h-2 w-2 bg-cyan-400 rounded-full"></span>
-                <span className="text-cyan-300">{healthData.normal}</span>
-              </div>
-              <div className="flex items-center justify-center gap-1 border border-yellow-900/40 bg-yellow-950/20 py-1">
-                <span className="inline-block h-2 w-2 bg-yellow-400 rounded-full"></span>
-                <span className="text-yellow-300">{healthData.warning}</span>
-              </div>
-              <div className="flex items-center justify-center gap-1 border border-red-900/40 bg-red-950/20 py-1">
-                <span className="inline-block h-2 w-2 bg-red-500 rounded-full"></span>
-                <span className="text-red-300">{healthData.critical}</span>
-              </div>
             </div>
           </TechPanel>
         </div>
