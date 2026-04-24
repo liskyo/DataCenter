@@ -270,6 +270,7 @@ type DcimState = {
     updateEquipmentName: (id: string, name: string) => void;
     updateEquipmentModel: (id: string, model: string) => void;
     updateEquipmentConnectedRacks: (id: string, rackIds: string[]) => void;
+    assignRackToCdu: (rackId: string, cduId: string | null) => void;
 
     exportState: () => string;
     importState: (jsonConfig: string) => boolean;
@@ -592,6 +593,18 @@ export const useDcimStore = create<DcimState>()(
 
             updateEquipmentConnectedRacks: (id, rackIds) => set((state: any) => ({
                 equipments: state.equipments.map((e: any) => e.id === id ? { ...e, connectedRackIds: rackIds } : e)
+            })),
+
+            assignRackToCdu: (rackId, cduId) => set((state: any) => ({
+                equipments: state.equipments.map((e: any) => {
+                    if (e.type !== 'cdu') return e;
+                    const connected = e.connectedRackIds || [];
+                    if (e.id === cduId) {
+                        return { ...e, connectedRackIds: Array.from(new Set([...connected, rackId])) };
+                    } else {
+                        return { ...e, connectedRackIds: connected.filter((id: string) => id !== rackId) };
+                    }
+                })
             })),
 
             addLocation: (name, type) => set((state: any) => ({

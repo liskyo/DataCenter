@@ -116,6 +116,7 @@ export default function TwinsPage() {
         updateEquipmentRotation,
         updateEquipmentIp,
         updateEquipmentConnectedRacks,
+        assignRackToCdu,
         commConfigs,
     } = useDcimStore(
         useShallow((s) => ({
@@ -151,6 +152,7 @@ export default function TwinsPage() {
             updateEquipmentRotation: s.updateEquipmentRotation,
             updateEquipmentIp: s.updateEquipmentIp,
             updateEquipmentConnectedRacks: s.updateEquipmentConnectedRacks,
+            assignRackToCdu: s.assignRackToCdu,
             commConfigs: s.deviceCommConfigs,
         })),
     );
@@ -750,6 +752,32 @@ removeLocation(currentLocationId);
                                 )}
                             </div>
                         )}
+
+                        {/* CDU Selection (Only for Server Rack & Single Phase Immersion) */}
+                        {(selectedRack.type === 'server' || selectedRack.type === 'immersion_single') && (() => {
+                            const availableCdus = equipments.filter(e => e.locationId === currentLocationId && e.type === 'cdu');
+                            if (availableCdus.length === 0) return null;
+                            const currentCdu = availableCdus.find(e => e.connectedRackIds?.includes(selectedRack.id));
+                            
+                            return (
+                                <div className="bg-[#03112b] p-4 rounded-lg border border-cyan-900/30">
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <Thermometer size={14} className="text-cyan-400" />
+                                        <h3 className="text-xs font-bold text-cyan-400 tracking-widest uppercase">Coolant Pipe (CDU)</h3>
+                                    </div>
+                                    <select
+                                        className="w-full bg-[#0a1e3f] border border-cyan-800 p-2 rounded text-white text-[11px] outline-none mb-1"
+                                        value={currentCdu?.id || ""}
+                                        onChange={(e) => assignRackToCdu(selectedRack.id, e.target.value || null)}
+                                    >
+                                        <option value="">None (Standalone)</option>
+                                        {availableCdus.map(cdu => (
+                                            <option key={cdu.id} value={cdu.id}>{cdu.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            );
+                        })()}
 
                         {/* 現有設備清單 */}
                         <div>
