@@ -1,8 +1,14 @@
 "use client";
 
-import { BellRing, CalendarClock, ShieldCheck, Wrench } from "lucide-react";
+import { BellRing, CalendarClock, RefreshCw, ShieldCheck, Wrench } from "lucide-react";
 import type { MaintenanceCopy, MaintenanceSchedule } from "./types";
-import { formatRecurrenceLabel, formatScheduleDateTime } from "./utils";
+import {
+  formatScheduleDateTime,
+  formatCycleLabel,
+  formatNotifyBeforeLabel,
+  extractNotesText,
+} from "./utils";
+import { useLanguage } from "@/shared/i18n/language";
 
 type Props = {
   task: MaintenanceSchedule;
@@ -19,6 +25,12 @@ export function MaintenanceScheduleCard({
   onEdit,
   onDelete,
 }: Props) {
+  const { language } = useLanguage();
+  const lang = language === "en" ? "en" : "zh";
+  const notifyLabel = formatNotifyBeforeLabel(task.notes, lang);
+  const userNotes = extractNotesText(task.notes);
+  const cycleLabel = formatCycleLabel(task.recurrence_days, lang);
+
   return (
     <div className="rounded-xl border-l-4 border-l-cyan-500 border-y border-r border-[#1e3a8a] bg-[#020b1a] p-6">
       <div className="mb-4 flex justify-between gap-4">
@@ -39,35 +51,41 @@ export function MaintenanceScheduleCard({
 
       <div className="space-y-2 text-sm text-slate-300">
         <div className="flex items-center gap-2">
-          <Wrench size={14} className="text-slate-500" />
+          <Wrench size={14} className="text-slate-500 shrink-0" />
           {t.task}: {task.task_type}
         </div>
         <div className="flex items-center gap-2">
-          <CalendarClock size={14} className="text-slate-500" />
+          <CalendarClock size={14} className="text-slate-500 shrink-0" />
           {t.schedule}: {formatScheduleDateTime(task.scheduled_at)}
         </div>
         <div className="flex items-center gap-2">
-          <CalendarClock size={14} className="text-slate-500" />
-          {t.recurrence}: {formatRecurrenceLabel(task.recurrence_days, t)}
+          <RefreshCw size={14} className="text-slate-500 shrink-0" />
+          {t.maintenanceCycle}: <span className="text-cyan-400 font-bold">{cycleLabel}</span>
         </div>
+        {notifyLabel && (
+          <div className="flex items-center gap-2">
+            <BellRing size={14} className="text-slate-500 shrink-0" />
+            {t.notifyBefore}: <span className="text-amber-400">{notifyLabel}</span>
+          </div>
+        )}
         <div className="flex items-center gap-2">
-          <BellRing size={14} className="text-slate-500" />
+          <BellRing size={14} className="text-slate-500 shrink-0" />
           {t.sentAt}:{" "}
           {task.reminder_sent_at
             ? formatScheduleDateTime(new Date(task.reminder_sent_at).toISOString())
             : t.notSent}
         </div>
         <div className="flex items-center gap-2">
-          <ShieldCheck size={14} className="text-slate-500" />
+          <ShieldCheck size={14} className="text-slate-500 shrink-0" />
           {t.assigned}: {task.assignee_name} ({task.assignee_username})
         </div>
         <div className="flex items-center gap-2">
-          <BellRing size={14} className="text-slate-500" />
+          <BellRing size={14} className="text-slate-500 shrink-0" />
           {t.notify}: {task.notify_email ? t.enabled : t.disabled}
         </div>
-        {task.notes ? (
+        {userNotes ? (
           <div className="rounded-lg border border-slate-800 bg-[#06101f] px-3 py-2 text-xs text-slate-400">
-            {task.notes}
+            {userNotes}
           </div>
         ) : null}
         <div className="pt-2">

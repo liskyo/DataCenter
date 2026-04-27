@@ -192,6 +192,10 @@ class UserStorageService:
                 "name": "系統管理員",
                 "email": "admin@datacenter.local",
                 "line_id": "dcim-admin",
+                "department": "管理處",
+                "title": "系統管理員",
+                "group": ["IT", "管理"],
+                "responsible_equipment": [],
             },
             {
                 "username": "operator",
@@ -200,6 +204,34 @@ class UserStorageService:
                 "name": "維運人員",
                 "email": "operator@datacenter.local",
                 "line_id": "dcim-operator",
+                "department": "IT部",
+                "title": "資深維運工程師",
+                "group": ["IT"],
+                "responsible_equipment": [],
+            },
+            {
+                "username": "facility_wang",
+                "password": "facility123",
+                "role": "operator",
+                "name": "王大明",
+                "email": "wang@datacenter.local",
+                "line_id": "dcim-wang",
+                "department": "廠務處",
+                "title": "廠務工程師",
+                "group": ["廠務"],
+                "responsible_equipment": ["CRAC", "Chiller", "Generator"],
+            },
+            {
+                "username": "net_chen",
+                "password": "network123",
+                "role": "operator",
+                "name": "陳小華",
+                "email": "chen@datacenter.local",
+                "line_id": "dcim-chen",
+                "department": "IT部",
+                "title": "網路工程師",
+                "group": ["IT", "網路"],
+                "responsible_equipment": ["Network Switch"],
             },
             {
                 "username": "agent",
@@ -208,6 +240,10 @@ class UserStorageService:
                 "name": "Agent Service",
                 "email": "agent@datacenter.local",
                 "line_id": "dcim-agent",
+                "department": "",
+                "title": "System Agent",
+                "group": [],
+                "responsible_equipment": [],
             },
         ]
 
@@ -221,48 +257,42 @@ class UserStorageService:
                         "role": user["role"],
                         "name": user["name"],
                         "email": user["email"],
-                        "line_id": user["line_id"],
+                        "line_id": user.get("line_id", ""),
+                        "department": user.get("department", ""),
+                        "title": user.get("title", ""),
+                        "group": user.get("group", []),
+                        "responsible_equipment": user.get("responsible_equipment", []),
+                        "disabled": False,
                     }
                 },
                 upsert=True,
             )
+            # Backfill new fields for existing records
             self.users_collection.update_one(
-                {"username": user["username"], "email": {"$exists": False}},
-                {"$set": {"email": user["email"]}},
-            )
-            self.users_collection.update_one(
-                {"username": user["username"], "line_id": {"$exists": False}},
-                {"$set": {"line_id": user["line_id"]}},
+                {"username": user["username"], "department": {"$exists": False}},
+                {"$set": {
+                    "department": user.get("department", ""),
+                    "title": user.get("title", ""),
+                    "group": user.get("group", []),
+                    "responsible_equipment": user.get("responsible_equipment", []),
+                    "disabled": False,
+                }},
             )
 
     def get_user_by_username(self, username: str) -> Optional[dict]:
         if self.users_collection is None:
             return None
         return self.users_collection.find_one(
-            {"username": username},
-            {
-                "_id": 0,
-                "password_hash": 1,
-                "role": 1,
-                "name": 1,
-                "username": 1,
-                "email": 1,
-                "line_id": 1,
-            },
+            {"username": username, "disabled": {"$ne": True}},
+            {"_id": 0},
         )
 
     def list_users(self) -> List[dict]:
         if self.users_collection is None:
             return []
         cursor = self.users_collection.find(
-            {},
-            {
-                "_id": 0,
-                "username": 1,
-                "name": 1,
-                "role": 1,
-                "email": 1,
-            },
+            {"disabled": {"$ne": True}},
+            {"_id": 0, "password_hash": 0},
         ).sort("username", 1)
         return [
             {
@@ -270,12 +300,23 @@ class UserStorageService:
                 "name": row.get("name", ""),
                 "role": row.get("role", ""),
                 "has_email": bool(row.get("email")),
+                "email": row.get("email", ""),
+                "department": row.get("department", ""),
+                "title": row.get("title", ""),
+                "group": row.get("group", []),
+                "responsible_equipment": row.get("responsible_equipment", []),
+                "line_id": row.get("line_id", ""),
             }
             for row in cursor
         ]
 
     def authenticate_user(self, username: str, password: str) -> Optional[dict]:
-        user = self.get_user_by_username(username)
+        if self.users_collection is None:
+            return None
+        user = self.users_collection.find_one(
+            {"username": username, "disabled": {"$ne": True}},
+            {"_id": 0},
+        )
         if not user:
             return None
 
@@ -291,7 +332,19 @@ class UserStorageService:
             "line_id": user.get("line_id", ""),
         }
 
-    def upsert_user(self, username: str, password: str, role: str, name: str, email: str, line_id: str) -> None:
+    def upsert_user(
+        self,
+        username: str,
+        password: str,
+        role: str,
+        name: str,
+        email: str,
+        line_id: str,
+        department: str = "",
+        title: str = "",
+        group: list | None = None,
+        responsible_equipment: list | None = None,
+    ) -> None:
         if self.users_collection is None:
             return
 
@@ -305,9 +358,39 @@ class UserStorageService:
                     "name": name,
                     "email": email,
                     "line_id": line_id,
+                    "department": department,
+                    "title": title,
+                    "group": group or [],
+                    "responsible_equipment": responsible_equipment or [],
+                    "disabled": False,
                 }
             },
             upsert=True,
+        )
+
+    def update_user(self, username: str, fields: dict) -> None:
+        """Update specific fields for an existing user."""
+        if self.users_collection is None:
+            return
+        update_doc: dict = {}
+        for key in ("name", "email", "line_id", "role", "department", "title"):
+            if key in fields:
+                update_doc[key] = fields[key]
+        for key in ("group", "responsible_equipment"):
+            if key in fields:
+                update_doc[key] = fields[key] if isinstance(fields[key], list) else []
+        if "_new_password" in fields:
+            update_doc["password_hash"] = hash_password(fields["_new_password"])
+        if update_doc:
+            self.users_collection.update_one({"username": username}, {"$set": update_doc})
+
+    def disable_user(self, username: str) -> None:
+        """Soft-delete a user by marking them as disabled."""
+        if self.users_collection is None:
+            return
+        self.users_collection.update_one(
+            {"username": username},
+            {"$set": {"disabled": True}},
         )
 
     def close(self) -> None:

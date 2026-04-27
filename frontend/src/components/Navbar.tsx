@@ -9,7 +9,7 @@ import { useAuth } from "@/shared/auth-context";
 import { useLanguage } from "@/shared/i18n/language";
 import {
   BarChart3, SlidersHorizontal, LineChart, LifeBuoy,
-  CloudDownload, Globe, FileText, Wrench, Settings, Languages, Factory, Box, MapPin, Plus, LogOut
+  CloudDownload, Globe, FileText, Wrench, Settings, Languages, Factory, Box, MapPin, Plus, LogOut, Users
 } from "lucide-react";
 
 export default function Navbar() {
@@ -39,6 +39,7 @@ export default function Navbar() {
         logs: "Logs",
         engineering: "Engineering",
         settings: "Settings",
+        users: "Users",
         addLocationPrompt: "Enter location name (e.g. 2F DC):",
         addLocationTitle: "Add location",
         languageButton: "EN",
@@ -56,6 +57,7 @@ export default function Navbar() {
       logs: "系統日誌",
       engineering: "工程模式",
       settings: "系統設定",
+      users: "使用者管理",
       addLocationPrompt: "請輸入新地點名稱 (例如: 2F 機房):",
       addLocationTitle: "新增地點",
       languageButton: "中(繁)",
@@ -82,7 +84,8 @@ export default function Navbar() {
     { name: t.network, href: "/network", icon: Globe },
     { name: t.logs, href: "/logs", icon: FileText },
     { name: t.engineering, href: "/engineering", icon: Wrench },
-    { name: t.settings, href: "/settings", icon: Settings }
+    { name: t.settings, href: "/settings", icon: Settings },
+    { name: t.users, href: "/users", icon: Users },
   ];
 
   const handleAddLocation = () => {

@@ -6,6 +6,34 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 import threading
 import re
+from pathlib import Path
+
+# ── 載入專案根目錄的 env 檔 ──────────────────────────────────────
+def _load_env_file() -> None:
+    """Read key=value pairs from the project's `env` file into os.environ."""
+    env_candidates = [
+        Path(__file__).resolve().parent.parent.parent / "env",      # DataCenter/env
+        Path(__file__).resolve().parent.parent.parent / ".env",     # DataCenter/.env
+        Path(__file__).resolve().parent.parent / "env",             # backend/../env
+        Path(__file__).resolve().parent.parent / ".env",
+    ]
+    for env_path in env_candidates:
+        if env_path.is_file():
+            with open(env_path, encoding="utf-8") as f:
+                for line in f:
+                    stripped = line.strip()
+                    if not stripped or stripped.startswith("#") or "=" not in stripped:
+                        continue
+                    key, _, value = stripped.partition("=")
+                    key = key.strip()
+                    value = value.strip()
+                    if key and key not in os.environ:  # 不覆蓋已存在的系統環境變數
+                        os.environ[key] = value
+            print(f"[Config] Loaded env from: {env_path}")
+            return
+    print("[Config] No env file found, using system environment only.")
+
+_load_env_file()
 
 from services.kafka_service import KafkaRuntimeService
 from services.storage_service import AlertStorageService, InfluxService, MaintenanceStorageService, UserStorageService

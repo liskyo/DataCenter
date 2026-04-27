@@ -9,14 +9,33 @@ import type {
   MaintenanceSchedule,
   MaintenanceUser,
 } from "./types";
-import { splitScheduleDateTime } from "./utils";
+import {
+  splitScheduleDateTime,
+  extractNotifyBefore,
+  extractNotesText,
+  extractTargetCategory,
+  buildNotesPayload,
+} from "./utils";
+import {
+  daysToMaintenanceCycle,
+  maintenanceCycleToDays,
+  type MaintenanceCycleKey,
+} from "./smartDefaults";
 
 const EMPTY_FORM: MaintenanceFormState = {
+  targetCategory: "",
   target: "",
   taskType: "",
   scheduledDate: "",
-  scheduledTime: "",
-  recurrenceDays: "0",
+  scheduledTime: "08:00",
+  notifyBefore: {
+    sameDay: true,
+    oneDayBefore: true,
+    oneWeekBefore: false,
+    oneMonthBefore: false,
+  },
+  maintenanceCycle: "quarterly",
+  customCycleDays: "30",
   assigneeUsername: "",
   notifyEmail: true,
   notes: "",
@@ -92,18 +111,26 @@ export function useMaintenanceData(t: MaintenanceCopy) {
 
   const startEdit = useCallback((task: MaintenanceSchedule) => {
     const { date, time } = splitScheduleDateTime(task.scheduled_at);
+    const { cycle, customDays } = daysToMaintenanceCycle(task.recurrence_days);
+    const notifyBefore = extractNotifyBefore(task.notes);
+    const targetCategory = extractTargetCategory(task.notes);
+    const userNotes = extractNotesText(task.notes);
+
     setEditingScheduleId(task.id);
     setError("");
     setEmailTestMessage("");
     setForm({
+      targetCategory: targetCategory || "",
       target: task.target,
       taskType: task.task_type,
       scheduledDate: date,
-      scheduledTime: time,
-      recurrenceDays: String(task.recurrence_days ?? 0),
+      scheduledTime: time || "08:00",
+      notifyBefore,
+      maintenanceCycle: cycle,
+      customCycleDays: customDays || "30",
       assigneeUsername: task.assignee_username,
       notifyEmail: task.notify_email,
-      notes: task.notes,
+      notes: userNotes,
     });
   }, []);
 
@@ -145,12 +172,18 @@ export function useMaintenanceData(t: MaintenanceCopy) {
       setSubmitting(false);
       return false;
     }
-    const normalizedRecurrenceDays = form.recurrenceDays.trim();
-    if (!/^\d+$/.test(normalizedRecurrenceDays)) {
-      setError(t.invalidRecurrenceDays);
-      setSubmitting(false);
-      return false;
-    }
+
+    const recurrenceDays = maintenanceCycleToDays(
+      form.maintenanceCycle as MaintenanceCycleKey,
+      form.customCycleDays
+    );
+
+    const notesPayload = buildNotesPayload(
+      form.notes,
+      form.notifyBefore,
+      form.targetCategory,
+      form.maintenanceCycle as MaintenanceCycleKey
+    );
 
     const scheduledAt = `${form.scheduledDate}T${normalizedTime}`;
 
@@ -169,10 +202,10 @@ export function useMaintenanceData(t: MaintenanceCopy) {
             target: form.target,
             task_type: form.taskType,
             scheduled_at: scheduledAt,
-            recurrence_days: Number(normalizedRecurrenceDays),
+            recurrence_days: recurrenceDays,
             assignee_username: form.assigneeUsername,
             notify_email: form.notifyEmail,
-            notes: form.notes,
+            notes: notesPayload,
           }),
         }
       );
@@ -205,7 +238,7 @@ export function useMaintenanceData(t: MaintenanceCopy) {
     } finally {
       setSubmitting(false);
     }
-  }, [editingScheduleId, form, resetForm, t.invalidRecurrenceDays, t.invalidTime]);
+  }, [editingScheduleId, form, resetForm, t.invalidTime]);
 
   const handleDelete = useCallback(
     async (scheduleId: string) => {

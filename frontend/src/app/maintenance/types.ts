@@ -25,12 +25,22 @@ export type MaintenanceUser = {
   has_email: boolean;
 };
 
+export type NotifyBefore = {
+  sameDay: boolean;
+  oneDayBefore: boolean;
+  oneWeekBefore: boolean;
+  oneMonthBefore: boolean;
+};
+
 export type MaintenanceFormState = {
-  target: string;
+  targetCategory: string;       // equipment category key (e.g. "crac", "ups")
+  target: string;               // display name (for backward compat / custom input)
   taskType: string;
   scheduledDate: string;
   scheduledTime: string;
-  recurrenceDays: string;
+  notifyBefore: NotifyBefore;
+  maintenanceCycle: string;     // "monthly" | "quarterly" | ... | "custom"
+  customCycleDays: string;
   assigneeUsername: string;
   notifyEmail: boolean;
   notes: string;
@@ -42,12 +52,20 @@ export type MaintenanceCopy = {
   createTitle: string;
   editTitle: string;
   target: string;
+  targetCategory: string;
   task: string;
   schedule: string;
   scheduleDate: string;
   scheduleTime: string;
-  recurrence: string;
-  recurrenceHint: string;
+  notifyBefore: string;
+  notifyBeforeHint: string;
+  notifyBeforeSameDay: string;
+  notifyBeforeOneDay: string;
+  notifyBeforeOneWeek: string;
+  notifyBeforeOneMonth: string;
+  maintenanceCycle: string;
+  maintenanceCycleHint: string;
+  customDaysLabel: string;
   assigned: string;
   notify: string;
   notes: string;
@@ -71,9 +89,9 @@ export type MaintenanceCopy = {
   placeholderTarget: string;
   placeholderTask: string;
   placeholderTime: string;
-  placeholderRecurrenceDays: string;
   placeholderNotes: string;
   invalidTime: string;
-  invalidRecurrenceDays: string;
-  recurrenceOneTime: string;
+  selectCategory: string;
+  selectTask: string;
+  customInput: string;
 };
