@@ -61,6 +61,17 @@ export default function FacilityPage() {
     spaceTotal: 42,
   });
   const [isZoomed, setIsZoomed] = useState(false);
+  const [now, setNow] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const formatDateTime = (date: Date) => {
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+  };
 
   const store = useDcimStore();
   const totalCarbon = store.racks.reduce((acc, rack) => {
@@ -289,6 +300,9 @@ export default function FacilityPage() {
                  <div className="absolute top-2 left-2 flex items-center gap-1 text-[8px] font-mono text-rose-500 z-10 bg-black/50 px-1 rounded">
                     <div className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></div> REC
                  </div>
+                 <div className="absolute top-2 right-2 text-[8px] font-mono text-white z-10 bg-black/50 px-1 rounded">
+                    {formatDateTime(now)}
+                 </div>
                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black/40">
                    <span className="text-white font-bold tracking-widest text-sm border border-white px-3 py-1 rounded">CLICK TO ENLARGE</span>
                  </div>
@@ -323,6 +337,9 @@ export default function FacilityPage() {
             <img src="/DataCenterSIM.png" alt="CCTV Zoom" className="w-full h-full object-contain rounded border border-[#1e3a8a] shadow-[0_0_50px_rgba(30,58,138,0.5)]" />
             <div className="absolute top-4 left-4 flex items-center gap-2 text-sm font-mono text-rose-500 bg-black/60 px-3 py-1.5 rounded-full border border-rose-900/50 backdrop-blur-md">
               <div className="w-3 h-3 rounded-full bg-rose-500 animate-pulse"></div> REC
+            </div>
+            <div className="absolute top-4 right-4 text-white text-sm font-mono bg-black/60 px-3 py-1.5 rounded-full border border-[#1e3a8a]/50 backdrop-blur-md">
+              {formatDateTime(now)}
             </div>
             <div className="absolute bottom-4 left-4 text-white text-sm font-black tracking-widest bg-black/60 px-3 py-1.5 rounded-full border border-[#1e3a8a]/50 backdrop-blur-md flex items-center gap-2">
               <Video size={16}/> CCTV-01
