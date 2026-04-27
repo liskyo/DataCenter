@@ -22,14 +22,24 @@ function normalizeNodeId(value: string): string {
     return `${m[1]}-${String(Number(m[2])).padStart(3, "0")}`;
 }
 
-const TechPanel = ({ title, children, className = "" }: { title: string, children: React.ReactNode, className?: string }) => (
-  <div className={`relative bg-[#020b1a] border border-[#1e3a8a] flex flex-col ${className}`}>
-    <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-[#4ea8de]"></div>
-    <div className="absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2 border-[#4ea8de]"></div>
-    <div className="absolute bottom-0 left-0 w-3 h-3 border-b-2 border-l-2 border-[#4ea8de]"></div>
-    <div className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2 border-[#4ea8de]"></div>
-    <div className="px-4 py-2 border-b border-[#1e3a8a] bg-gradient-to-r from-[#0a1e3f] to-transparent">
-      <h3 className="text-[#4ea8de] font-bold text-sm tracking-widest flex items-center gap-2">
+const TechPanel = ({ title, children, className = "", titleColor }: { title: string, children: React.ReactNode, className?: string, titleColor?: string }) => {
+  const color = titleColor || "text-[#4ea8de]";
+  const isCritical = className.includes("border-red");
+  const isWarning = className.includes("border-amber");
+  const cornerColor = isCritical ? "border-red-500" : isWarning ? "border-amber-500" : "border-[#4ea8de]";
+  return (
+  <div className={`relative bg-[#020b1a] border border-[#1e3a8a] flex flex-col transition-all duration-500 ${className}`}>
+    <div className={`absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 ${cornerColor}`}></div>
+    <div className={`absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2 ${cornerColor}`}></div>
+    <div className={`absolute bottom-0 left-0 w-3 h-3 border-b-2 border-l-2 ${cornerColor}`}></div>
+    <div className={`absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2 ${cornerColor}`}></div>
+    {(isCritical || isWarning) && (
+      <div className={`px-3 py-1 text-[10px] font-black tracking-[0.2em] text-center ${isCritical ? 'bg-red-900/40 text-red-300' : 'bg-amber-900/40 text-amber-300'}`}>
+        {isCritical ? '⚠ CRITICAL' : '⚠ WARNING'}
+      </div>
+    )}
+    <div className={`px-4 py-2 border-b border-[#1e3a8a] bg-gradient-to-r ${isCritical ? 'from-red-950/40' : isWarning ? 'from-amber-950/30' : 'from-[#0a1e3f]'} to-transparent`}>
+      <h3 className={`${color} font-bold text-sm tracking-widest flex items-center gap-2`}>
         <SlidersHorizontal size={16} />
         {title}
       </h3>
@@ -39,6 +49,7 @@ const TechPanel = ({ title, children, className = "" }: { title: string, childre
     </div>
   </div>
 );
+};
 
 export default function ControlPage() {
   const store = useDcimStore();
@@ -72,7 +83,7 @@ export default function ControlPage() {
       configure: "設定",
     };
 
-  const [machines, setMachines] = useState<{id: string, powerOn: boolean, fanSpeed: number, targetTemp: number, isRebooting: boolean}[]>([]);
+  const [machines, setMachines] = useState<{id: string, powerOn: boolean, fanSpeed: number, targetTemp: number, isRebooting: boolean, temperature: number, cpuUsage: number}[]>([]);
 
   // Listen to real-time power state changes from the telemetry stream
   useSSE({
@@ -87,6 +98,12 @@ export default function ControlPage() {
           }
           if (telemetry.fan_speed !== undefined) {
              updates.fanSpeed = Math.round(telemetry.fan_speed);
+          }
+          if (telemetry.temperature !== undefined) {
+             updates.temperature = Number(telemetry.temperature) || 0;
+          }
+          if (telemetry.cpu_usage !== undefined) {
+             updates.cpuUsage = Number(telemetry.cpu_usage) || 0;
           }
           if (Object.keys(updates).length > 0) {
              return { ...m, ...updates };
@@ -109,6 +126,8 @@ export default function ControlPage() {
           fanSpeed: 60,
           targetTemp: 22,
           isRebooting: false,
+          temperature: 0,
+          cpuUsage: 0,
         }));
       
       const filteredPrev = prev.filter(m => currentIds.has(m.id));
@@ -126,7 +145,22 @@ export default function ControlPage() {
   
   // 搜尋處理
   const [searchQuery, setSearchQuery] = useState("");
-  const filteredMachines = machines.filter(m => m.id.toLowerCase().includes(searchQuery.toLowerCase()));
+
+  // 根據警報狀態排序 (critical > warning > normal)，與狀態總覽頁面同步
+  const getAlertScore = (m: { temperature: number }): number => {
+    if (m.temperature > 55) return 3; // critical
+    if (m.temperature > 45) return 2; // warning
+    return 1; // normal
+  };
+
+  const filteredMachines = useMemo(() => {
+    let result = machines.filter(m => m.id.toLowerCase().includes(searchQuery.toLowerCase()));
+    return result.sort((a, b) => {
+      const diff = getAlertScore(b) - getAlertScore(a);
+      if (diff !== 0) return diff;
+      return a.id.localeCompare(b.id);
+    });
+  }, [machines, searchQuery]);
   
   // 分頁處理
   const [page, setPage] = useState(0);
@@ -262,8 +296,20 @@ export default function ControlPage() {
       </header>
 
       <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 min-[2560px]:grid-cols-8 gap-4 md:gap-8">
-        {paginatedMachines.map((machine) => (
-          <TechPanel key={machine.id} title={machine.id} className="h-fit">
+        {paginatedMachines.map((machine) => {
+          const alertLevel = getAlertScore(machine);
+          const alertClass = alertLevel === 3
+            ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] bg-red-950/10"
+            : alertLevel === 2
+              ? "border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.3)] bg-amber-950/10"
+              : "";
+          const titleColor = alertLevel === 3
+            ? "text-red-400"
+            : alertLevel === 2
+              ? "text-amber-400"
+              : "text-[#4ea8de]";
+          return (
+          <TechPanel key={machine.id} title={machine.id} className={`h-fit ${alertClass}`} titleColor={titleColor}>
             <div className="space-y-6">
               <div className="flex justify-between items-center text-[11px] text-slate-500 font-mono">
                 <div>HOST / IP: {machineMetaByName.get(machine.id)?.ipAddress || "N/A"}</div>
@@ -349,7 +395,8 @@ export default function ControlPage() {
 
             </div>
           </TechPanel>
-        ))}
+          );
+        })}
       </div>
 
       {/* Configuration Modal Overlay */}
