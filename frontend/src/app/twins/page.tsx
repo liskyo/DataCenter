@@ -6,7 +6,7 @@ import { apiUrl } from "@/shared/api";
 import { authFetch } from "@/shared/auth";
 import { buildTelemetryKeys, normalizeNodeId, resolveTelemetryRecordDeep } from "@/shared/nodeId";
 import dynamic from "next/dynamic";
-import { Activity, Download, Upload, Server, Trash, Save, Edit, Lock, Thermometer, Zap, Box, MonitorIcon, Globe, Link2, Droplets } from "lucide-react";
+import { Activity, Download, Upload, Server, Trash, Save, Edit, Lock, Thermometer, Zap, Box, MonitorIcon, Globe, Link2, Droplets, Cpu, Leaf } from "lucide-react";
 
 const TwinsSceneCanvas = dynamic(
     () => import("@/features/twins/TwinsSceneCanvas").then((mod) => mod.TwinsSceneCanvas),
@@ -30,6 +30,16 @@ import {
     DeviceType as CommDeviceType,
     resolveCommMethodByModel,
 } from "@/shared/networkComm";
+
+const GPU_PFLOPS_MAP: Record<string, number> = {
+    "8x NVIDIA GB200 (Blackwell)": 160,
+    "8x NVIDIA HGX H200": 32,
+    "8x NVIDIA HGX H100": 32,
+    "8x NVIDIA HGX A100": 5,
+    "4x NVIDIA L40S": 3,
+    "8x AMD Instinct MI300X": 42,
+    "8x Intel Gaudi 3": 14
+};
 
 export default function TwinsPage() {
     useEffect(() => {
@@ -103,6 +113,7 @@ export default function TwinsPage() {
         updateRackName,
         updateRackModel,
         updateRackIp,
+        updateRack,
         updateRackRotation,
         updateRackConnection,
         removeServerFromRack,
@@ -139,6 +150,7 @@ export default function TwinsPage() {
             updateRackName: s.updateRackName,
             updateRackModel: s.updateRackModel,
             updateRackIp: s.updateRackIp,
+            updateRack: s.updateRack,
             updateRackRotation: s.updateRackRotation,
             updateRackConnection: s.updateRackConnection,
             removeServerFromRack: s.removeServerFromRack,
@@ -185,6 +197,9 @@ export default function TwinsPage() {
         powerKw: number;
         type: 'server' | 'switch' | 'storage';
         status: 'normal' | 'warning' | 'critical' | 'offline';
+        gpuModel?: string;
+        flops?: number;
+        carbonEmission?: number;
     }>({
         name: "SERVER-001",
         model: "",
@@ -194,6 +209,7 @@ export default function TwinsPage() {
         powerKw: 1.5,
         type: "server",
         status: "normal",
+        gpuModel: "",
     });
 
     const [telemetry, setTelemetry] = useState<Record<string, any>>({});
@@ -210,6 +226,9 @@ export default function TwinsPage() {
         powerKw: number;
         type: 'server' | 'switch' | 'storage';
         status: 'normal' | 'warning' | 'critical' | 'offline';
+        gpuModel?: string;
+        flops?: number;
+        carbonEmission?: number;
     } | null>(null);
 
     // Helper to find the next sequential name for a prefix
@@ -779,6 +798,48 @@ removeLocation(currentLocationId);
                             );
                         })()}
 
+                        {/* AI & ESG Metrics (Aggregated) */}
+                        {(() => {
+                            const totalFlops = selectedRack.servers.reduce((sum, s) => sum + (s.flops || 0), 0);
+                            const totalCarbon = selectedRack.servers.reduce((sum, s) => sum + (s.carbonEmission || 0), 0);
+                            const uniqueGpus = Array.from(new Set(selectedRack.servers.map(s => s.gpuModel).filter(Boolean)));
+                            
+                            return (
+                                <div className="bg-[#03112b] p-4 rounded-lg border border-emerald-900/30">
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <Cpu size={14} className="text-emerald-400" />
+                                        <h3 className="text-xs font-bold text-emerald-400 tracking-widest uppercase">AI & ESG Metrics</h3>
+                                    </div>
+                                    
+                                    <div className="space-y-3">
+                                        <div>
+                                            <label className="text-[10px] text-emerald-400/60 uppercase tracking-[0.15em] mb-1.5 block">GPU Summary (晶片統計)</label>
+                                            <div className="w-full bg-[#0a1e3f] border border-emerald-800/50 p-2 rounded text-emerald-300 text-[11px] font-mono min-h-[34px] flex items-center">
+                                                {uniqueGpus.length > 0 ? uniqueGpus.join(" | ") : "No GPUs detected"}
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div>
+                                                <label className="text-[10px] text-emerald-400/60 uppercase tracking-[0.15em] mb-1.5 block">Total Compute (PFLOPS)</label>
+                                                <div className="w-full bg-[#0a1e3f] border border-emerald-800/50 p-2 rounded text-emerald-300 text-[11px] font-mono">
+                                                    {totalFlops > 0 ? totalFlops.toFixed(1) : "0"}
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className="text-[10px] flex items-center gap-1 text-emerald-400/60 uppercase tracking-[0.15em] mb-1.5 block">
+                                                    <Leaf size={10} className="inline-block -mt-0.5" /> Total CO2e (kg/mo)
+                                                </label>
+                                                <div className="w-full bg-[#0a1e3f] border border-emerald-800/50 p-2 rounded text-emerald-300 text-[11px] font-mono">
+                                                    {totalCarbon > 0 ? totalCarbon.toFixed(1) : "0"}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })()}
+
                         {/* 現有設備清單 */}
                         <div>
                             <h3 className="text-xs font-bold text-slate-500 mb-3 tracking-widest uppercase border-b border-slate-800 pb-1">{t.installedEquipment}</h3>
@@ -865,7 +926,11 @@ removeLocation(currentLocationId);
                                                                 type="number"
                                                                 step="0.1"
                                                                 value={editingDraft.powerKw}
-                                                                onChange={(e) => setEditingDraft({ ...editingDraft, powerKw: Number(e.target.value) })}
+                                                                onChange={(e) => {
+                                                                    const kw = Number(e.target.value);
+                                                                    const co2e = parseFloat((kw * 24 * 30 * 0.495 * 1.5).toFixed(1));
+                                                                    setEditingDraft({ ...editingDraft, powerKw: kw, carbonEmission: co2e });
+                                                                }}
                                                                 className="w-full bg-[#0a1e3f] border border-cyan-800 p-2 rounded text-white outline-none focus:border-cyan-400"
                                                             />
                                                         </div>
@@ -896,6 +961,66 @@ removeLocation(currentLocationId);
                                                                 <option value="critical">critical</option>
                                                                 <option value="offline">offline</option>
                                                             </select>
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <div className="text-slate-500 text-[10px] mb-1">GPU Model</div>
+                                                            <select
+                                                                value={editingDraft.gpuModel || ""}
+                                                                onChange={(e) => {
+                                                                    const selectedModel = e.target.value;
+                                                                    const autoFlops = GPU_PFLOPS_MAP[selectedModel];
+                                                                    setEditingDraft({ 
+                                                                        ...editingDraft, 
+                                                                        gpuModel: selectedModel,
+                                                                        ...(autoFlops !== undefined ? { flops: autoFlops } : {})
+                                                                    });
+                                                                }}
+                                                                className="w-full bg-[#0a1e3f] border border-cyan-800 p-2 rounded text-white outline-none focus:border-cyan-400"
+                                                            >
+                                                                <option value="">(None)</option>
+                                                                <option value="8x NVIDIA GB200 (Blackwell)">8x NVIDIA GB200 (Blackwell)</option>
+                                                                <option value="8x NVIDIA HGX H200">8x NVIDIA HGX H200</option>
+                                                                <option value="8x NVIDIA HGX H100">8x NVIDIA HGX H100</option>
+                                                                <option value="8x NVIDIA HGX A100">8x NVIDIA HGX A100</option>
+                                                                <option value="4x NVIDIA L40S">4x NVIDIA L40S</option>
+                                                                <option value="8x AMD Instinct MI300X">8x AMD Instinct MI300X</option>
+                                                                <option value="8x Intel Gaudi 3">8x Intel Gaudi 3</option>
+                                                                {editingDraft.gpuModel && ![
+                                                                    "",
+                                                                    "8x NVIDIA GB200 (Blackwell)",
+                                                                    "8x NVIDIA HGX H200",
+                                                                    "8x NVIDIA HGX H100",
+                                                                    "8x NVIDIA HGX A100",
+                                                                    "4x NVIDIA L40S",
+                                                                    "8x AMD Instinct MI300X",
+                                                                    "8x Intel Gaudi 3"
+                                                                ].includes(editingDraft.gpuModel) && (
+                                                                    <option value={editingDraft.gpuModel}>{editingDraft.gpuModel} (Custom)</option>
+                                                                )}
+                                                            </select>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex gap-2">
+                                                        <div className="flex-1">
+                                                            <div className="text-slate-500 text-[10px] mb-1">AI Compute (PFLOPS)</div>
+                                                            <input
+                                                                type="number"
+                                                                placeholder="0"
+                                                                value={editingDraft.flops ?? ''}
+                                                                onChange={(e) => setEditingDraft({ ...editingDraft, flops: e.target.value === '' ? undefined : parseFloat(e.target.value) })}
+                                                                className="w-full bg-[#0a1e3f] border border-cyan-800 p-2 rounded text-white outline-none focus:border-cyan-400"
+                                                            />
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <div className="text-slate-500 text-[10px] mb-1">CO2e (kg/mo)</div>
+                                                            <input
+                                                                type="number"
+                                                                placeholder="0"
+                                                                value={editingDraft.carbonEmission ?? ''}
+                                                                onChange={(e) => setEditingDraft({ ...editingDraft, carbonEmission: e.target.value === '' ? undefined : parseFloat(e.target.value) })}
+                                                                className="w-full bg-[#0a1e3f] border border-cyan-800 p-2 rounded text-white outline-none focus:border-cyan-400"
+                                                            />
                                                         </div>
                                                     </div>
 
@@ -940,6 +1065,16 @@ removeLocation(currentLocationId);
                                                                 Host / IP: {server.ipAddress}
                                                             </div>
                                                         ) : null}
+                                                        {server.gpuModel ? (
+                                                            <div className="text-[10px] text-emerald-500 mt-1 font-mono tracking-widest flex items-center gap-2">
+                                                                <span className="flex items-center gap-1"><Cpu size={10} /> {server.gpuModel}</span>
+                                                                {(server.flops !== undefined || server.carbonEmission !== undefined) && (
+                                                                    <span className="opacity-70 border-l border-emerald-800 pl-2">
+                                                                        {server.flops ?? 0} PFLOPS | {server.carbonEmission ?? 0} kg CO2e
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        ) : null}
                                                         {server.model ? (
                                                             <div className="text-[10px] text-slate-500 mt-1 font-mono break-all">
                                                                 Model: {server.model}
@@ -966,6 +1101,9 @@ removeLocation(currentLocationId);
                                                                             powerKw: server.powerKw,
                                                                             type: server.type,
                                                                             status: server.status,
+                                                                            gpuModel: server.gpuModel,
+                                                                            flops: server.flops,
+                                                                            carbonEmission: server.carbonEmission,
                                                                         });
                                                                     }}
                                                                 className="text-cyan-400 hover:bg-cyan-900/30 p-1 rounded transition"
@@ -1051,7 +1189,11 @@ removeLocation(currentLocationId);
                                         <input
                                             type="number" step="0.1"
                                             value={newServer.powerKw}
-                                            onChange={(e) => setNewServer({ ...newServer, powerKw: Number(e.target.value) })}
+                                            onChange={(e) => {
+                                                const kw = Number(e.target.value);
+                                                const co2e = parseFloat((kw * 24 * 30 * 0.495 * 1.5).toFixed(1));
+                                                setNewServer({ ...newServer, powerKw: kw, carbonEmission: co2e });
+                                            }}
                                             className="w-full bg-[#0a1e3f] border border-cyan-800 p-2 rounded text-white outline-none focus:border-cyan-400"
                                         />
                                     </div>
@@ -1066,6 +1208,82 @@ removeLocation(currentLocationId);
                                             <option value="storage">Storage</option>
                                             <option value="switch">Switch</option>
                                         </select>
+                                    </div>
+                                </div>
+
+                                <div className="flex gap-2">
+                                    <div className="flex-1">
+                                        <label className="text-slate-500 mb-1 block">Status</label>
+                                        <select
+                                            value={newServer.status}
+                                            onChange={(e) => setNewServer({ ...newServer, status: e.target.value as any })}
+                                            className="w-full bg-[#0a1e3f] border border-cyan-800 p-2 rounded text-white outline-none focus:border-cyan-400"
+                                        >
+                                            <option value="normal">normal</option>
+                                            <option value="warning">warning</option>
+                                            <option value="critical">critical</option>
+                                            <option value="offline">offline</option>
+                                        </select>
+                                    </div>
+                                    <div className="flex-1">
+                                        <label className="text-slate-500 mb-1 block">GPU Model</label>
+                                        <select
+                                            value={newServer.gpuModel || ""}
+                                            onChange={(e) => {
+                                                const selectedModel = e.target.value;
+                                                const autoFlops = GPU_PFLOPS_MAP[selectedModel];
+                                                setNewServer({ 
+                                                    ...newServer, 
+                                                    gpuModel: selectedModel,
+                                                    ...(autoFlops !== undefined ? { flops: autoFlops } : {})
+                                                });
+                                            }}
+                                            className="w-full bg-[#0a1e3f] border border-cyan-800 p-2 rounded text-white outline-none focus:border-cyan-400"
+                                        >
+                                            <option value="">(None)</option>
+                                            <option value="8x NVIDIA GB200 (Blackwell)">8x NVIDIA GB200 (Blackwell)</option>
+                                            <option value="8x NVIDIA HGX H200">8x NVIDIA HGX H200</option>
+                                            <option value="8x NVIDIA HGX H100">8x NVIDIA HGX H100</option>
+                                            <option value="8x NVIDIA HGX A100">8x NVIDIA HGX A100</option>
+                                            <option value="4x NVIDIA L40S">4x NVIDIA L40S</option>
+                                            <option value="8x AMD Instinct MI300X">8x AMD Instinct MI300X</option>
+                                            <option value="8x Intel Gaudi 3">8x Intel Gaudi 3</option>
+                                            {newServer.gpuModel && ![
+                                                "",
+                                                "8x NVIDIA GB200 (Blackwell)",
+                                                "8x NVIDIA HGX H200",
+                                                "8x NVIDIA HGX H100",
+                                                "8x NVIDIA HGX A100",
+                                                "4x NVIDIA L40S",
+                                                "8x AMD Instinct MI300X",
+                                                "8x Intel Gaudi 3"
+                                            ].includes(newServer.gpuModel) && (
+                                                <option value={newServer.gpuModel}>{newServer.gpuModel} (Custom)</option>
+                                            )}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="flex gap-2">
+                                    <div className="flex-1">
+                                        <label className="text-slate-500 mb-1 block">AI Compute (PFLOPS)</label>
+                                        <input
+                                            type="number"
+                                            placeholder="0"
+                                            value={newServer.flops ?? ''}
+                                            onChange={(e) => setNewServer({ ...newServer, flops: e.target.value === '' ? undefined : parseFloat(e.target.value) })}
+                                            className="w-full bg-[#0a1e3f] border border-cyan-800 p-2 rounded text-white outline-none focus:border-cyan-400"
+                                        />
+                                    </div>
+                                    <div className="flex-1">
+                                        <label className="text-slate-500 mb-1 block">CO2e (kg/mo)</label>
+                                        <input
+                                            type="number"
+                                            placeholder="0"
+                                            value={newServer.carbonEmission ?? ''}
+                                            onChange={(e) => setNewServer({ ...newServer, carbonEmission: e.target.value === '' ? undefined : parseFloat(e.target.value) })}
+                                            className="w-full bg-[#0a1e3f] border border-cyan-800 p-2 rounded text-white outline-none focus:border-cyan-400"
+                                        />
                                     </div>
                                 </div>
 

@@ -29,7 +29,7 @@ export default function SettingsPage() {
       mongoLimit: "MongoDB 告警日誌上限",
     };
   return (
-    <div className="p-8 pb-20 max-w-7xl mx-auto">
+    <div className="p-4 md:p-8 pb-20 w-full h-full flex flex-col">
       <header className="mb-6 flex items-center gap-4 bg-[#0a1e3f]/30 p-4 rounded-xl border border-[#1e3a8a]">
         <Settings size={32} className="text-[#4ea8de]" />
         <div>
@@ -40,7 +40,7 @@ export default function SettingsPage() {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
         
         {/* Notification Settings */}
         <div className="bg-[#020b1a] border border-[#1e3a8a] p-6">

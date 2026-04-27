@@ -464,8 +464,15 @@ const ServerMatrixPanel = memo(function ServerMatrixPanel({
                   <div className="flex justify-between items-start mb-2">
                     <div className="flex flex-col">
                       <div className={`font-mono font-bold ${titleColor} text-lg`}>{item.name}</div>
-                      <div className="text-[10px] text-slate-600 bg-[#0a1e3f] border border-slate-800 px-1.5 py-0.5 rounded w-fit flex items-center gap-1 mt-1">
-                        <LayoutGrid size={10} /> {item.rackName}
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        <div className="text-[10px] text-slate-600 bg-[#0a1e3f] border border-slate-800 px-1.5 py-0.5 rounded w-fit flex items-center gap-1">
+                          <LayoutGrid size={10} /> {item.rackName}
+                        </div>
+                        {item.gpuModel && (
+                          <div className="text-[10px] text-emerald-600 bg-emerald-950/30 border border-emerald-800/50 px-1.5 py-0.5 rounded w-fit flex items-center gap-1">
+                            <Cpu size={10} /> {item.gpuModel}
+                          </div>
+                        )}
                       </div>
                     </div>
                     <Power size={16} className={`${isOff ? 'text-slate-600' : 'text-slate-700'} mt-1`} />
@@ -484,8 +491,15 @@ const ServerMatrixPanel = memo(function ServerMatrixPanel({
                 <div className="flex justify-between items-start mb-2">
                   <div className="flex flex-col">
                     <div className={`font-mono font-bold ${titleColor} text-lg`}>{srv.server_id}</div>
-                    <div className="text-[10px] text-cyan-500 bg-[#0a1e3f] border border-cyan-800/50 px-1.5 py-0.5 rounded w-fit flex items-center gap-1 mt-1">
-                      <LayoutGrid size={10} /> {item.rackName}
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      <div className="text-[10px] text-cyan-500 bg-[#0a1e3f] border border-cyan-800/50 px-1.5 py-0.5 rounded w-fit flex items-center gap-1">
+                        <LayoutGrid size={10} /> {item.rackName}
+                      </div>
+                      {item.gpuModel && (
+                        <div className="text-[10px] text-emerald-400 bg-emerald-950/30 border border-emerald-500/50 px-1.5 py-0.5 rounded w-fit flex items-center gap-1 font-bold">
+                          <Cpu size={10} /> {item.gpuModel}
+                        </div>
+                      )}
                     </div>
                   </div>
                   {liveStatus === 'critical' ? <AlertTriangle size={16} className="text-red-500 animate-pulse mt-1" /> : liveStatus === 'warning' ? <AlertTriangle size={16} className="text-yellow-500 mt-1" /> : <Power size={16} className="text-cyan-700 mt-1" />}
@@ -834,6 +848,12 @@ export default function Dashboard() {
     };
   }, [gridStatusRows]);
 
+  const totalFlops = useMemo(() => {
+    return allGridItems.reduce((acc, item: any) => {
+      return acc + (item.flops || 0);
+    }, 0);
+  }, [allGridItems]);
+
   const itemNameSet = useMemo(() => {
     const set = new Set<string>();
     const add = (raw?: string) => {
@@ -1128,6 +1148,18 @@ export default function Dashboard() {
 
         {/* Right Column (Alarms & Details) */}
         <div className="col-span-3 flex flex-col gap-6">
+          <TechPanel title="AI COMPUTE (PFLOPS)" className="h-[140px] shrink-0 border-emerald-900/50">
+            <div className="h-full flex flex-col justify-center items-center relative overflow-hidden -mt-2">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/10 blur-3xl rounded-full"></div>
+              <div className="absolute bottom-0 left-0 w-16 h-16 bg-emerald-500/10 blur-2xl rounded-full"></div>
+              <div className="text-4xl font-black text-emerald-400 font-mono flex items-center gap-2 z-10 drop-shadow-[0_0_10px_rgba(52,211,153,0.3)]">
+                <Cpu size={28} />
+                {totalFlops.toFixed(1)}
+              </div>
+              <div className="text-[10px] text-emerald-600/80 tracking-widest mt-1 z-10 font-bold">TOTAL CLUSTER PERFORMANCE</div>
+            </div>
+          </TechPanel>
+
           {/* Health Distribution moved here */}
           <TechPanel title={t.health} className="h-[220px] shrink-0">
             <div className="flex justify-between items-center h-[150px] w-full px-2 mt-2">

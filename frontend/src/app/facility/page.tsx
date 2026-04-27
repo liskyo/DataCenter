@@ -7,6 +7,7 @@ import {
   Flame, Siren, Fuel, Server, Gauge, Box, ArrowDownUp
 } from "lucide-react";
 import { useLanguage } from "@/shared/i18n/language";
+import { useDcimStore } from "@/store/useDcimStore";
 
 const KPIWidget = ({ label, value, unit, trend, icon: Icon, colorClass }: any) => (
   <div className={`border border-[#1e3a8a] bg-[#020b1a] relative overflow-hidden p-4 shadow-[0_0_15px_rgba(0,0,0,0.5)]`}>
@@ -60,6 +61,11 @@ export default function FacilityPage() {
     spaceTotal: 42,
   });
 
+  const store = useDcimStore();
+  const totalCarbon = store.racks.reduce((acc, rack) => {
+    return acc + rack.servers.reduce((sum, srv) => sum + (srv.carbonEmission || 0), 0);
+  }, 0);
+
   // 模擬資料跳動
   useEffect(() => {
     const timer = setInterval(() => {
@@ -88,10 +94,11 @@ export default function FacilityPage() {
       </header>
 
       {/* KPIs & Sustainability */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <KPIWidget label={"PUE (電力使用效率)"} value={data.pue} unit={"RATIO"} trend={"-0.02"} icon={Zap} colorClass="text-emerald-400" />
         <KPIWidget label={"WUE (用水使用效率)"} value={data.wue} unit={"L/kWh"} trend={"+0.01"} icon={Waves} colorClass="text-cyan-400" />
         <KPIWidget label={"ERF (能源再利用率)"} value={data.erf} unit={"% RECYCLED"} trend={"+2.5%"} icon={Leaf} colorClass="text-green-500" />
+        <KPIWidget label={"CARBON (碳排放量)"} value={totalCarbon > 0 ? totalCarbon.toFixed(0) : "0"} unit={"kg CO2e"} trend={"0"} icon={Factory} colorClass="text-purple-400" />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 flex-1">

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { Power, Fan, Settings2, SlidersHorizontal, RefreshCcw, X, Cpu, Network, ShieldCheck, DatabaseZap, Search } from "lucide-react";
+import { Power, Fan, Settings2, SlidersHorizontal, RefreshCcw, X, Cpu, Network, ShieldCheck, DatabaseZap, Search, Zap } from "lucide-react";
 import { useLanguage } from "@/shared/i18n/language";
 import { useDcimStore } from "@/store/useDcimStore";
 import { apiUrl } from "@/shared/api";
@@ -130,7 +130,7 @@ export default function ControlPage() {
   
   // 分頁處理
   const [page, setPage] = useState(0);
-  const pageSize = 6;
+  const pageSize = 18; // 效能與版面考量：改為 18 (大螢幕下約 3排x6張)
   const totalPages = Math.ceil(filteredMachines.length / pageSize);
 
   useEffect(() => {
@@ -213,7 +213,7 @@ export default function ControlPage() {
   };
 
   return (
-    <div className="p-8 pb-20 max-w-7xl mx-auto relative h-full flex flex-col">
+    <div className="p-4 md:p-8 pb-20 w-full relative h-full flex flex-col">
       <header className="mb-10 flex flex-col md:flex-row justify-between items-start md:items-center bg-[#0a1e3f]/30 p-4 rounded-xl border border-[#1e3a8a] gap-4">
         <div>
           <h1 className="text-2xl font-black text-[#4ea8de] tracking-widest uppercase shadow-sm">
@@ -261,12 +261,17 @@ export default function ControlPage() {
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+      <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 min-[2560px]:grid-cols-8 gap-4 md:gap-8">
         {paginatedMachines.map((machine) => (
           <TechPanel key={machine.id} title={machine.id} className="h-fit">
             <div className="space-y-6">
-              <div className="text-[11px] text-slate-500 font-mono">
-                HOST / IP: {machineMetaByName.get(machine.id)?.ipAddress || "N/A"}
+              <div className="flex justify-between items-center text-[11px] text-slate-500 font-mono">
+                <div>HOST / IP: {machineMetaByName.get(machine.id)?.ipAddress || "N/A"}</div>
+                {machineMetaByName.get(machine.id)?.gpuModel && (
+                  <div className="text-emerald-400 font-bold bg-emerald-950/30 px-2 py-0.5 rounded border border-emerald-800/50 flex items-center gap-1">
+                    <Cpu size={12} /> {machineMetaByName.get(machine.id)?.gpuModel}
+                  </div>
+                )}
               </div>
               
               {/* Power Toggle */}
@@ -301,6 +306,26 @@ export default function ControlPage() {
                   value={machine.fanSpeed}
                   readOnly
                   className="w-full h-2 bg-[#0a1e3f] rounded-lg appearance-none cursor-default accent-[#4ea8de]"
+                />
+              </div>
+
+              {/* Power Capping Slider */}
+              <div className={`transition-opacity ${!machine.powerOn ? "opacity-30 pointer-events-none" : "opacity-100"}`}>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2 text-emerald-500 text-xs font-bold tracking-widest"><Zap size={14}/> POWER CAP LIMIT</div>
+                  <span className="text-emerald-300 font-mono text-sm">{machineMetaByName.get(machine.id)?.powerCap ?? machineMetaByName.get(machine.id)?.powerKw ?? 0} kW</span>
+                </div>
+                <input 
+                  type="range" min="0" max={(machineMetaByName.get(machine.id)?.powerKw || 1) * 1.5} step="0.1"
+                  value={machineMetaByName.get(machine.id)?.powerCap ?? machineMetaByName.get(machine.id)?.powerKw ?? 0}
+                  onChange={(e) => {
+                     const val = parseFloat(e.target.value);
+                     const meta = machineMetaByName.get(machine.id);
+                     if (meta) {
+                        store.updateServerInRack(meta.rackId, meta.id, { powerCap: val });
+                     }
+                  }}
+                  className="w-full h-2 bg-[#0a1e3f] rounded-lg appearance-none cursor-pointer accent-emerald-500"
                 />
               </div>
 

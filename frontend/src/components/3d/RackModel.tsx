@@ -185,7 +185,7 @@ export default function RackModel({ data, isSelected, telemetry = {} }: { data: 
                 {/* Render Servers inside */}
                 {data.servers.length > 0 && (
                     <group>
-                        <Instances limit={Math.max(1, data.servers.length)} castShadow receiveShadow>
+                        <Instances limit={data.uCapacity} castShadow receiveShadow>
                             <boxGeometry args={[1, 1, 1]} />
                             <meshStandardMaterial metalness={0.2} roughness={0.8} />
                             {data.servers.map((server, idx) => (
@@ -197,7 +197,7 @@ export default function RackModel({ data, isSelected, telemetry = {} }: { data: 
                             ))}
                         </Instances>
 
-                        <Instances limit={Math.max(1, data.servers.length)}>
+                        <Instances limit={data.uCapacity}>
                             <boxGeometry args={[1, 1, 1]} />
                             <meshBasicMaterial toneMapped={false} />
                             {data.servers.map((server, idx) => (

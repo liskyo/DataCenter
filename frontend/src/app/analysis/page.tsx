@@ -60,7 +60,7 @@ export default function AnalysisPage() {
 
   // 分頁處理 (避免一次宣染過多圖表造成卡頓)
   const [page, setPage] = useState(0);
-  const pageSize = 6;
+  const pageSize = 12; // 效能考量：SVG 圖表渲染較吃資源，由 24 降為 12
   const totalPages = Math.ceil(filteredServers.length / pageSize);
 
   // 當搜尋條件改變時，回到第一頁
@@ -71,7 +71,7 @@ export default function AnalysisPage() {
   const paginatedServers = filteredServers.slice(page * pageSize, (page + 1) * pageSize);
 
   return (
-    <div className="p-8 pb-20 max-w-7xl mx-auto h-full flex flex-col">
+    <div className="p-4 md:p-8 pb-20 w-full h-full flex flex-col">
       <header className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-[#0a1e3f]/30 p-4 rounded-xl border border-[#1e3a8a]">
         <div className="flex items-center gap-4">
             <ChartIcon size={32} className="text-[#4ea8de]" />
@@ -119,7 +119,7 @@ export default function AnalysisPage() {
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 min-[2560px]:grid-cols-4 min-[3840px]:grid-cols-6 gap-6">
         {paginatedServers.map(server => {
           const chartData = getChartData(server);
           const needsMoreData = chartData.length < 2;

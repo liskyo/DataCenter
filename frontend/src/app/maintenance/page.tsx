@@ -37,7 +37,7 @@ export default function MaintenancePage() {
   };
 
   return (
-    <div className="p-8 pb-20 max-w-7xl mx-auto">
+    <div className="p-4 md:p-8 pb-20 w-full h-full flex flex-col">
       <header className="mb-6 flex items-center gap-4 bg-[#0a1e3f]/30 p-4 rounded-xl border border-[#1e3a8a]">
         <LifeBuoy size={32} className="text-[#4ea8de]" />
         <div>
@@ -48,7 +48,7 @@ export default function MaintenancePage() {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 xl:grid-cols-[420px_minmax(0,1fr)] gap-6">
+      <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 grid grid-cols-1 xl:grid-cols-[420px_minmax(0,1fr)] gap-6">
         <MaintenanceForm
           t={t}
           form={form}
@@ -66,13 +66,13 @@ export default function MaintenancePage() {
           onCancelEdit={resetForm}
         />
 
-        <section className="space-y-4">
+        <section className="grid grid-cols-1 2xl:grid-cols-2 min-[2560px]:grid-cols-3 min-[3840px]:grid-cols-5 gap-4 content-start">
           {loading ? (
-            <div className="rounded-xl border border-[#1e3a8a] bg-[#020b1a] p-6 text-sm tracking-widest text-cyan-300">
+            <div className="col-span-full rounded-xl border border-[#1e3a8a] bg-[#020b1a] p-6 text-sm tracking-widest text-cyan-300">
               LOADING...
             </div>
           ) : schedules.length === 0 ? (
-            <div className="rounded-xl border border-[#1e3a8a] bg-[#020b1a] p-6 text-slate-400">
+            <div className="col-span-full rounded-xl border border-[#1e3a8a] bg-[#020b1a] p-6 text-slate-400">
               {t.empty}
             </div>
           ) : schedules.map((task) => (

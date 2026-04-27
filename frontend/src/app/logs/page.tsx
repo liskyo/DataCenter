@@ -40,7 +40,7 @@ export default function LogsPage() {
   }, { intervalMs: 2000, immediate: true });
 
   return (
-    <div className="p-8 pb-20 max-w-7xl mx-auto h-full flex flex-col">
+    <div className="p-4 md:p-8 pb-20 w-full h-full flex flex-col">
       <header className="mb-6 flex items-center gap-4 bg-[#0a1e3f]/30 p-4 rounded-xl border border-[#1e3a8a]">
         <FileText size={32} className="text-[#4ea8de]" />
         <div>

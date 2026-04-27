@@ -37,6 +37,10 @@ export type ServerData = {
     powerKw: number;
     type: 'server' | 'switch' | 'storage';
     status: 'normal' | 'warning' | 'critical' | 'offline';
+    gpuModel?: string; // e.g. "8x NVIDIA H100"
+    flops?: number;
+    carbonEmission?: number;
+    powerCap?: number;
 };
 
 export type EquipmentType = 'crac' | 'pdu' | 'cdu' | 'ups' | 'chiller' | 'dashboard';
@@ -82,6 +86,10 @@ export type RackData = {
     connectedNetworkRackId?: string; // Link to a network rack
     connectedSwitchId?: string | null; // Targeted switch inside the network rack
     locationId: string; // Associated location
+    // AI & ESG Metrics
+    gpuModel?: string;
+    flops?: number;
+    carbonEmission?: number;
 };
 
 const normalizeImportedRacks = (rawRacks: any[]): RackData[] => {
@@ -255,6 +263,7 @@ type DcimState = {
     updateRackName: (id: string, name: string) => void;
     updateRackModel: (id: string, model: string) => void;
     updateRackIp: (id: string, ip: string) => void;
+    updateRack: (id: string, patch: Partial<RackData>) => void;
     removeRack: (id: string) => void;
     addServerToRack: (rackId: string, server: Omit<ServerData, 'id' | 'assetId'>) => boolean; // Returns false if no space
     removeServerFromRack: (rackId: string, serverId: string) => void;
@@ -441,6 +450,10 @@ export const useDcimStore = create<DcimState>()(
 
             updateRackIp: (id, ip) => set((state) => ({
                 racks: state.racks.map(r => r.id === id ? { ...r, ipAddress: ip } : r)
+            })),
+
+            updateRack: (id, patch) => set((state) => ({
+                racks: state.racks.map(r => r.id === id ? { ...r, ...patch } : r)
             })),
 
             removeRack: (id) => set((state) => ({

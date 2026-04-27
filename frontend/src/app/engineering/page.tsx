@@ -65,7 +65,7 @@ export default function EngineeringPage() {
   };
 
   return (
-    <div className="p-8 pb-20 max-w-7xl mx-auto h-full flex flex-col">
+    <div className="p-4 md:p-8 pb-20 w-full h-full flex flex-col">
        <header className={`mb-6 flex items-center gap-4 ${isAuth ? 'bg-emerald-950/30 border-emerald-900' : 'bg-[#0a1e3f]/30 border-rose-900'} p-4 rounded-xl border`}>
         <Wrench size={32} className={isAuth ? "text-emerald-500" : "text-rose-500"} />
         <div>
@@ -115,7 +115,7 @@ export default function EngineeringPage() {
            </div>
          ) : (
            // 解鎖狀態 UI
-           <div className="relative z-10 w-full max-w-4xl bg-[#050510] border-2 border-emerald-500 p-8 shadow-[0_0_30px_rgba(16,185,129,0.2)]">
+           <div className="relative z-10 w-full max-w-6xl bg-[#050510] border-2 border-emerald-500 p-8 shadow-[0_0_30px_rgba(16,185,129,0.2)]">
               <div className="flex items-center justify-between mb-8 border-b border-emerald-900 pb-4">
                  <div className="flex items-center gap-3">
                    <ShieldCheck size={32} className="text-emerald-500" />
