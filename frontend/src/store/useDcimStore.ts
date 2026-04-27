@@ -126,6 +126,10 @@ const normalizeImportedRacks = (rawRacks: any[]): RackData[] => {
                     status: server?.status === "warning" || server?.status === "critical" || server?.status === "offline"
                         ? server.status
                         : "normal",
+                    gpuModel: typeof server?.gpuModel === "string" ? server.gpuModel : undefined,
+                    flops: Number.isFinite(server?.flops) ? server.flops : (server?.type === 'server' ? Number((Math.random() * 0.05 + 0.01).toFixed(3)) : 0),
+                    carbonEmission: Number.isFinite(server?.carbonEmission) ? server.carbonEmission : Number((Math.random() * 10 + 5).toFixed(1)),
+                    powerCap: Number.isFinite(server?.powerCap) ? server.powerCap : (Number.isFinite(server?.powerKw) ? server.powerKw * 1.2 : 1.5),
                 };
             });
 

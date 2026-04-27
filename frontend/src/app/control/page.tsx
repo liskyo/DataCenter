@@ -313,7 +313,7 @@ export default function ControlPage() {
               <div className={`transition-opacity ${!machine.powerOn ? "opacity-30 pointer-events-none" : "opacity-100"}`}>
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2 text-emerald-500 text-xs font-bold tracking-widest"><Zap size={14}/> POWER CAP LIMIT</div>
-                  <span className="text-emerald-300 font-mono text-sm">{machineMetaByName.get(machine.id)?.powerCap ?? machineMetaByName.get(machine.id)?.powerKw ?? 0} kW</span>
+                  <span className="text-emerald-300 font-mono text-sm">{(machineMetaByName.get(machine.id)?.powerCap ?? machineMetaByName.get(machine.id)?.powerKw ?? 0).toFixed(1)} kW</span>
                 </div>
                 <input 
                   type="range" min="0" max={(machineMetaByName.get(machine.id)?.powerKw || 1) * 1.5} step="0.1"

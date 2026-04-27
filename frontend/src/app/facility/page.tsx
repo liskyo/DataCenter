@@ -60,6 +60,7 @@ export default function FacilityPage() {
     spaceUsed: 38,
     spaceTotal: 42,
   });
+  const [isZoomed, setIsZoomed] = useState(false);
 
   const store = useDcimStore();
   const totalCarbon = store.racks.reduce((acc, rack) => {
@@ -280,11 +281,18 @@ export default function FacilityPage() {
         <div className="bg-[#020b1a] border border-[#1e3a8a] p-4 shadow-lg flex flex-col">
            <SectionTitle title="Physical Context (實體安全)" icon={ShieldAlert} />
            <div className="grid grid-cols-2 gap-4">
-              <div className="border border-[#1e3a8a] bg-black relative aspect-video flex items-center justify-center overflow-hidden rounded">
-                 <div className="absolute top-2 left-2 flex items-center gap-1 text-[8px] font-mono text-rose-500">
+              <div 
+                className="border border-[#1e3a8a] bg-black relative aspect-video flex items-center justify-center overflow-hidden rounded group cursor-pointer"
+                onClick={() => setIsZoomed(true)}
+              >
+                 <img src="/DataCenterSIM.png" alt="CCTV" className="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity duration-300" />
+                 <div className="absolute top-2 left-2 flex items-center gap-1 text-[8px] font-mono text-rose-500 z-10 bg-black/50 px-1 rounded">
                     <div className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></div> REC
                  </div>
-                 <span className="text-slate-800 font-black tracking-widest opacity-50 flex items-center gap-2"><Video/> CCTV-01 (監視器)</span>
+                 <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black/40">
+                   <span className="text-white font-bold tracking-widest text-sm border border-white px-3 py-1 rounded">CLICK TO ENLARGE</span>
+                 </div>
+                 <span className="absolute bottom-2 left-2 text-slate-300 text-[10px] font-black tracking-widest bg-black/50 px-1 rounded flex items-center gap-2 z-10"><Video size={10}/> CCTV-01</span>
               </div>
               <div className="space-y-2">
                  <div className="flex justify-between bg-[#0a1e3f]/40 border border-[#1e3a8a] p-2 text-xs font-mono rounded items-center">
@@ -304,6 +312,24 @@ export default function FacilityPage() {
         </div>
 
       </div>
+
+      {/* Fullscreen Image Modal */}
+      {isZoomed && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center cursor-zoom-out backdrop-blur-sm"
+          onClick={() => setIsZoomed(false)}
+        >
+          <div className="relative max-w-[90vw] max-h-[90vh]">
+            <img src="/DataCenterSIM.png" alt="CCTV Zoom" className="w-full h-full object-contain rounded border border-[#1e3a8a] shadow-[0_0_50px_rgba(30,58,138,0.5)]" />
+            <div className="absolute top-4 left-4 flex items-center gap-2 text-sm font-mono text-rose-500 bg-black/60 px-3 py-1.5 rounded-full border border-rose-900/50 backdrop-blur-md">
+              <div className="w-3 h-3 rounded-full bg-rose-500 animate-pulse"></div> REC
+            </div>
+            <div className="absolute bottom-4 left-4 text-white text-sm font-black tracking-widest bg-black/60 px-3 py-1.5 rounded-full border border-[#1e3a8a]/50 backdrop-blur-md flex items-center gap-2">
+              <Video size={16}/> CCTV-01
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
