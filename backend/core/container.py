@@ -46,6 +46,7 @@ from services.workload_service import WorkloadSimulator
 from services.remediation_service import AutoRemediationEngine
 from services.power_service import PowerCappingService
 from services.thermal_service import ThermalPredictionService
+from services.immersion_service import ImmersionCoolingService
 
 
 def _temperature_tier(temp: float) -> str:
@@ -112,6 +113,7 @@ class AppContainer:
         self.workload = WorkloadSimulator()
         self.power_service = PowerCappingService()
         self.thermal_service = ThermalPredictionService()
+        self.immersion_service = ImmersionCoolingService()
         self.system_mode = "simulation"
         self.power_states: dict[str, str] = {} # { "SERVER-001": "on", "CDU-001": "off" }
         self.last_real_data_at: dict[str, float] = {} # { "SERVER-15": 1711956... }
@@ -327,6 +329,9 @@ class AppContainer:
         self.thermal_service.evaluate_proactive_cooling(self.telemetry.list_latest())
         # 套用預判冷卻到 data telemetry payload
         self.thermal_service.apply_proactive_cooling_to_telemetry(server_id, data)
+
+        # 雙相浸沒式冷卻流體力學與化學裂解推算
+        self.immersion_service.process_immersion_telemetry(server_id, data, self.telemetry.list_latest(), self.maintenance_service)
 
         self.telemetry.upsert_latest(server_id, data)
         

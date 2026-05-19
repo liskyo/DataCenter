@@ -7,7 +7,7 @@ import { authFetch } from "@/shared/auth";
 import { buildTelemetryKeys, normalizeNodeId, resolveTelemetryRecordDeep } from "@/shared/nodeId";
 import dynamic from "next/dynamic";
 import { Activity, Download, Upload, Server, Trash, Save, Edit, Lock, Thermometer, Zap, Box, MonitorIcon, Globe, Link2, Droplets, Cpu, Leaf } from "lucide-react";
-import { LineChart, Line, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
+import { LineChart, Line, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid, Legend, Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis } from "recharts";
 const TwinsSceneCanvas = dynamic(
     () => import("@/features/twins/TwinsSceneCanvas").then((mod) => mod.TwinsSceneCanvas),
     {
@@ -39,6 +39,146 @@ const GPU_PFLOPS_MAP: Record<string, number> = {
     "4x NVIDIA L40S": 1.5,
     "8x AMD Instinct MI300X": 10.4,
     "8x Intel Gaudi 3": 8.0
+};
+
+const ImmersionPhysicsVisualizer = ({ voidFraction = 12.5, levelPercent = 95.0, isCondensating = true }: {
+    voidFraction?: number;
+    levelPercent?: number;
+    isCondensating?: boolean;
+}) => {
+    const canvasRef = useRef<HTMLCanvasElement | null>(null);
+    const animationFrameRef = useRef<number | null>(null);
+
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+
+        let bubbles: Array<{ x: number; y: number; size: number; speed: number; phase: number }> = [];
+        let rainDrops: Array<{ x: number; y: number; speed: number; length: number }> = [];
+
+        for (let i = 0; i < 40; i++) {
+            bubbles.push({
+                x: 20 + Math.random() * 160,
+                y: 50 + Math.random() * 120,
+                size: 1 + Math.random() * 2.5,
+                speed: 0.4 + Math.random() * 1.2,
+                phase: Math.random() * Math.PI * 2
+            });
+        }
+
+        for (let i = 0; i < 5; i++) {
+            rainDrops.push({
+                x: 15 + Math.random() * 170,
+                y: 25 + Math.random() * 30,
+                speed: 1.2 + Math.random() * 1.8,
+                length: 3 + Math.random() * 3
+            });
+        }
+
+        const render = () => {
+            const width = canvas.width;
+            const height = canvas.height;
+            ctx.clearRect(0, 0, width, height);
+
+            ctx.strokeStyle = "#083344";
+            ctx.lineWidth = 3;
+            ctx.strokeRect(5, 5, width - 10, height - 10);
+
+            const liquidHeight = (height - 30) * (levelPercent / 100.0);
+            const liquidY = height - 10 - liquidHeight;
+
+            ctx.fillStyle = "rgba(6, 182, 212, 0.15)";
+            ctx.beginPath();
+            ctx.moveTo(7, height - 7);
+            ctx.lineTo(7, liquidY);
+            const time = Date.now() * 0.003;
+            for (let x = 7; x <= width - 7; x += 5) {
+                const y = liquidY + Math.sin(x * 0.05 + time) * 1.5;
+                ctx.lineTo(x, y);
+            }
+            ctx.lineTo(width - 7, height - 7);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.fillStyle = "#334155";
+            ctx.fillRect(15, 12, width - 30, 6);
+
+            if (isCondensating) {
+                ctx.fillStyle = "rgba(6, 182, 212, 0.65)";
+                rainDrops.forEach((drop) => {
+                    ctx.fillRect(drop.x, drop.y, 1, drop.length);
+                    drop.y += drop.speed;
+                    if (drop.y > liquidY) {
+                        drop.y = 20;
+                        drop.x = 15 + Math.random() * (width - 30);
+                    }
+                });
+            }
+
+            const chipWidth = 70;
+            const chipHeight = 16;
+            const chipX = width / 2 - chipWidth / 2;
+            const chipY = height - 25;
+
+            ctx.fillStyle = voidFraction > 60 ? "#ef4444" : voidFraction > 35 ? "#f59e0b" : "#0e7490";
+            ctx.fillRect(chipX, chipY, chipWidth, chipHeight);
+            
+            ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
+            ctx.fillRect(chipX + 15, chipY + 3, chipWidth - 30, chipHeight - 6);
+
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.35)";
+            ctx.lineWidth = 0.8;
+            
+            const activeBubblesCount = Math.min(bubbles.length, Math.floor(voidFraction * 0.7) + 5);
+            for (let i = 0; i < activeBubblesCount; i++) {
+                const bubble = bubbles[i];
+                ctx.beginPath();
+                ctx.arc(bubble.x, bubble.y, bubble.size, 0, Math.PI * 2);
+                ctx.stroke();
+
+                bubble.y -= bubble.speed;
+                bubble.x += Math.sin(bubble.y * 0.05 + bubble.phase) * 0.25;
+
+                if (bubble.y < liquidY || bubble.y < 15) {
+                    bubble.y = chipY - Math.random() * 4;
+                    bubble.x = chipX + Math.random() * chipWidth;
+                }
+            }
+
+            if (voidFraction > 60) {
+                ctx.fillStyle = "rgba(239, 68, 68, 0.35)";
+                ctx.fillRect(chipX - 3, chipY - 3, chipWidth + 6, chipHeight + 3);
+                ctx.strokeStyle = "#ef4444";
+                ctx.lineWidth = 1;
+                ctx.strokeRect(chipX - 3, chipY - 3, chipWidth + 6, chipHeight + 3);
+                
+                ctx.fillStyle = "#ef4444";
+                ctx.font = "bold 8px monospace";
+                ctx.fillText("DRY-OUT RISK", chipX + 5, chipY - 5);
+            }
+
+            animationFrameRef.current = requestAnimationFrame(render);
+        };
+
+        render();
+
+        return () => {
+            if (animationFrameRef.current) {
+                cancelAnimationFrame(animationFrameRef.current);
+            }
+        };
+    }, [voidFraction, levelPercent, isCondensating]);
+
+    return (
+        <div className="relative flex flex-col items-center bg-[#020712] border border-cyan-500/20 rounded-xl p-2.5 shadow-[inset_0_0_15px_rgba(6,182,212,0.1)]">
+            <span className="text-[9px] text-cyan-400 font-bold uppercase tracking-widest absolute top-1.5 left-2.5">
+                🧪 2D 槽體剖面模擬視圖
+            </span>
+            <canvas ref={canvasRef} width={200} height={140} className="w-full max-w-[210px] h-[140px] rounded-lg mt-3" />
+        </div>
+    );
 };
 
 export default function TwinsPage() {
@@ -289,6 +429,82 @@ export default function TwinsPage() {
             clearInterval(interval);
         };
     }, [chartActiveServerId]);
+
+    // 🔮 雙相浸沒式冷卻深度遙測狀態
+    const [immersionData, setImmersionData] = useState<any>(null);
+    const [isImmersionLoading, setIsImmersionLoading] = useState(false);
+    
+    // 展會互動式模擬控制狀態
+    const [simGpuLoad, setSimGpuLoad] = useState<number>(35); // kW
+    const [simWaterFlow, setSimWaterFlow] = useState<number>(15); // LPM
+    const [simSealLeak, setSimSealLeak] = useState<boolean>(false);
+    const [simCloggedFilter, setSimCloggedFilter] = useState<boolean>(false);
+    const [simWaterIntrusion, setSimWaterIntrusion] = useState<boolean>(false);
+
+    // 拉取浸沒式冷卻化學與物理數據
+    const fetchImmersionStatus = useCallback(async () => {
+        if (!selectedRackId) return;
+        try {
+            const res = await authFetch(apiUrl(`/api/immersion/status?tank_id=${selectedRackId}`), { cache: "no-store" });
+            if (res.ok) {
+                const json = await res.json();
+                setImmersionData(json);
+            }
+        } catch (e) {
+            console.error("Failed to fetch immersion status", e);
+        }
+    }, [selectedRackId]);
+
+    // 當選中浸沒式槽體時，定時拉取深度化學遙測
+    useEffect(() => {
+        if (!selectedRackId) {
+            setImmersionData(null);
+            return;
+        }
+        
+        const isImmersion = selectedRack?.type === 'immersion_single' || selectedRack?.type === 'immersion_dual';
+        if (!isImmersion) {
+            setImmersionData(null);
+            return;
+        }
+
+        fetchImmersionStatus();
+        const interval = setInterval(fetchImmersionStatus, 3000); // 3秒輪詢一次，實現超高流暢動態聯動
+
+        // 初始化模擬滑桿預設值
+        setSimGpuLoad(selectedRack.servers.reduce((sum, s) => sum + (s.flops ? s.flops * 0.15 : 4.5), 25.0));
+        setSimWaterFlow(15);
+        setSimSealLeak(false);
+        setSimCloggedFilter(false);
+        setSimWaterIntrusion(false);
+
+        return () => clearInterval(interval);
+    }, [selectedRackId, selectedRack, fetchImmersionStatus]);
+
+    // 觸發觀眾模擬調控 API
+    const triggerImmersionSimulation = async (params: {
+        gpu_load_kw?: number;
+        condenser_flow_lpm?: number;
+        seal_leak?: boolean;
+        clogged_filter?: boolean;
+        water_intrusion?: boolean;
+    }) => {
+        if (!selectedRackId) return;
+        try {
+            await authFetch(apiUrl("/api/immersion/simulate"), {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    tank_id: selectedRackId,
+                    ...params
+                })
+            });
+            // 立即拉取更新
+            fetchImmersionStatus();
+        } catch (e) {
+            console.error("Failed to apply simulator override", e);
+        }
+    };
 
     // 核心：動態覆寫 / 注入預測數值到 telemetry 中，使得 3D Canvas 自然渲染預測熱場
     const displayTelemetry = useMemo(() => {
@@ -821,7 +1037,7 @@ removeLocation(currentLocationId);
 
             {/* 右側屬性面板 (Rack) */}
             {selectedRack && (
-                <div className="w-80 bg-[#020b1a] border-l border-[#1e3a8a] flex flex-col z-10 shadow-[-2px_0_15px_rgba(6,182,212,0.1)]">
+                <div className="w-[500px] bg-[#020b1a] border-l border-[#1e3a8a] flex flex-col z-10 shadow-[-2px_0_15px_rgba(6,182,212,0.1)]">
                     <div className="p-4 border-b border-[#1e3a8a] flex justify-between items-center bg-gradient-to-r from-transparent to-[#0a1e3f]">
                         <h2 className="text-cyan-400 font-bold tracking-widest uppercase text-xs">{t.rackSettings}</h2>
                         {isEditMode && (
@@ -1013,7 +1229,7 @@ removeLocation(currentLocationId);
                         {chartActiveServerId && thermalChartData.length > 0 && (
                             <div className="bg-[#03112b] p-4 rounded-lg border border-cyan-900/30">
                                 <div className="flex items-center justify-between mb-3 border-b border-cyan-800/30 pb-1">
-                                    <h3 className="text-xs font-bold text-cyan-400 flex items-center gap-1.5 tracking-widest uppercase">
+                                    <h3 className="text-xs font-bold text-cyan-400 flex items-center gap-1.5 tracking-widest uppercase whitespace-nowrap">
                                         <span>🔮 熱場冷卻多軸預測 ({chartActiveServerId})</span>
                                     </h3>
                                     <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">PREDICTIVE DASH</span>
@@ -1032,6 +1248,229 @@ removeLocation(currentLocationId);
                                             <Line yAxisId="right" name="出回水溫 (°C)" type="monotone" dataKey="coolant_inlet_temp" stroke="#10b981" strokeWidth={1.2} strokeDasharray="3 3" dot={false} />
                                         </LineChart>
                                     </ResponsiveContainer>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 🔮 雙相浸沒式冷卻深度遙測面板 */}
+                        {(selectedRack.type === 'immersion_single' || selectedRack.type === 'immersion_dual') && immersionData && (
+                            <div className="bg-[#03112b] p-4 rounded-lg border border-cyan-500/30 flex flex-col gap-4">
+                                <div className="flex items-center justify-between border-b border-cyan-800/30 pb-2">
+                                    <div className="flex items-center gap-1.5">
+                                        <Droplets size={14} className="text-cyan-400 animate-pulse" />
+                                        <h3 className="text-xs font-bold text-cyan-400 tracking-widest uppercase">
+                                            雙相浸沒深度遙測
+                                        </h3>
+                                    </div>
+                                    <span className="rounded-full bg-cyan-500/20 px-2 py-0.5 text-[8px] font-bold text-cyan-300 border border-cyan-500/30 font-mono">
+                                        PHASE-CHANGE
+                                    </span>
+                                </div>
+
+                                {/* 1. 🧪 槽體剖面視圖與物理沸騰 */}
+                                <div className="grid grid-cols-1 gap-3">
+                                    <ImmersionPhysicsVisualizer 
+                                        voidFraction={immersionData.void_fraction} 
+                                        levelPercent={(immersionData.fluid_level_mm / 500) * 100}
+                                        isCondensating={immersionData.fused_loss_rate_ml_hr < 120} 
+                                    />
+                                    
+                                    <div className="bg-[#010613]/60 border border-cyan-900/30 p-2.5 rounded-lg text-[10px] font-mono space-y-1.5">
+                                        <div className="flex justify-between">
+                                            <span className="text-slate-400">氣泡佔比 (Void Fraction):</span>
+                                            <span className="text-cyan-300 font-bold">{immersionData.void_fraction}%</span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-slate-400">沸騰狀態 (Regime):</span>
+                                            <span className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider ${
+                                                immersionData.boiling_regime === 'film' 
+                                                    ? 'bg-red-500/20 text-red-400 border border-red-500/30 animate-bounce' 
+                                                    : immersionData.boiling_regime === 'transition'
+                                                        ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                                                        : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                            }`}>
+                                                {immersionData.boiling_regime === 'film' ? 'Film (膜狀)' : immersionData.boiling_regime === 'transition' ? 'Transition (過渡)' : 'Nucleate (核沸騰)'}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-slate-400">液流失率 (Evaporation):</span>
+                                            <span className={`font-bold ${immersionData.leak_severity === 'critical' ? 'text-red-400 font-bold' : 'text-slate-300'}`}>
+                                                {immersionData.fused_loss_rate_ml_hr} mL/hour
+                                            </span>
+                                        </div>
+                                        {immersionData.should_throttle && (
+                                            <div className="bg-red-950/40 border border-red-500/30 text-red-300 p-1.5 rounded text-[9px] font-sans font-semibold animate-pulse text-center">
+                                                ⚠️ CHF 臨界乾涸！已啟動功耗壓制！
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* 2. 🕸️ 流體健康度五軸雷達圖 */}
+                                <div className="bg-[#020712] border border-cyan-500/20 rounded-xl p-2.5 shadow-[inset_0_0_15px_rgba(6,182,212,0.1)] flex flex-col items-center">
+                                    <span className="text-[9px] text-cyan-400 font-bold uppercase tracking-widest self-start mb-2">
+                                        🕸️ 流體健康劣化雷達
+                                    </span>
+                                    <div className="h-40 w-full text-[9px] select-none">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <RadarChart cx="50%" cy="50%" outerRadius="65%" margin={{ top: 10, right: 30, left: 30, bottom: 10 }} data={[
+                                                { subject: '電導率', A: immersionData.conductivity_us_cm * 100, fullMark: 100 },
+                                                { subject: '酸化度', A: (8 - immersionData.ph_value) * 25, fullMark: 100 },
+                                                { subject: '含水量', A: immersionData.water_content_ppm * 2, fullMark: 100 },
+                                                { subject: '腐蝕風險', A: immersionData.hf_corrosion_risk === 'high' ? 95 : immersionData.hf_corrosion_risk === 'medium' ? 50 : 15, fullMark: 100 },
+                                                { subject: '雜質微粒', A: 25, fullMark: 100 }
+                                            ]}>
+                                                <PolarGrid stroke="#0f172a" />
+                                                <PolarAngleAxis dataKey="subject" stroke="#64748b" fontSize={7} />
+                                                <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} stroke="#0f172a" />
+                                                <Radar name="Fluid Health" dataKey="A" stroke="#22d3ee" fill="#0891b2" fillOpacity={0.4} />
+                                            </RadarChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </div>
+
+                                {/* 3. ⏳ 過濾器壽命與工單自癒連動 */}
+                                <div className="bg-[#010613]/80 border border-slate-800 p-3 rounded-lg space-y-2">
+                                    <div className="flex items-center justify-between text-[10px]">
+                                        <span className="text-slate-400 font-bold">循環過濾器壽命:</span>
+                                        <span className={`font-mono font-bold ${
+                                            immersionData.filter_status === 'critical' ? 'text-red-400 font-bold' : 'text-emerald-400'
+                                        }`}>
+                                            {immersionData.filter_progress}% (約 {immersionData.filter_days_remaining} 天)
+                                        </span>
+                                    </div>
+                                    <div className="w-full bg-slate-900 h-1.5 rounded-full overflow-hidden">
+                                        <div 
+                                            className={`h-full transition-all duration-1000 ${
+                                                immersionData.filter_status === 'critical' 
+                                                    ? 'bg-red-500' 
+                                                    : immersionData.filter_status === 'warning'
+                                                        ? 'bg-amber-500'
+                                                        : 'bg-emerald-500'
+                                            }`}
+                                            style={{ width: `${immersionData.filter_progress}%` }}
+                                        />
+                                    </div>
+                                    <div className="flex justify-between items-center text-[9px] text-slate-400 pt-1">
+                                        <span>壓差: {immersionData.filter_dp_psi} PSI</span>
+                                        {immersionData.trigger_filter_maintenance && (
+                                            <span className="flex items-center gap-0.5 text-amber-400 font-bold animate-pulse">
+                                                🔧 濾芯工單已自癒發起
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* 4. ☢️ 化學警告 */}
+                                {immersionData.chem_severity !== 'normal' && (
+                                    <div className={`p-2.5 rounded-lg border text-[10px] space-y-1 ${
+                                        immersionData.chem_severity === 'critical'
+                                            ? 'bg-red-950/40 border-red-500/30 text-red-300'
+                                            : 'bg-amber-950/40 border-amber-500/30 text-amber-300'
+                                    }`}>
+                                        <div className="font-bold flex items-center gap-1">
+                                            <span>⚠️ {immersionData.chem_severity === 'critical' ? '最高級化學腐蝕警告' : '化學性質劣化警告'}</span>
+                                            {immersionData?.purification_state !== 'standby' && (
+                                                <span className="text-[8px] bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 px-1 py-0.5 rounded font-mono animate-pulse">
+                                                    線上淨化中
+                                                </span>
+                                            )}
+                                        </div>
+                                        <p className="leading-relaxed">{immersionData.chem_description}</p>
+                                    </div>
+                                )}
+
+                                {/* 5. 🎛️ 觀眾互動模擬調控 */}
+                                <div className="bg-[#020b1a] border border-cyan-800/40 p-3 rounded-lg space-y-3">
+                                    <div className="flex items-center justify-between border-b border-cyan-800/30 pb-1.5">
+                                        <span className="text-[10px] font-bold text-cyan-400 flex items-center gap-1">
+                                            <span>🎛️ 展場互動式模擬調控</span>
+                                        </span>
+                                        <span className="text-[8px] text-slate-500 font-mono">OP CONTROL</span>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <div>
+                                            <div className="flex justify-between text-[9px] text-slate-400 mb-1">
+                                                <span>GPU 熱通量 (功率):</span>
+                                                <span className="text-cyan-300 font-mono">{Number(simGpuLoad).toFixed(1)} kW</span>
+                                            </div>
+                                            <input 
+                                                type="range" min="0" max="100" step="5"
+                                                value={simGpuLoad}
+                                                onChange={(e) => {
+                                                    const val = Number(e.target.value);
+                                                    setSimGpuLoad(val);
+                                                    triggerImmersionSimulation({ gpu_load_kw: val });
+                                                }}
+                                                className="w-full accent-cyan-400 h-1 bg-slate-800 rounded-lg cursor-pointer"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <div className="flex justify-between text-[9px] text-slate-400 mb-1">
+                                                <span>冷凝水量流量:</span>
+                                                <span className="text-cyan-300 font-mono">{simWaterFlow} LPM</span>
+                                            </div>
+                                            <input 
+                                                type="range" min="0" max="150" step="5"
+                                                value={simWaterFlow}
+                                                onChange={(e) => {
+                                                    const val = Number(e.target.value);
+                                                    setSimWaterFlow(val);
+                                                    triggerImmersionSimulation({ condenser_flow_lpm: val });
+                                                }}
+                                                className="w-full accent-cyan-400 h-1 bg-slate-800 rounded-lg cursor-pointer"
+                                            />
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-2 pt-1.5">
+                                            <button 
+                                                onClick={() => {
+                                                    const val = !simSealLeak;
+                                                    setSimSealLeak(val);
+                                                    triggerImmersionSimulation({ seal_leak: val });
+                                                }}
+                                                className={`text-[9px] font-bold p-1.5 rounded transition ${
+                                                    simSealLeak 
+                                                        ? 'bg-red-500/20 border border-red-500 text-red-400 font-bold' 
+                                                        : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-300'
+                                                }`}
+                                            >
+                                                {simSealLeak ? '🔴 密封洩漏中' : '⚪ 模擬密封洩漏'}
+                                            </button>
+
+                                            <button 
+                                                onClick={() => {
+                                                    const val = !simCloggedFilter;
+                                                    setSimCloggedFilter(val);
+                                                    triggerImmersionSimulation({ clogged_filter: val });
+                                                }}
+                                                className={`text-[9px] font-bold p-1.5 rounded transition ${
+                                                    simCloggedFilter 
+                                                        ? 'bg-amber-500/20 border border-amber-500 text-amber-400 font-bold animate-pulse' 
+                                                        : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-300'
+                                                }`}
+                                            >
+                                                {simCloggedFilter ? '🟠 濾芯堵塞中' : '⚪ 模擬濾芯堵塞'}
+                                            </button>
+
+                                            <button 
+                                                onClick={() => {
+                                                    const val = !simWaterIntrusion;
+                                                    setSimWaterIntrusion(val);
+                                                    triggerImmersionSimulation({ water_intrusion: val });
+                                                }}
+                                                className={`text-[9px] font-bold p-1.5 rounded transition col-span-2 ${
+                                                    simWaterIntrusion 
+                                                        ? 'bg-red-500/20 border border-red-500 text-red-400 font-bold animate-pulse' 
+                                                        : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-300'
+                                                }`}
+                                            >
+                                                {simWaterIntrusion ? '⚠️ 外部濕氣入侵中 (酸裂解)' : '⚪ 模擬水氣入侵'}
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         )}
