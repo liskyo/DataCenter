@@ -848,17 +848,22 @@ export default function Dashboard() {
     };
   }, [gridStatusRows]);
 
-  const { maxFlops, activeFlops } = useMemo(() => {
+  const { maxFlops, activeFlops, onlineCount, totalCount } = useMemo(() => {
     let max = 0;
     let active = 0;
+    let online = 0;
+    let total = 0;
     for (const row of gridStatusRows) {
       const flops = (row.item as any).flops || 0;
+      if (flops <= 0) continue;  // 只計算有算力的設備
+      total++;
       max += flops;
       if (row.status !== 'powered_off') {
         active += flops;
+        online++;
       }
     }
-    return { maxFlops: max, activeFlops: active };
+    return { maxFlops: max, activeFlops: active, onlineCount: online, totalCount: total };
   }, [gridStatusRows]);
 
   const itemNameSet = useMemo(() => {
@@ -1155,7 +1160,7 @@ export default function Dashboard() {
 
         {/* Right Column (Alarms & Details) */}
         <div className="col-span-3 flex flex-col gap-6">
-          <TechPanel title="AI COMPUTE (PFLOPS)" className="h-[200px] shrink-0 border-emerald-900/50">
+          <TechPanel title="AI COMPUTE (PFLOPS)" className="h-[210px] shrink-0 border-emerald-900/50">
             <div className="h-full flex flex-col justify-center items-center relative overflow-hidden px-4">
               <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/10 blur-3xl rounded-full"></div>
               <div className="absolute bottom-0 left-0 w-16 h-16 bg-emerald-500/10 blur-2xl rounded-full"></div>
@@ -1169,13 +1174,19 @@ export default function Dashboard() {
               <div className="w-full mt-3 z-10">
                 <div className="flex justify-between items-baseline text-[9px] font-mono mb-1">
                   <span className="text-cyan-400 text-lg font-black">{activeFlops.toFixed(1)} <span className="text-[10px] font-bold text-cyan-500/70">ACTIVE</span></span>
-                  <span className="text-emerald-600/60">{maxFlops > 0 ? Math.round((activeFlops / maxFlops) * 100) : 0}%</span>
+                  <span className={`font-bold ${onlineCount < totalCount ? 'text-yellow-400' : 'text-emerald-600/60'}`}>{maxFlops > 0 ? ((activeFlops / maxFlops) * 100).toFixed(1) : '0.0'}%</span>
                 </div>
                 <div className="h-1.5 w-full bg-[#0a1e3f] rounded-full overflow-hidden">
                   <div
                     className="h-full bg-gradient-to-r from-cyan-500 to-emerald-400 rounded-full transition-all duration-700"
                     style={{ width: `${maxFlops > 0 ? Math.min((activeFlops / maxFlops) * 100, 100) : 0}%` }}
                   ></div>
+                </div>
+                <div className="flex justify-between mt-1 text-[9px] font-mono">
+                  <span className={onlineCount < totalCount ? 'text-yellow-400' : 'text-slate-600'}>
+                    {onlineCount < totalCount ? `⚠ ${totalCount - onlineCount} OFFLINE` : '● ALL ONLINE'}
+                  </span>
+                  <span className="text-slate-600">{onlineCount}/{totalCount} NODES</span>
                 </div>
               </div>
             </div>

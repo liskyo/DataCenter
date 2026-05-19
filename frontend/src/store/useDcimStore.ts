@@ -92,14 +92,40 @@ export type RackData = {
     carbonEmission?: number;
 };
 
+const GPU_MODELS = [
+    "8x NVIDIA GB200 (Blackwell)",
+    "8x NVIDIA HGX H200",
+    "8x NVIDIA HGX H100",
+    "8x NVIDIA HGX A100",
+    "4x NVIDIA L40S",
+    "8x AMD Instinct MI300X",
+    "8x Intel Gaudi 3"
+];
+
+const GPU_PFLOPS: Record<string, number> = {
+    "8x NVIDIA GB200 (Blackwell)": 36.0,
+    "8x NVIDIA HGX H200": 32.0,
+    "8x NVIDIA HGX H100": 32.0,
+    "8x NVIDIA HGX A100": 5.0,
+    "4x NVIDIA L40S": 1.5,
+    "8x AMD Instinct MI300X": 10.4,
+    "8x Intel Gaudi 3": 8.0
+};
+
 const normalizeImportedRacks = (rawRacks: any[]): RackData[] => {
     const usedServerIds = new Set<string>();
     const perRackIdRemap = new Map<string, Map<string, string>>();
 
     const normalized: RackData[] = rawRacks
         .filter((r): r is RackData => !!r && typeof r.id === "string" && Array.isArray(r.servers))
-        .map((rack: any) => {
+        .map((rack: any, rackIdx: number) => {
             const idRemap = new Map<string, string>();
+            
+            // 決定此機櫃是否為 AI 機櫃 (50% 機率，平均分配)
+            const isAiRack = rackIdx % 2 === 0;
+            // 為該 AI 機櫃輪流指定一個特定型號的 GPU，保證合理性 (一個機櫃內是同一款 GPU)
+            const assignedGpu = GPU_MODELS[Math.floor(rackIdx / 2) % GPU_MODELS.length];
+
             const safeServers: ServerData[] = (Array.isArray(rack.servers) ? rack.servers : []).map((server: any) => {
                 const rawId = typeof server?.id === "string" ? server.id : "";
                 let nextId = rawId;
@@ -111,6 +137,33 @@ const normalizeImportedRacks = (rawRacks: any[]): RackData[] => {
                     idRemap.set(rawId, nextId);
                 }
 
+                // 決定伺服器的 GPU 與算力
+                let gpuModel = server?.gpuModel;
+                let flops = server?.flops;
+
+                if (server?.type === 'server') {
+                    // 如果原先就有合法的 gpuModel，優先保留並修正 flops
+                    if (gpuModel && GPU_PFLOPS[gpuModel] !== undefined) {
+                        flops = GPU_PFLOPS[gpuModel];
+                    } else if (isAiRack) {
+                        // 如果是 AI 機櫃且無配置，指派該機櫃專屬 GPU 型號
+                        gpuModel = assignedGpu;
+                        flops = GPU_PFLOPS[assignedGpu];
+                    } else {
+                        // 通用 CPU 機櫃，清空 GPU
+                        gpuModel = undefined;
+                        // 純 CPU 伺服器的合理預設算力為 0.001 ~ 0.005 PFLOPS (1 ~ 5 TFLOPS)
+                        flops = Number((Math.random() * 0.004 + 0.001).toFixed(4));
+                    }
+                } else {
+                    gpuModel = undefined;
+                    flops = 0;
+                }
+
+                // AI 伺服器功耗較大 (約 8.0 kW)，普通伺服器功耗較低 (約 1.5 kW)
+                const defaultPowerKw = gpuModel ? 8.0 : 1.5;
+                const powerKw = Number.isFinite(server?.powerKw) ? Number(server.powerKw) : defaultPowerKw;
+
                 return {
                     id: nextId,
                     assetId: typeof server?.assetId === "string" && server.assetId
@@ -121,15 +174,15 @@ const normalizeImportedRacks = (rawRacks: any[]): RackData[] => {
                     ipAddress: typeof server?.ipAddress === "string" ? server.ipAddress : "",
                     uPosition: Number.isFinite(server?.uPosition) ? Math.max(1, Math.floor(server.uPosition)) : 1,
                     uHeight: Number.isFinite(server?.uHeight) ? Math.max(1, Math.floor(server.uHeight)) : 1,
-                    powerKw: Number.isFinite(server?.powerKw) ? Number(server.powerKw) : 0.5,
+                    powerKw,
                     type: server?.type === "switch" || server?.type === "storage" ? server.type : "server",
                     status: server?.status === "warning" || server?.status === "critical" || server?.status === "offline"
                         ? server.status
                         : "normal",
-                    gpuModel: typeof server?.gpuModel === "string" ? server.gpuModel : undefined,
-                    flops: Number.isFinite(server?.flops) ? server.flops : (server?.type === 'server' ? Number((Math.random() * 0.05 + 0.01).toFixed(3)) : 0),
+                    gpuModel,
+                    flops,
                     carbonEmission: Number.isFinite(server?.carbonEmission) ? server.carbonEmission : Number((Math.random() * 10 + 5).toFixed(1)),
-                    powerCap: Number.isFinite(server?.powerCap) ? server.powerCap : (Number.isFinite(server?.powerKw) ? server.powerKw * 1.2 : 1.5),
+                    powerCap: Number.isFinite(server?.powerCap) ? server.powerCap : Number((powerKw * 1.25).toFixed(2)),
                 };
             });
 

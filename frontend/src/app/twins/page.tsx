@@ -32,13 +32,13 @@ import {
 } from "@/shared/networkComm";
 
 const GPU_PFLOPS_MAP: Record<string, number> = {
-    "8x NVIDIA GB200 (Blackwell)": 160,
-    "8x NVIDIA HGX H200": 32,
-    "8x NVIDIA HGX H100": 32,
-    "8x NVIDIA HGX A100": 5,
-    "4x NVIDIA L40S": 3,
-    "8x AMD Instinct MI300X": 42,
-    "8x Intel Gaudi 3": 14
+    "8x NVIDIA GB200 (Blackwell)": 36.0,
+    "8x NVIDIA HGX H200": 32.0,
+    "8x NVIDIA HGX H100": 32.0,
+    "8x NVIDIA HGX A100": 5.0,
+    "4x NVIDIA L40S": 1.5,
+    "8x AMD Instinct MI300X": 10.4,
+    "8x Intel Gaudi 3": 8.0
 };
 
 export default function TwinsPage() {

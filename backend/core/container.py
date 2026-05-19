@@ -42,6 +42,7 @@ from services.telemetry_service import TelemetryService
 from services.notification_service import EmailNotificationService, NotificationService
 from services.sse_manager import SSEManager
 from services.ml_worker import AnomalyDetectionEngine
+from services.workload_service import WorkloadSimulator
 from services.remediation_service import AutoRemediationEngine
 
 
@@ -106,6 +107,7 @@ class AppContainer:
         self.sse = SSEManager()
         self.ml_engine = AnomalyDetectionEngine()
         self.remediation_engine = AutoRemediationEngine(continuous_seconds=15)
+        self.workload = WorkloadSimulator()
         self.system_mode = "simulation"
         self.power_states: dict[str, str] = {} # { "SERVER-001": "on", "CDU-001": "off" }
         self.last_real_data_at: dict[str, float] = {} # { "SERVER-15": 1711956... }
@@ -355,6 +357,12 @@ class AppContainer:
                 target=self.maintenance_email_worker,
                 daemon=True,
                 name="maintenance-email-worker",
+            ),
+            threading.Thread(
+                target=self.workload.worker,
+                args=(self.kafka.stop_event,),
+                daemon=True,
+                name="workload-simulation-worker",
             ),
         ]
         for t in self._worker_threads:

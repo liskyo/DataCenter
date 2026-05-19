@@ -10,6 +10,7 @@ from routers.telemetry import router as telemetry_router
 from routers.control import router as control_router
 from routers.auth import router as auth_router
 from routers.maintenance import router as maintenance_router
+from routers.workload import router as workload_router
 
 
 def load_env_file(path: Path) -> None:
@@ -42,6 +43,7 @@ app.include_router(ops_router)
 app.include_router(control_router)
 app.include_router(auth_router)
 app.include_router(maintenance_router)
+app.include_router(workload_router)
 
 
 @app.on_event("startup")

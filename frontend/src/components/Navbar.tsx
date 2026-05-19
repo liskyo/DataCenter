@@ -9,7 +9,7 @@ import { useAuth } from "@/shared/auth-context";
 import { useLanguage } from "@/shared/i18n/language";
 import {
   BarChart3, SlidersHorizontal, LineChart, LifeBuoy,
-  CloudDownload, Globe, FileText, Wrench, Settings, Languages, Factory, Box, MapPin, Plus, LogOut, Users
+  CloudDownload, Globe, FileText, Wrench, Settings, Languages, Factory, Box, MapPin, Plus, LogOut, Users, BrainCircuit
 } from "lucide-react";
 
 export default function Navbar() {
@@ -33,6 +33,7 @@ export default function Navbar() {
         facility: "Facility",
         control: "Control",
         analysis: "Analysis",
+        workload: "Workload",
         maintenance: "Maintenance",
         backup: "Backup",
         network: "Network",
@@ -51,6 +52,7 @@ export default function Navbar() {
       facility: "廠務監控",
       control: "設備控制",
       analysis: "趨勢分析",
+      workload: "算力調度",
       maintenance: "維護保養",
       backup: "系統備份",
       network: "網路通訊",
@@ -79,6 +81,7 @@ export default function Navbar() {
     { name: t.facility, href: "/facility", icon: Factory },
     { name: t.control, href: "/control", icon: SlidersHorizontal },
     { name: t.analysis, href: "/analysis", icon: LineChart },
+    { name: t.workload, href: "/workload", icon: BrainCircuit },
     { name: t.maintenance, href: "/maintenance", icon: LifeBuoy },
     { name: t.backup, href: "/backup", icon: CloudDownload },
     { name: t.network, href: "/network", icon: Globe },
