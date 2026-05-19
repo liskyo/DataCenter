@@ -19,6 +19,7 @@ export default function MaintenancePage() {
     testingEmail,
     deletingScheduleId,
     editingScheduleId,
+    completingScheduleId,
     error,
     emailTestMessage,
     form,
@@ -29,6 +30,7 @@ export default function MaintenancePage() {
     handleTestEmail,
     handleSubmit,
     handleDelete,
+    handleComplete,
   } = useMaintenanceData(t);
 
   const onSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -81,8 +83,10 @@ export default function MaintenancePage() {
               task={task}
               t={t}
               isDeleting={deletingScheduleId === task.id}
+              isCompleting={completingScheduleId === task.id}
               onEdit={startEdit}
               onDelete={handleDelete}
+              onComplete={handleComplete}
             />
           ))}
         </section>

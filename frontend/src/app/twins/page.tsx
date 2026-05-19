@@ -577,11 +577,17 @@ export default function TwinsPage() {
     const [simCloggedFilter, setSimCloggedFilter] = useState<boolean>(false);
     const [simWaterIntrusion, setSimWaterIntrusion] = useState<boolean>(false);
 
+    const defaultGpuLoad = useMemo(() => {
+        if (!selectedRack) return 35;
+        return selectedRack.servers.reduce((sum, s) => sum + (s.flops ? s.flops * 0.15 : 4.5), 25.0);
+    }, [selectedRackId]);
+
     // 拉取浸沒式冷卻化學與物理數據
     const fetchImmersionStatus = useCallback(async () => {
-        if (!selectedRackId) return;
+        if (!selectedRack) return;
+        const tank_id = (selectedRack.name || "").trim().toUpperCase().replace(/\s+/g, "").replace(/_/g, "-");
         try {
-            const res = await authFetch(apiUrl(`/api/immersion/status?tank_id=${selectedRackId}`), { cache: "no-store" });
+            const res = await authFetch(apiUrl(`/api/immersion/status?tank_id=${tank_id}&tank_type=${selectedRack.type}`), { cache: "no-store" });
             if (res.ok) {
                 const json = await res.json();
                 setImmersionData(json);
@@ -589,16 +595,16 @@ export default function TwinsPage() {
         } catch (e) {
             console.error("Failed to fetch immersion status", e);
         }
-    }, [selectedRackId]);
+    }, [selectedRack?.name, selectedRack?.type]);
 
     // 當選中浸沒式槽體時，定時拉取深度化學遙測
     useEffect(() => {
-        if (!selectedRackId) {
+        if (!selectedRackId || !selectedRack) {
             setImmersionData(null);
             return;
         }
         
-        const isImmersion = selectedRack?.type === 'immersion_single' || selectedRack?.type === 'immersion_dual';
+        const isImmersion = selectedRack.type === 'immersion_single' || selectedRack.type === 'immersion_dual';
         if (!isImmersion) {
             setImmersionData(null);
             return;
@@ -608,14 +614,14 @@ export default function TwinsPage() {
         const interval = setInterval(fetchImmersionStatus, 3000); // 3秒輪詢一次，實現超高流暢動態聯動
 
         // 初始化模擬滑桿預設值
-        setSimGpuLoad(selectedRack.servers.reduce((sum, s) => sum + (s.flops ? s.flops * 0.15 : 4.5), 25.0));
+        setSimGpuLoad(defaultGpuLoad);
         setSimWaterFlow(15);
         setSimSealLeak(false);
         setSimCloggedFilter(false);
         setSimWaterIntrusion(false);
 
         return () => clearInterval(interval);
-    }, [selectedRackId, selectedRack, fetchImmersionStatus]);
+    }, [selectedRackId, selectedRack?.name, defaultGpuLoad, fetchImmersionStatus]);
 
     // 觸發觀眾模擬調控 API
     const triggerImmersionSimulation = async (params: {
@@ -625,13 +631,15 @@ export default function TwinsPage() {
         clogged_filter?: boolean;
         water_intrusion?: boolean;
     }) => {
-        if (!selectedRackId) return;
+        if (!selectedRack) return;
+        const tank_id = (selectedRack.name || "").trim().toUpperCase().replace(/\s+/g, "").replace(/_/g, "-");
         try {
             await authFetch(apiUrl("/api/immersion/simulate"), {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    tank_id: selectedRackId,
+                    tank_id: tank_id,
+                    tank_type: selectedRack.type,
                     ...params
                 })
             });

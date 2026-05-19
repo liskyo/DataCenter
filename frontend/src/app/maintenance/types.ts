@@ -15,6 +15,7 @@ export type MaintenanceSchedule = {
   reminder_sent: boolean;
   reminder_sent_at: number;
   notes: string;
+  is_auto_generated?: boolean;
   created_at: number;
 };
 
@@ -44,6 +45,7 @@ export type MaintenanceFormState = {
   assigneeUsername: string;
   notifyEmail: boolean;
   notes: string;
+  is_auto_generated?: boolean;
 };
 
 export type MaintenanceCopy = {

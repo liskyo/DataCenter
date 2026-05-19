@@ -66,6 +66,7 @@ def create_schedule(payload: dict, request: Request, _: dict = Depends(get_curre
     target, task_type, scheduled_at, recurrence_days, assignee_username, notify_email, notes, assignee, assignee_email = (
         _parse_schedule_payload(payload, request)
     )
+    is_auto_generated = bool(payload.get("is_auto_generated", False))
 
     try:
         doc = container.maintenance_service.create_schedule(
@@ -79,6 +80,7 @@ def create_schedule(payload: dict, request: Request, _: dict = Depends(get_curre
             assignee_email=assignee_email,
             notify_email=notify_email,
             notes=notes,
+            is_auto_generated=is_auto_generated,
         )
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid schedule time format")
@@ -91,6 +93,7 @@ def update_schedule(schedule_id: str, payload: dict, request: Request, _: dict =
     target, task_type, scheduled_at, recurrence_days, assignee_username, notify_email, notes, assignee, assignee_email = (
         _parse_schedule_payload(payload, request)
     )
+    is_auto_generated = bool(payload.get("is_auto_generated", False))
 
     try:
         doc = container.maintenance_service.update_schedule(
@@ -105,6 +108,7 @@ def update_schedule(schedule_id: str, payload: dict, request: Request, _: dict =
             assignee_email=assignee_email,
             notify_email=notify_email,
             notes=notes,
+            is_auto_generated=is_auto_generated,
         )
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid schedule time format")
@@ -122,6 +126,30 @@ def delete_schedule(schedule_id: str, request: Request, _: dict = Depends(get_cu
     if not deleted:
         raise HTTPException(status_code=404, detail="Schedule not found")
     return {"status": "success", "id": schedule_id}
+
+
+@router.post("/schedules/{schedule_id}/complete")
+def complete_schedule(schedule_id: str, request: Request, _: dict = Depends(get_current_user)):
+    container = _container(request)
+    schedules = container.maintenance_service.list_schedules()
+    target_schedule = None
+    for s in schedules:
+        if s.get("id") == schedule_id:
+            target_schedule = s
+            break
+
+    if not target_schedule:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+
+    updated = container.maintenance_service.complete_schedule(schedule_id)
+    if not updated:
+        raise HTTPException(status_code=500, detail="Failed to mark schedule as completed")
+
+    target = target_schedule.get("target", "")
+    task_type = target_schedule.get("task_type", "")
+    container.immersion_service.reset_consumables(target, task_type, container.telemetry)
+
+    return {"status": "success", "data": updated}
 
 
 @router.post("/test-email")

@@ -8,6 +8,7 @@ from __future__ import annotations
 import math
 import time
 import threading
+import re
 from typing import Dict, Any, List, Tuple, Optional
 from abc import ABC, abstractmethod
 
@@ -74,7 +75,9 @@ def predict_filter_lifecycle_static(dp_history: List[Tuple[float, float]], max_a
     days_to_limit = (max_allowed_dp - current_dp) / slope
     days_remaining = max(0.0, round(days_to_limit, 1))
     
-    life_progress = max(0.0, min(100.0, (1.0 - (current_dp - 1.0) / 14.0) * 100.0))
+    pressure_life = (1.0 - (current_dp - 1.0) / 14.0) * 100.0
+    time_life = (days_remaining / 90.0) * 100.0
+    life_progress = max(0.0, min(100.0, pressure_life, time_life))
     status = "critical" if days_remaining <= 7 else "warning" if days_remaining <= 21 else "normal"
     
     return {
@@ -103,15 +106,26 @@ class ImmersionCoolingEngine(ABC):
     ) -> None:
         pass
 
+    @abstractmethod
+    def reset_consumables(self, task_type: str) -> None:
+        """重置耗材與物理狀態"""
+        pass
 
 class SinglePhaseEngine(ImmersionCoolingEngine):
     """
     單相（1P）浸沒式液冷物理引擎：
-    聚焦顯熱對流（Q = m * Cp * ΔT）、Arrhenius 動力黏度與過濾器流阻折減模型。
+    聚焦顯熱對流、泵浦流場、油品黏度與化學劣化（介電強度、總酸值）。
     """
     def __init__(self, node_id: str) -> None:
         super().__init__(node_id)
         self._dp_history: List[Tuple[float, float]] = []
+
+        # 🟢 核心修正 1：內部化物理與化學狀態，絕不依賴外部 data 的瞬間值
+        self._current_dp = 2.2
+        self._current_dielectric = 50.0
+        self._current_tan = 0.02
+        self._current_water = 15.0
+        self._current_outlet_temp = 30.0  # 模擬熱慣性用的當前出水溫
 
     def update_telemetry(
         self,
@@ -121,130 +135,142 @@ class SinglePhaseEngine(ImmersionCoolingEngine):
         maintenance_service: Optional[Any] = None
     ) -> None:
         now = time.time()
-        
-        # 1. 獲取基本負載功率
+
+        # 1. 獲取基本負載功率與溫度
         tank_servers_power = 0.0
+        max_gpu_temp = 35.0
+
         for m in latest_metrics:
             parent_rack = m.get("rack_id", m.get("server_id", ""))
             if self.node_id in parent_rack or parent_rack == self.node_id:
-                try:
-                    tank_servers_power += float(m.get("power_kw", 0.0))
-                except (ValueError, TypeError):
-                    pass
-        
+                tank_servers_power += float(m.get("power_kw", 0.0))
+                max_gpu_temp = max(max_gpu_temp, float(m.get("temperature", 35.0)))
+
         if tank_servers_power == 0:
-            try:
-                tank_servers_power = float(data.get("power_kw", data.get("power_usage_kw", 12.5)))
-            except (ValueError, TypeError):
-                tank_servers_power = 12.5
-            
+            tank_servers_power = float(data.get("power_kw", data.get("power_usage_kw", 12.5)))
+
         if "gpu_load_kw" in override:
-            try:
-                tank_servers_power = float(override["gpu_load_kw"])
-            except (ValueError, TypeError):
-                pass
-            
-        # 2. 獲取進油溫度 (Cold Aisle / Inlet Temp)
-        try:
-            inlet_temp = float(override.get("condenser_inlet_temp", 35.0))
-        except (ValueError, TypeError):
-            inlet_temp = 35.0
+            tank_servers_power = float(override["gpu_load_kw"])
 
-        # 3. 動力黏度 Arrhenius 溫度修正模型 (在低溫時黏度偏高，阻力增加)
-        t_est_c = inlet_temp + 10.0
-        try:
-            viscosity = 0.05 * math.exp(1600.0 / (t_est_c + 273.15))
-        except Exception:
-            viscosity = 10.0
+        inlet_temp = float(override.get("condenser_inlet_temp", 30.0))
 
-        # 4. 循環泵浦流量 (LPM) 及其 PID 自動調節邏輯
-        # 若無手動覆寫流量，系統依據 GPU 負載動態調整泵浦流量 (PID 閉環控制，目標維持溫升在 12.0°C 左右)
-        has_flow_override = "condenser_flow_lpm" in override
-        if has_flow_override:
-            try:
-                target_flow = float(override["condenser_flow_lpm"])
-            except (ValueError, TypeError):
-                target_flow = 15.0
-        else:
-            # 閉環 PID 自動控制：Q = m_dot * cp * delta_t
-            # 流量需求 LPM = power / (rho * cp * delta_t_target / 60)
-            try:
-                target_flow = min(150.0, max(12.0, tank_servers_power / 0.328))
-            except Exception:
-                target_flow = 15.0
+        # 2. 目標泵浦流量 (假設滿載 300 LPM)
+        target_flow = float(override.get("condenser_flow_lpm", 150.0))
+        if tank_servers_power > 40.0:
+            target_flow = 250.0
 
-        # 5. 過濾器壓差 (Filter DP) 物理限制與流量折減
-        try:
-            dp_base = float(data.get("filter_dp_psi", 2.2))
-        except (ValueError, TypeError):
-            dp_base = 2.2
-
+        # 🟢 核心修正 2：過濾器壓差 (Filter DP) 物理限制與流量折減
         dp_growth = 0.0001
         if override.get("clogged_filter", False):
-            # 模擬濾芯快速油泥堵塞
-            dp_growth = 2.1
-        simulated_dp_base = min(15.0, dp_base + dp_growth)
+            dp_growth = 2.1  # 模擬快速堵塞
 
-        # 流量折減率：壓差高於 3.0 PSI 時流阻開始增加，達 15.0 PSI 時實際流量銳減 85%
+        # 使用內部變數累加！擺脫 data 被洗掉的命運
+        self._current_dp = min(15.0, self._current_dp + dp_growth)
+        simulated_dp_base = self._current_dp
+
+        # 流量折減率：當壓差超過 3.0 時流阻開始浮現，讓實際流量下降
         flow_resistance_factor = 1.0
         if simulated_dp_base > 3.0:
             flow_resistance_factor = max(0.15, 1.0 - (simulated_dp_base - 3.0) / 12.0 * 0.85)
 
         actual_pump_flow = target_flow * flow_resistance_factor
 
-        # 6. 強制熱對流溫升與熱點推導
-        rho_oil = 0.82
-        cp_oil = 2.0
-        oil_flow_kg_s = (actual_pump_flow * rho_oil) / 60.0
-        
-        if oil_flow_kg_s > 0:
-            try:
-                delta_t = min(60.0, tank_servers_power / (oil_flow_kg_s * cp_oil))
-            except ZeroDivisionError:
-                delta_t = 60.0
+        # 3. 熱力學對流溫升推算 (Q = m * Cp * dT)
+        # 單相油品比熱容約為 1.8 kJ/kg.K，密度約 0.85 kg/L
+        cp_oil = 1.8
+        density_oil = 0.85
+        mass_flow_kg_s = (actual_pump_flow / 60.0) * density_oil
+
+        if mass_flow_kg_s > 0:
+            delta_t = tank_servers_power / (mass_flow_kg_s * cp_oil)
         else:
-            delta_t = 60.0
-            
-        outlet_temp = inlet_temp + delta_t
-        max_gpu_temp = inlet_temp + delta_t * 1.25
-        
-        # 精確更新當前平均油溫下的動力黏度 (Arrhenius 方程式)
-        t_avg_c = inlet_temp + delta_t / 2.0
-        try:
-            viscosity = 0.05 * math.exp(1600.0 / (t_avg_c + 273.15))
-        except Exception:
-            viscosity = 10.0
+            delta_t = tank_servers_power * 0.5  # 極端無流量狀態下的溫升懲罰
 
-        # 修正後的最終壓差 (依據 Hagen-Poiseuille / Darcy 定律，正比於實際流速與黏度)
-        try:
-            viscosity_factor = viscosity / 10.0
-            flow_factor = actual_pump_flow / 15.0
-            corrected_dp = simulated_dp_base * viscosity_factor * flow_factor
-            final_dp = min(15.0, max(0.5, corrected_dp))
-        except Exception:
-            final_dp = simulated_dp_base
+        target_outlet = inlet_temp + delta_t
 
-        # 熱點形成機率 (隨溫升呈指數衰減漸近)
-        try:
-            hotspot_prob = (1.0 - math.exp(-0.08 * delta_t)) * 100.0
-        except Exception:
-            hotspot_prob = 100.0
+        # 模擬熱慣性 (Thermal Inertia)，出水溫不會瞬間跳躍
+        tau = 15.0
+        self._current_outlet_temp += (target_outlet - self._current_outlet_temp) * (1.0 / tau)
+        outlet_temp = self._current_outlet_temp
 
-        should_throttle = hotspot_prob >= 75.0 or max_gpu_temp > 85.0
-        
-        # 紀錄歷史壓差以供預測
+        # 評估是否產生熱點 (Hotspot) 或需要降頻 (Throttle)
+        hotspot_prob = max(0.0, min(100.0, (outlet_temp - 50.0) * 5.0))
+        should_throttle = outlet_temp > 65.0 or max_gpu_temp > 85.0
+
+        # 4. 更新壓差歷史與預測壽命
+        # 為了中控台能準確執行線性迴歸，我們必須回傳「不受降流速掩蓋」的名目堵塞壓差
+        final_dp = simulated_dp_base
         self._dp_history.append((now, final_dp))
         if len(self._dp_history) > 300:
             self._dp_history.pop(0)
-            
+
         filter_data = predict_filter_lifecycle_static(self._dp_history)
-        
-        # 閉環自癒工單派發
+
+        # 🟢 核心修正 3：化學性質劣化改用內部狀態累加
+        if override.get("water_intrusion", False):
+            self._current_water = min(200.0, self._current_water + 15.0)
+            self._current_dielectric = max(5.0, self._current_dielectric - 3.75)
+        elif tank_servers_power > 60.0 and max_gpu_temp > 78.0:
+            self._current_tan = min(0.3, self._current_tan + 0.01)
+
+        regeneration_state = "standby"
+        if self._current_tan > 0.15 or self._current_dielectric < 30.0:
+            regeneration_state = "active_full"
+            self._current_tan = max(0.02, self._current_tan - 0.008)
+            self._current_dielectric = min(50.0, self._current_dielectric + 1.5)
+            self._current_water = max(15.0, self._current_water - 5.0)
+        elif self._current_tan > 0.08 or self._current_dielectric < 40.0:
+            regeneration_state = "active_bypass"
+            self._current_tan = max(0.02, self._current_tan - 0.002)
+            self._current_dielectric = min(50.0, self._current_dielectric + 0.5)
+            self._current_water = max(15.0, self._current_water - 1.5)
+
+        # 5. 全面寫入遙測數據字典
+        data["type"] = "immersion_single"
+        data["delta_t"] = round(delta_t, 1)
+        data["outlet_temp"] = round(outlet_temp, 1)
+        data["max_gpu_temp"] = round(max_gpu_temp, 1)
+        data["hotspot_prob"] = round(hotspot_prob, 1)
+        data["should_throttle"] = should_throttle
+        data["condenser_inlet_temp"] = inlet_temp
+        data["condenser_flow_lpm"] = round(actual_pump_flow, 1)
+
+        data["filter_dp_psi"] = filter_data["current_dp_psi"]
+        data["filter_progress"] = filter_data["progress"]
+        data["filter_days_remaining"] = filter_data["days_remaining"]
+        data["filter_status"] = filter_data["status"]
+        data["trigger_filter_maintenance"] = filter_data["trigger_maintenance"]
+
+        data["dielectric_strength_kv"] = round(self._current_dielectric, 1)
+        data["tan_mg_koh_g"] = round(self._current_tan, 3)
+        data["water_content_ppm"] = round(self._current_water, 1)
+        data["regeneration_state"] = regeneration_state
+
+        chem_severity = "critical" if self._current_dielectric < 30.0 else "warning" if self._current_tan > 0.15 else "normal"
+        data["chem_severity"] = chem_severity
+        data["chem_description"] = (
+            f"CRITICAL: 介電強度危急 ({round(self._current_dielectric, 1)} kV)！有放電短路風險，線上脫水淨化旁路全載運轉中。"
+            if self._current_dielectric < 30.0 else
+            f"WARNING: 冷卻油總酸值超標 ({round(self._current_tan, 3)} mgKOH/g)，可能腐蝕金屬件，已啟動旁路脫酸系統。"
+            if self._current_tan > 0.15 else
+            "單相冷卻油電介性質優良，黏度與絕緣強度均處於正常範圍。"
+        )
+
+        if should_throttle:
+            data["power_capped"] = True
+            try:
+                data["power_kw"] = min(float(data.get("power_kw", 8.0)), 3.0)
+            except (ValueError, TypeError):
+                data["power_kw"] = 3.0
+
+        # 6. 自動工單連動
         if filter_data["trigger_maintenance"] and maintenance_service is not None:
             try:
                 existing_schedules = maintenance_service.list_schedules()
                 already_exists = any(
-                    s.get("target") == self.node_id and s.get("task_type") == "Filter Replacement (Single-Phase)"
+                    s.get("target") == self.node_id 
+                    and s.get("task_type") == "Filter Replacement (Single-Phase)"
+                    and s.get("status") != "COMPLETED"
                     for s in existing_schedules
                 )
                 if not already_exists:
@@ -258,88 +284,21 @@ class SinglePhaseEngine(ImmersionCoolingEngine):
                         assignee_role="L2 Autonomous Operator",
                         assignee_email="healer@datacenter.local",
                         notify_email=False,
-                        notes=f"⚠️ 單相自癒系統派單：濾芯壓差已升至 {filter_data['current_dp_psi']} PSI，預計殘餘壽命僅 {filter_data['days_remaining']} 天，自動排程明日進行單相冷卻油濾清器更換。"
+                        notes=f"⚠️ 閉環自癒系統自動派單：單相冷卻油過濾器壓差上升至 {filter_data['current_dp_psi']} PSI，預測壽命僅剩 {filter_data['days_remaining']} 天，已自動排程明天更換濾芯。",
+                        is_auto_generated=True
                     )
             except Exception as ex:
-                print(f"[SinglePhaseSelfHealing] Auto-ticket failed: {ex}")
-                
-        # 7. 化學性質劣化（介電強度與 TAN 氧化）
-        try:
-            dielectric_strength_kv = float(data.get("dielectric_strength_kv", 50.0))
-        except (ValueError, TypeError):
-            dielectric_strength_kv = 50.0
+                print(f"[ImmersionSelfHealing] Failed to auto-create maintenance schedule: {ex}")
 
-        try:
-            tan_mg_koh_g = float(data.get("tan_mg_koh_g", 0.02))
-        except (ValueError, TypeError):
-            tan_mg_koh_g = 0.02
-
-        try:
-            water_content_ppm = float(data.get("water_content_ppm", 15.0))
-        except (ValueError, TypeError):
-            water_content_ppm = 15.0
-        
-        if override.get("water_intrusion", False):
-            # 水氣混入，水分攀升，介電強度驟降
-            water_content_ppm = min(200.0, water_content_ppm + 15.0)
-            dielectric_strength_kv = max(5.0, dielectric_strength_kv - 3.75)
-        elif tank_servers_power > 60.0 and max_gpu_temp > 78.0:
-            # 高溫氧化導致總酸值微增
-            tan_mg_koh_g = min(0.3, tan_mg_koh_g + 0.01)
-            
-        # 線上再生脫水與酸吸附系統自癒反應 (當化學屬性超標，開啟自癒旁路)
-        regeneration_state = "standby"
-        if tan_mg_koh_g > 0.15 or dielectric_strength_kv < 30.0:
-            regeneration_state = "active_full"
-            tan_mg_koh_g = max(0.02, tan_mg_koh_g - 0.008)
-            dielectric_strength_kv = min(50.0, dielectric_strength_kv + 1.5)
-            water_content_ppm = max(15.0, water_content_ppm - 5.0)
-        elif tan_mg_koh_g > 0.08 or dielectric_strength_kv < 40.0:
-            regeneration_state = "active_bypass"
-            tan_mg_koh_g = max(0.02, tan_mg_koh_g - 0.002)
-            dielectric_strength_kv = min(50.0, dielectric_strength_kv + 0.5)
-            water_content_ppm = max(15.0, water_content_ppm - 1.5)
-            
-        data["dielectric_strength_kv"] = round(dielectric_strength_kv, 1)
-        data["tan_mg_koh_g"] = round(tan_mg_koh_g, 3)
-        data["water_content_ppm"] = round(water_content_ppm, 1)
-        data["viscosity_cst"] = round(viscosity, 2)
-        data["regeneration_state"] = regeneration_state
-        
-        # 8. 全面寫入遙測數據字典
-        data["type"] = "immersion_single"
-        data["delta_t"] = round(delta_t, 1)
-        data["outlet_temp"] = round(outlet_temp, 1)
-        data["max_gpu_temp"] = round(max_gpu_temp, 1)
-        data["hotspot_prob"] = round(hotspot_prob, 1)
-        data["should_throttle"] = should_throttle
-        data["condenser_inlet_temp"] = inlet_temp
-        data["condenser_flow_lpm"] = round(actual_pump_flow, 1)
-        
-        data["filter_dp_psi"] = filter_data["current_dp_psi"]
-        data["filter_progress"] = filter_data["progress"]
-        data["filter_days_remaining"] = filter_data["days_remaining"]
-        data["filter_status"] = filter_data["status"]
-        data["trigger_filter_maintenance"] = filter_data["trigger_maintenance"]
-        
-        data["chem_severity"] = "critical" if dielectric_strength_kv < 30.0 else "warning" if tan_mg_koh_g > 0.15 else "normal"
-        data["chem_description"] = (
-            f"CRITICAL: 介電強度危急 ({dielectric_strength_kv} kV)！有放電短路風險，線上脫水淨化旁路全載運轉中。"
-            if dielectric_strength_kv < 30.0 else
-            f"WARNING: 冷卻油總酸值超標 ({tan_mg_koh_g} mg KOH/g)，已啟動活性白土吸附旁路。"
-            if tan_mg_koh_g > 0.15 else
-            "單相冷卻油電介性質優良，黏度與絕緣強度均處於正常範圍。"
-        )
-        
-        # 自癒降頻保護 (介電強度極端低下或高溫熱飽和)
-        if should_throttle or dielectric_strength_kv < 25.0:
-            data["should_throttle"] = True
-            data["power_capped"] = True
-            try:
-                data["power_kw"] = min(float(data.get("power_kw", 8.0)), 3.0)
-            except (ValueError, TypeError):
-                data["power_kw"] = 3.0
-
+    def reset_consumables(self, task_type: str) -> None:
+        # 🟢 核心修正 4：結案時完美重置物理引擎內部變數
+        if "filter" in task_type.lower() or "濾" in task_type:
+            self._dp_history.clear()
+            self._current_dp = 2.2
+        if "fluid" in task_type.lower() or "oil" in task_type.lower() or "液" in task_type or "油" in task_type:
+            self._current_dielectric = 50.0
+            self._current_tan = 0.02
+            self._current_water = 15.0
 
 class TwoPhaseEngine(ImmersionCoolingEngine):
     """
@@ -350,6 +309,13 @@ class TwoPhaseEngine(ImmersionCoolingEngine):
         super().__init__(node_id)
         self._dp_history: List[Tuple[float, float]] = []
         self._level_history: List[Tuple[float, float]] = []
+        
+        # 🟢 核心修正 1：內部化物理與化學狀態，絕不依賴外部 data 的瞬間值
+        self._current_dp = 2.2
+        self._current_level = 480.0
+        self._current_cond = 0.08
+        self._current_ph = 7.2
+        self._current_water = 8.0
 
     def update_telemetry(
         self,
@@ -361,7 +327,6 @@ class TwoPhaseEngine(ImmersionCoolingEngine):
         now = time.time()
         
         pressure = float(data.get("pressure_kpa", 102.5))
-        level = float(data.get("fluid_level_mm", 480.0))
         
         # 1. 獲取基本負載功率
         tank_servers_power = 0.0
@@ -389,17 +354,17 @@ class TwoPhaseEngine(ImmersionCoolingEngine):
             pressure_kpa=pressure
         )
         
-        # 3. 液位與流失率 (Fugitive Evaporation) 斜率計算
+        # 🟢 核心修正 2：液位與流失率改用內部 _current_level 進行累加
         is_leak = override.get("seal_leak", False)
         if is_leak:
             level_drift = 0.08  # 漏液快速下降
         else:
             level_drift = 0.0005  # 微幅蒸發下降
             
-        simulated_level = max(10.0, level - level_drift)
-        data["fluid_level_mm"] = round(simulated_level, 2)
+        self._current_level = max(10.0, self._current_level - level_drift)
+        data["fluid_level_mm"] = round(self._current_level, 2)
         
-        self._level_history.append((now, simulated_level))
+        self._level_history.append((now, self._current_level))
         if len(self._level_history) > 300:
             self._level_history.pop(0)
             
@@ -411,52 +376,49 @@ class TwoPhaseEngine(ImmersionCoolingEngine):
             is_leak_override=is_leak
         )
         
-        # 4. 過濾器壓差 \Delta P 與壽命預估
-        dp = float(data.get("filter_dp_psi", 2.2))
-        dp_growth = 0.0002 if dp < 14.5 else 0.0
+        # 🟢 核心修正 3：過濾器壓差改用內部 _current_dp 進行累加
+        dp_growth = 0.0002 if self._current_dp < 14.5 else 0.0
         if override.get("clogged_filter", False):
             dp_growth = 2.1
             
-        simulated_dp = min(15.0, dp + dp_growth)
-        data["filter_dp_psi"] = round(simulated_dp, 2)
+        self._current_dp = min(15.0, self._current_dp + dp_growth)
+        data["filter_dp_psi"] = round(self._current_dp, 2)
         
-        self._dp_history.append((now, simulated_dp))
+        self._dp_history.append((now, self._current_dp))
         if len(self._dp_history) > 300:
             self._dp_history.pop(0)
             
         filter_data = predict_filter_lifecycle_static(self._dp_history)
         
-        # 5. 化學性質劣化與裂解
-        conductivity = float(data.get("conductivity_us_cm", 0.08))
-        ph_value = float(data.get("ph_value", 7.2))
-        water_content = float(data.get("water_content_ppm", 8.0))
-        
+        # 🟢 核心修正 4：化學性質改用內部狀態累加
         if is_leak or override.get("water_intrusion", False):
             # 水氣入侵，電導率飆升，pH 下降
-            conductivity = min(2.5, conductivity + 0.15)
-            ph_value = max(4.0, ph_value - 0.25)
-            water_content = min(200.0, water_content + 15.0)
+            self._current_cond = min(2.5, self._current_cond + 0.15)
+            self._current_ph = max(4.0, self._current_ph - 0.25)
+            self._current_water = min(200.0, self._current_water + 15.0)
         elif tank_servers_power > 60.0 and max_gpu_temp > 78.0:
             # 高溫熱裂解產生 HF (氫氟酸)
-            conductivity = min(1.8, conductivity + 0.005)
-            ph_value = max(4.8, ph_value - 0.01)
-            water_content = min(40.0, water_content + 0.2)
+            self._current_cond = min(1.8, self._current_cond + 0.005)
+            self._current_ph = max(4.8, self._current_ph - 0.01)
+            self._current_water = min(40.0, self._current_water + 0.2)
             
         purification = "standby"
-        if ph_value < 5.5 or conductivity > 1.2:
+        if self._current_ph < 5.5 or self._current_cond > 1.2:
             purification = "active_full"
-            conductivity = max(0.1, conductivity - 0.02)
-            ph_value = min(7.0, ph_value + 0.04)
-        elif ph_value < 6.5 or conductivity > 0.6:
+            self._current_cond = max(0.08, self._current_cond - 0.02)
+            self._current_ph = min(7.2, self._current_ph + 0.04)
+            self._current_water = max(8.0, self._current_water - 5.0) # 加速除水
+        elif self._current_ph < 6.5 or self._current_cond > 0.6:
             purification = "active_bypass"
-            conductivity = max(0.1, conductivity - 0.005)
-            ph_value = min(7.0, ph_value + 0.01)
+            self._current_cond = max(0.08, self._current_cond - 0.005)
+            self._current_ph = min(7.2, self._current_ph + 0.01)
+            self._current_water = max(8.0, self._current_water - 1.5)
             
-        data["conductivity_us_cm"] = round(conductivity, 3)
-        data["ph_value"] = round(ph_value, 2)
-        data["water_content_ppm"] = round(water_content, 1)
+        data["conductivity_us_cm"] = round(self._current_cond, 3)
+        data["ph_value"] = round(self._current_ph, 2)
+        data["water_content_ppm"] = round(self._current_water, 1)
         
-        chem_data = self._check_chemical_degradation(conductivity, ph_value, water_content)
+        chem_data = self._check_chemical_degradation(self._current_cond, self._current_ph, self._current_water)
         
         # 6. 全面寫入遙測數據字典
         data["type"] = "immersion_dual"
@@ -493,7 +455,9 @@ class TwoPhaseEngine(ImmersionCoolingEngine):
             try:
                 existing_schedules = maintenance_service.list_schedules()
                 already_exists = any(
-                    s.get("target") == self.node_id and s.get("task_type") == "Filter Replacement"
+                    s.get("target") == self.node_id 
+                    and s.get("task_type") == "Filter Replacement"
+                    and s.get("status") != "COMPLETED"
                     for s in existing_schedules
                 )
                 if not already_exists:
@@ -507,7 +471,8 @@ class TwoPhaseEngine(ImmersionCoolingEngine):
                         assignee_role="L2 Autonomous Operator",
                         assignee_email="healer@datacenter.local",
                         notify_email=False,
-                        notes=f"⚠️ 閉環自癒系統自動派單：槽體壓差上升至 {filter_data['current_dp_psi']} PSI，預測壽命僅剩 {filter_data['days_remaining']} 天，已自動排程明天更換濾芯。"
+                        notes=f"⚠️ 閉環自癒系統自動派單：槽體壓差上升至 {filter_data['current_dp_psi']} PSI，預測壽命僅剩 {filter_data['days_remaining']} 天，已自動排程明天更換濾芯。",
+                        is_auto_generated=True
                     )
             except Exception as ex:
                 print(f"[ImmersionSelfHealing] Failed to auto-create maintenance schedule: {ex}")
@@ -596,6 +561,18 @@ class TwoPhaseEngine(ImmersionCoolingEngine):
             )
         }
 
+    def reset_consumables(self, task_type: str) -> None:
+        # 🟢 核心修正 5：結案時，清空歷史的同時，一併重置實例內部的物理狀態
+        if "filter" in task_type.lower() or "濾" in task_type:
+            self._dp_history.clear()
+            self._current_dp = 2.2
+            
+        if "fluid" in task_type.lower() or "leak" in task_type.lower() or "液" in task_type:
+            self._level_history.clear()
+            self._current_level = 480.0
+            self._current_cond = 0.08
+            self._current_ph = 7.2
+            self._current_water = 8.0
 
 class ImmersionCoolingService:
     """
@@ -607,9 +584,26 @@ class ImmersionCoolingService:
         # 儲存每個槽體（單相或雙相）專屬的狀態引擎
         self._engines: Dict[str, ImmersionCoolingEngine] = {}
         
+        # 儲存槽體識別 ID 與其對應單/雙相型態的動態映射
+        self._tank_types: Dict[str, str] = {}
+        
         # 模擬調控滑桿覆寫，用於展場觀眾模擬調參
         # 結構: { tank_id: { 'gpu_load_kw': X, 'condenser_flow_lpm': Y, 'seal_leak': bool } }
         self.simulator_overrides: Dict[str, Dict[str, Any]] = {}
+
+    def register_tank_type(self, tank_id: str, tank_type: str) -> None:
+        """
+        註冊/記錄槽體 ID 與類型的映射關係
+        """
+        with self._lock:
+            self._tank_types[tank_id] = tank_type
+
+    def get_tank_type(self, tank_id: str) -> Optional[str]:
+        """
+        取得槽體類型
+        """
+        with self._lock:
+            return self._tank_types.get(tank_id)
 
     def set_simulator_override(self, tank_id: str, overrides: Dict[str, Any]) -> None:
         """
@@ -637,12 +631,14 @@ class ImmersionCoolingService:
         """
         攔截浸沒式槽體的 telemetry，並使用對應的物理引擎進行解耦計算。
         """
-        if not ("IMM" in node_id or data.get("type") in ["immersion_single", "immersion_dual"] or "TP" in node_id):
+        node_upper = node_id.upper()
+        tank_type = self._tank_types.get(node_id) or data.get("type")
+        if not ("IMM" in node_upper or "TP" in node_upper or "TANK" in node_upper or tank_type in ["immersion_single", "immersion_dual"]):
             return
 
         with self._lock:
             # 判斷是否為單相冷卻系統
-            is_single = "single" in node_id.lower() or "1p" in node_id.lower() or data.get("type") == "immersion_single"
+            is_single = "single" in node_id.lower() or "1p" in node_id.lower() or tank_type == "immersion_single"
             
             # 1. 建立/獲取解耦引擎 (Factory Pattern)
             if node_id not in self._engines:
@@ -656,3 +652,54 @@ class ImmersionCoolingService:
             
             # 3. 委託引擎計算 (Strategy Pattern)
             self._engines[node_id].update_telemetry(data, latest_metrics, override, maintenance_service)
+
+    def reset_consumables(self, tank_id: str, task_type: str, telemetry_service: Any = None) -> None:
+        """
+        當維護工單被完成時，重置單相/雙相浸沒式冷卻系統的相關耗材壽命與流體化學數值。
+        同時清除該槽體對應的模擬器故障覆寫。
+        """
+        clean_id = re.sub(r"\s+", "", (tank_id or "").strip().upper().replace("_", "-"))
+        with self._lock:
+            # 清除模擬器故障覆寫
+            if clean_id in self.simulator_overrides:
+                self.simulator_overrides[clean_id]["clogged_filter"] = False
+                self.simulator_overrides[clean_id]["water_intrusion"] = False
+                self.simulator_overrides[clean_id]["seal_leak"] = False
+
+            # 找到對應引擎進行內部歷史重置
+            engine = self._engines.get(clean_id)
+            if engine:
+                engine.reset_consumables(task_type)
+
+            # 同步更新 telemetry 快取中的數值，防止時序資料庫/快取殘留舊的異常值
+            if telemetry_service and clean_id in telemetry_service.latest_metrics:
+                payload = telemetry_service.latest_metrics[clean_id]
+
+                # 不論是單相或雙相，如果有更換濾清器，重置壓差
+                if "filter" in task_type.lower() or "濾" in task_type:
+                    payload["filter_dp_psi"] = 2.2
+                    payload["filter_progress"] = 100.0
+                    payload["filter_days_remaining"] = 90.0
+                    payload["filter_status"] = "normal"
+                    payload["trigger_filter_maintenance"] = False
+
+                # 針對流體老化或水氣入侵維護，重置化學品質與液位
+                if "fluid" in task_type.lower() or "oil" in task_type.lower() or "油" in task_type or "液" in task_type:
+                    tank_type = self._tank_types.get(clean_id) or payload.get("type")
+                    is_single = "single" in clean_id.lower() or "1p" in clean_id.lower() or tank_type == "immersion_single"
+                    if is_single:
+                        payload["dielectric_strength_kv"] = 50.0
+                        payload["tan_mg_koh_g"] = 0.02
+                        payload["water_content_ppm"] = 15.0
+                        payload["viscosity_cst"] = 10.0
+                        payload["regeneration_state"] = "standby"
+                        payload["chem_severity"] = "normal"
+                        payload["chem_description"] = "單相冷卻油電介性質優良，黏度與絕緣強度均處於正常範圍。"
+                    else:
+                        payload["fluid_level_mm"] = 480.0
+                        payload["conductivity_us_cm"] = 0.08
+                        payload["ph_value"] = 7.2
+                        payload["water_content_ppm"] = 8.0
+                        payload["purification_state"] = "standby"
+                        payload["chem_severity"] = "normal"
+                        payload["chem_description"] = "流體化學性質優良。雙相氟化液電導率與酸鹼值均處於安全標準區間。"

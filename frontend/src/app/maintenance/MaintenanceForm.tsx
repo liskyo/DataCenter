@@ -143,6 +143,12 @@ export function MaintenanceForm({
       </div>
 
       <form className="space-y-4" onSubmit={onSubmit}>
+        {form.is_auto_generated && (
+          <div className="rounded-lg border border-purple-900/60 bg-purple-950/20 px-4 py-3 text-xs text-purple-300">
+            ℹ️ 此為 AI 預測防護自動派單。基於安全保護，設備名稱與保養項目等核心欄位已被鎖定。
+          </div>
+        )}
+
         {/* ── 維護對象 (設備類別下拉) ── */}
         <label className="block">
           <span className={labelClass}>{t.targetCategory}</span>
@@ -150,6 +156,7 @@ export function MaintenanceForm({
             value={form.targetCategory}
             onChange={(e) => handleCategoryChange(e.target.value)}
             className={selectClass}
+            disabled={Boolean(editingScheduleId && form.is_auto_generated)}
             required
           >
             <option value="" disabled>{t.selectCategory}</option>
@@ -168,6 +175,7 @@ export function MaintenanceForm({
             value={form.target}
             onChange={(e) => onFormChange((prev) => ({ ...prev, target: e.target.value }))}
             className={selectClass}
+            disabled={Boolean(editingScheduleId && form.is_auto_generated)}
             required
           >
             <option value="" disabled>{lang === "en" ? "-- Select equipment --" : "-- 選擇設備 --"}</option>
@@ -187,6 +195,7 @@ export function MaintenanceForm({
             value={form.taskType}
             onChange={(e) => handleTaskChange(e.target.value)}
             className={selectClass}
+            disabled={Boolean(editingScheduleId && form.is_auto_generated)}
             required
           >
             <option value="" disabled>{t.selectTask}</option>

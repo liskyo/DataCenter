@@ -526,6 +526,7 @@ class MaintenanceStorageService:
         assignee_email: str,
         notify_email: bool,
         notes: str,
+        is_auto_generated: bool = False,
     ) -> dict:
         if self.maintenance_collection is None:
             raise RuntimeError("Maintenance collection unavailable")
@@ -554,6 +555,7 @@ class MaintenanceStorageService:
             "reminder_last_attempt_at": 0,
             "reminder_error": "",
             "notes": notes,
+            "is_auto_generated": is_auto_generated,
             "created_at": int(time.time() * 1000),
             "updated_at": int(time.time() * 1000),
         }
@@ -574,6 +576,7 @@ class MaintenanceStorageService:
         assignee_email: str,
         notify_email: bool,
         notes: str,
+        is_auto_generated: bool = False,
     ) -> Optional[dict]:
         if self.maintenance_collection is None:
             raise RuntimeError("Maintenance collection unavailable")
@@ -609,6 +612,7 @@ class MaintenanceStorageService:
             "notify_email": notify_email,
             "reminder_email": reminder_email,
             "notes": notes,
+            "is_auto_generated": is_auto_generated,
             "updated_at": int(time.time() * 1000),
         }
 
@@ -641,6 +645,19 @@ class MaintenanceStorageService:
             raise RuntimeError("Maintenance collection unavailable")
         result = self.maintenance_collection.delete_one({"id": schedule_id})
         return result.deleted_count > 0
+
+    def complete_schedule(self, schedule_id: str) -> Optional[dict]:
+        if self.maintenance_collection is None:
+            raise RuntimeError("Maintenance collection unavailable")
+        existing = self.maintenance_collection.find_one({"id": schedule_id}, {"_id": 0})
+        if existing is None:
+            return None
+        now_ms = int(time.time() * 1000)
+        self.maintenance_collection.update_one(
+            {"id": schedule_id},
+            {"$set": {"status": "COMPLETED", "updated_at": now_ms}}
+        )
+        return self.maintenance_collection.find_one({"id": schedule_id}, {"_id": 0})
 
     def mark_email_sent(self, schedule: dict) -> None:
         if self.maintenance_collection is None:

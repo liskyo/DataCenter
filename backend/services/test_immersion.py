@@ -105,7 +105,7 @@ class TestImmersionCoolingService(unittest.TestCase):
         # 使用 patch 模擬時間天數級前進，使得壓差回歸分析斜率非 0！
         from unittest.mock import patch
         start_time = time.time()
-        with patch('time.time') as mock_time:
+        with patch("services.immersion_service.time.time") as mock_time:
             for i in range(6):
                 mock_time.return_value = start_time + i * 86400 # 每次前進 1 天
                 self.service.process_immersion_telemetry(self.tank_id, self.base_data, [], mock_maintenance)
@@ -120,6 +120,34 @@ class TestImmersionCoolingService(unittest.TestCase):
         self.assertEqual(kwargs["target"], self.tank_id)
         self.assertEqual(kwargs["task_type"], "Filter Replacement")
         self.assertIn("已自動排程", kwargs["notes"])
+
+    def test_reset_consumables(self) -> None:
+        """測試維護工單結案後，耗材重置與自癒邏輯應能將壓差與化學參數恢復為正常出廠狀態"""
+        self.base_data["filter_dp_psi"] = 15.0
+        self.base_data["conductivity_us_cm"] = 2.0
+        self.base_data["ph_value"] = 4.5
+        self.base_data["fluid_level_mm"] = 400.0
+        
+        mock_telemetry = MagicMock()
+        mock_telemetry.latest_metrics = {self.tank_id: self.base_data}
+        
+        self.service.set_simulator_override(self.tank_id, {"clogged_filter": True, "water_intrusion": True})
+        
+        self.service.reset_consumables(self.tank_id, "Filter Replacement", mock_telemetry)
+        
+        overrides = self.service.get_simulator_override(self.tank_id)
+        self.assertFalse(overrides.get("clogged_filter"))
+        
+        self.assertEqual(self.base_data["filter_dp_psi"], 2.2)
+        self.assertEqual(self.base_data["filter_status"], "normal")
+        self.assertFalse(self.base_data["trigger_filter_maintenance"])
+        
+        self.service.reset_consumables(self.tank_id, "Fluid Maintenance", mock_telemetry)
+        
+        self.assertEqual(self.base_data["fluid_level_mm"], 480.0)
+        self.assertEqual(self.base_data["conductivity_us_cm"], 0.08)
+        self.assertEqual(self.base_data["ph_value"], 7.2)
+        self.assertEqual(self.base_data["chem_severity"], "normal")
 
 
 if __name__ == "__main__":

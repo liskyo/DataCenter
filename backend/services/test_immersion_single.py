@@ -128,7 +128,7 @@ class TestSinglePhaseImmersionService(unittest.TestCase):
         start_time = time.time()
         
         # 時序推進並累積遙測數據，使壓差回歸斜率預測出需要維護
-        with patch("time.time") as mock_time:
+        with patch("services.immersion_service.time.time") as mock_time:
             for i in range(10):
                 mock_time.return_value = start_time + i * 86400  # 推進天數
                 self.service.process_immersion_telemetry(self.node_id, data, self.latest_metrics, mock_maintenance)
@@ -139,6 +139,30 @@ class TestSinglePhaseImmersionService(unittest.TestCase):
         self.assertEqual(kwargs["target"], self.node_id)
         self.assertEqual(kwargs["task_type"], "Filter Replacement (Single-Phase)")
         self.assertTrue("單相冷卻油" in kwargs["notes"])
+
+    def test_single_phase_reset_consumables(self) -> None:
+        """驗證維護工單結案後，單相浸沒式冷卻系統的壓差與油品指標能自癒重置為新出廠狀態"""
+        self.base_data["filter_dp_psi"] = 15.0
+        self.base_data["dielectric_strength_kv"] = 18.0
+        self.base_data["tan_mg_koh_g"] = 0.35
+        self.base_data["water_content_ppm"] = 80.0
+        
+        mock_telemetry = MagicMock()
+        mock_telemetry.latest_metrics = {self.node_id: self.base_data}
+        
+        self.service.set_simulator_override(self.node_id, {"clogged_filter": True, "water_intrusion": True})
+        
+        self.service.reset_consumables(self.node_id, "Filter Replacement (Single-Phase)", mock_telemetry)
+        overrides = self.service.get_simulator_override(self.node_id)
+        self.assertFalse(overrides.get("clogged_filter"))
+        self.assertEqual(self.base_data["filter_dp_psi"], 2.2)
+        
+        self.service.reset_consumables(self.node_id, "Fluid Maintenance", mock_telemetry)
+        overrides = self.service.get_simulator_override(self.node_id)
+        self.assertFalse(overrides.get("water_intrusion"))
+        self.assertEqual(self.base_data["dielectric_strength_kv"], 50.0)
+        self.assertEqual(self.base_data["tan_mg_koh_g"], 0.02)
+        self.assertEqual(self.base_data["water_content_ppm"], 15.0)
 
 
 if __name__ == "__main__":

@@ -14,6 +14,7 @@ router = APIRouter(prefix="/api/immersion", tags=["Immersion Cooling"])
 
 class SimulatePayload(BaseModel):
     tank_id: str
+    tank_type: Optional[str] = None
     gpu_load_kw: Optional[float] = None
     condenser_flow_lpm: Optional[float] = None
     seal_leak: Optional[bool] = None
@@ -22,13 +23,19 @@ class SimulatePayload(BaseModel):
 
 
 @router.get("/status")
-async def get_immersion_status(request: Request, tank_id: str = Query(..., description="The unique ID of the immersion tank")):
+async def get_immersion_status(
+    request: Request,
+    tank_id: str = Query(..., description="The unique ID of the immersion tank"),
+    tank_type: Optional[str] = Query(None, description="Type of the tank: immersion_single or immersion_dual")
+):
     """
     獲取單個浸沒式槽體 (單相或雙相) 的實時深度遙測、物理與化學狀態
     """
     container = request.app.state.container
     latest_metrics = container.telemetry.list_latest()
-    
+    if tank_type:
+        container.immersion_service.register_tank_type(tank_id, tank_type)
+
     # 尋找對應的槽體遙測
     tank_data = None
     for m in latest_metrics:
@@ -40,7 +47,8 @@ async def get_immersion_status(request: Request, tank_id: str = Query(..., descr
     if not tank_data:
         tank_data = container.telemetry.latest_metrics.get(tank_id)
         
-    is_single = "single" in tank_id.lower() or "1p" in tank_id.lower() or (tank_data and tank_data.get("type") == "immersion_single")
+    resolved_type = tank_type or (tank_data and tank_data.get("type")) or container.immersion_service.get_tank_type(tank_id)
+    is_single = "single" in tank_id.lower() or "1p" in tank_id.lower() or resolved_type == "immersion_single"
     
     if not tank_data:
         # 提供初始備用數據，避免 API 崩潰
@@ -172,6 +180,8 @@ async def simulate_immersion_state(request: Request, payload: SimulatePayload):
     接收觀眾/使用者在模擬面板中的手動控制調控指令，覆寫物理與化學參數
     """
     container = request.app.state.container
+    if payload.tank_type:
+        container.immersion_service.register_tank_type(payload.tank_id, payload.tank_type)
     overrides = {}
     
     if payload.gpu_load_kw is not None:

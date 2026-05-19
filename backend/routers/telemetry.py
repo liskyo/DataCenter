@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, BackgroundTasks
 from fastapi.responses import StreamingResponse
 
 from core.auth_middleware import get_current_user
@@ -14,12 +14,25 @@ def _container(request: Request) -> AppContainer:
 
 
 @router.post("/ingest")
-async def ingest_telemetry(payload: dict, request: Request):
+async def ingest_telemetry(
+    payload: dict,
+    request: Request,
+    background_tasks: BackgroundTasks,
+) -> dict[str, str]:
     container = _container(request)
-    if container.kafka.emit(payload):
-        return {"status": "event queued"}
-    container.process_message(payload)
-    return {"status": "processed_local_fallback", "message": "Kafka unavailable, processed locally"}
+
+    def process_in_background() -> None:
+        try:
+            if not container.kafka.emit(payload):
+                container.process_message(payload)
+        except Exception as e:
+            try:
+                print(f"[IngestError] Failed to process telemetry in background: {e}")
+            except Exception:
+                pass
+
+    background_tasks.add_task(process_in_background)
+    return {"status": "event queued"}
 
 
 @router.get("/stream")

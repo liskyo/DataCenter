@@ -32,6 +32,9 @@ class MaintenanceRepository:
     def delete_schedule(self, schedule_id: str) -> bool:
         return self.storage.delete_schedule(schedule_id)
 
+    def complete_schedule(self, schedule_id: str) -> dict | None:
+        return self.storage.complete_schedule(schedule_id)
+
     def mark_email_sent(self, schedule: dict) -> None:
         self.storage.mark_email_sent(schedule)
 
@@ -68,6 +71,7 @@ class MaintenanceService:
         assignee_email: str,
         notify_email: bool,
         notes: str,
+        is_auto_generated: bool = False,
     ) -> dict:
         return self.repository.create_schedule(
             target=target,
@@ -80,6 +84,7 @@ class MaintenanceService:
             assignee_email=assignee_email,
             notify_email=notify_email,
             notes=notes,
+            is_auto_generated=is_auto_generated,
         )
 
     def update_schedule(
@@ -96,6 +101,7 @@ class MaintenanceService:
         assignee_email: str,
         notify_email: bool,
         notes: str,
+        is_auto_generated: bool = False,
     ) -> dict | None:
         return self.repository.update_schedule(
             schedule_id,
@@ -109,10 +115,14 @@ class MaintenanceService:
             assignee_email=assignee_email,
             notify_email=notify_email,
             notes=notes,
+            is_auto_generated=is_auto_generated,
         )
 
     def delete_schedule(self, schedule_id: str) -> bool:
         return self.repository.delete_schedule(schedule_id)
+
+    def complete_schedule(self, schedule_id: str) -> dict | None:
+        return self.repository.complete_schedule(schedule_id)
 
     def send_test_email(
         self,

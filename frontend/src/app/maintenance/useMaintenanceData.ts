@@ -39,6 +39,7 @@ const EMPTY_FORM: MaintenanceFormState = {
   assigneeUsername: "",
   notifyEmail: true,
   notes: "",
+  is_auto_generated: false,
 };
 
 export function useMaintenanceData(t: MaintenanceCopy) {
@@ -49,6 +50,7 @@ export function useMaintenanceData(t: MaintenanceCopy) {
   const [testingEmail, setTestingEmail] = useState(false);
   const [deletingScheduleId, setDeletingScheduleId] = useState<string | null>(null);
   const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
+  const [completingScheduleId, setCompletingScheduleId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [emailTestMessage, setEmailTestMessage] = useState("");
   const [form, setForm] = useState<MaintenanceFormState>(EMPTY_FORM);
@@ -131,6 +133,7 @@ export function useMaintenanceData(t: MaintenanceCopy) {
       assigneeUsername: task.assignee_username,
       notifyEmail: task.notify_email,
       notes: userNotes,
+      is_auto_generated: task.is_auto_generated || false,
     });
   }, []);
 
@@ -206,6 +209,7 @@ export function useMaintenanceData(t: MaintenanceCopy) {
             assignee_username: form.assigneeUsername,
             notify_email: form.notifyEmail,
             notes: notesPayload,
+            is_auto_generated: form.is_auto_generated || false,
           }),
         }
       );
@@ -270,6 +274,36 @@ export function useMaintenanceData(t: MaintenanceCopy) {
     [editingScheduleId, resetForm, t.deleteConfirm]
   );
 
+  const handleComplete = useCallback(
+    async (scheduleId: string) => {
+      if (!window.confirm("確定要將此維護項目結案，並啟動設備耗材閉環自癒嗎？")) return;
+
+      setCompletingScheduleId(scheduleId);
+      setError("");
+      setEmailTestMessage("");
+
+      try {
+        const res = await authFetch(apiUrl(`/api/maintenance/schedules/${scheduleId}/complete`), {
+          method: "POST",
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(json?.detail || "Failed to complete schedule");
+        }
+
+        const nextSchedule = json.data as MaintenanceSchedule;
+        setSchedules((prev) =>
+          prev.map((task) => (task.id === scheduleId ? nextSchedule : task))
+        );
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to complete schedule");
+      } finally {
+        setCompletingScheduleId(null);
+      }
+    },
+    []
+  );
+
   return {
     schedules,
     users,
@@ -278,6 +312,7 @@ export function useMaintenanceData(t: MaintenanceCopy) {
     testingEmail,
     deletingScheduleId,
     editingScheduleId,
+    completingScheduleId,
     error,
     emailTestMessage,
     form,
@@ -288,5 +323,6 @@ export function useMaintenanceData(t: MaintenanceCopy) {
     handleTestEmail,
     handleSubmit,
     handleDelete,
+    handleComplete,
   };
 }
