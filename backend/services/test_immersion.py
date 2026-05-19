@@ -8,7 +8,7 @@ from __future__ import annotations
 import unittest
 import time
 from unittest.mock import MagicMock
-from services.immersion_service import ImmersionCoolingService
+from services.immersion_service import ImmersionCoolingService, TwoPhaseEngine
 
 
 class TestImmersionCoolingService(unittest.TestCase):
@@ -34,7 +34,9 @@ class TestImmersionCoolingService(unittest.TestCase):
         gpu_temp = 55.0
         pressure = 101.3
         
-        void_fraction, regime, should_throttle = self.service._calculate_void_fraction(
+        # 直接測試 TwoPhaseEngine 實例方法
+        engine = TwoPhaseEngine(self.tank_id)
+        void_fraction, regime, should_throttle = engine._calculate_void_fraction(
             gpu_power, gpu_temp, pressure
         )
         
@@ -49,7 +51,9 @@ class TestImmersionCoolingService(unittest.TestCase):
         gpu_temp = 85.0
         pressure = 101.3
         
-        void_fraction, regime, should_throttle = self.service._calculate_void_fraction(
+        # 直接測試 TwoPhaseEngine 實例方法
+        engine = TwoPhaseEngine(self.tank_id)
+        void_fraction, regime, should_throttle = engine._calculate_void_fraction(
             gpu_power, gpu_temp, pressure
         )
         

@@ -24,7 +24,7 @@ class SimulatePayload(BaseModel):
 @router.get("/status")
 async def get_immersion_status(request: Request, tank_id: str = Query(..., description="The unique ID of the immersion tank")):
     """
-    獲取單個雙相浸沒式槽體的實時深度遙測、物理與化學狀態
+    獲取單個浸沒式槽體 (單相或雙相) 的實時深度遙測、物理與化學狀態
     """
     container = request.app.state.container
     latest_metrics = container.telemetry.list_latest()
@@ -40,59 +40,130 @@ async def get_immersion_status(request: Request, tank_id: str = Query(..., descr
     if not tank_data:
         tank_data = container.telemetry.latest_metrics.get(tank_id)
         
+    is_single = "single" in tank_id.lower() or "1p" in tank_id.lower() or (tank_data and tank_data.get("type") == "immersion_single")
+    
     if not tank_data:
         # 提供初始備用數據，避免 API 崩潰
-        return {
-            "tank_id": tank_id,
-            "void_fraction": 12.5,
-            "boiling_regime": "nucleate",
-            "should_throttle": False,
-            "purification_state": "standby",
-            "theoretical_loss_rate_ml_hr": 0.2,
-            "observed_loss_rate_ml_hr": 0.1,
-            "fused_loss_rate_ml_hr": 0.15,
-            "leak_severity": "normal",
-            "filter_dp_psi": 2.2,
-            "filter_progress": 92.0,
-            "filter_days_remaining": 88.0,
-            "filter_status": "normal",
-            "conductivity_us_cm": 0.08,
-            "ph_value": 7.2,
-            "water_content_ppm": 8.0,
-            "hf_corrosion_risk": "low",
-            "water_warning": False,
-            "chem_severity": "normal",
-            "chem_description": "流體化學性質優良。雙相氟化液電導率與酸鹼值均處於安全標準區間。"
-        }
-        
+        if is_single:
+            return {
+                "tank_id": tank_id,
+                "type": "immersion_single",
+                "dielectric_strength_kv": 50.0,
+                "tan_mg_koh_g": 0.02,
+                "water_content_ppm": 15.0,
+                "viscosity_cst": 10.0,
+                "regeneration_state": "standby",
+                "delta_t": 15.0,
+                "outlet_temp": 50.0,
+                "max_gpu_temp": 55.0,
+                "hotspot_prob": 15.0,
+                "should_throttle": False,
+                "filter_dp_psi": 2.2,
+                "filter_progress": 92.0,
+                "filter_days_remaining": 88.0,
+                "filter_status": "normal",
+                "trigger_filter_maintenance": False,
+                "chem_severity": "normal",
+                "chem_description": "單相冷卻油電介性質優良，黏度與絕緣強度均處於正常範圍。",
+                "condenser_inlet_temp": 35.0,
+                "condenser_flow_lpm": 15.0,
+                "fluid_health": {
+                    "type": "SINGLE_PHASE",
+                    "tan_mg_koh": 0.02,
+                    "dielectric_kv": 50.0,
+                    "water_content_ppm": 15.0,
+                    "viscosity_cst": 10.0
+                }
+            }
+        else:
+            return {
+                "tank_id": tank_id,
+                "type": "immersion_dual",
+                "void_fraction": 12.5,
+                "boiling_regime": "nucleate",
+                "should_throttle": False,
+                "purification_state": "standby",
+                "theoretical_loss_rate_ml_hr": 0.2,
+                "observed_loss_rate_ml_hr": 0.1,
+                "fused_loss_rate_ml_hr": 0.15,
+                "leak_severity": "normal",
+                "filter_dp_psi": 2.2,
+                "filter_progress": 92.0,
+                "filter_days_remaining": 88.0,
+                "filter_status": "normal",
+                "trigger_filter_maintenance": False,
+                "conductivity_us_cm": 0.08,
+                "ph_value": 7.2,
+                "water_content_ppm": 8.0,
+                "hf_corrosion_risk": "low",
+                "water_warning": False,
+                "chem_severity": "normal",
+                "chem_description": "流體化學性質優良。雙相氟化液電導率與酸鹼值均處於安全標準區間。",
+                "fluid_health": {
+                    "type": "TWO_PHASE",
+                    "ph_value": 7.2,
+                    "conductivity_us_cm": 0.08,
+                    "water_content_ppm": 8.0
+                }
+            }
+            
     # 直接回傳包含深度推算欄位的資料字典
-    return {
+    res = {
         "tank_id": tank_id,
-        "void_fraction": tank_data.get("void_fraction", 12.5),
-        "boiling_regime": tank_data.get("boiling_regime", "nucleate"),
+        "type": tank_data.get("type", "immersion_single" if is_single else "immersion_dual"),
         "should_throttle": tank_data.get("should_throttle", False),
-        "purification_state": tank_data.get("purification_state", "standby"),
-        
-        "theoretical_loss_rate_ml_hr": tank_data.get("theoretical_loss_rate_ml_hr", 0.2),
-        "observed_loss_rate_ml_hr": tank_data.get("observed_loss_rate_ml_hr", 0.1),
-        "fused_loss_rate_ml_hr": tank_data.get("fused_loss_rate_ml_hr", 0.15),
-        "leak_severity": tank_data.get("leak_severity", "normal"),
-        
         "filter_dp_psi": tank_data.get("filter_dp_psi", 2.2),
         "filter_progress": tank_data.get("filter_progress", 92.0),
         "filter_days_remaining": tank_data.get("filter_days_remaining", 88.0),
         "filter_status": tank_data.get("filter_status", "normal"),
         "trigger_filter_maintenance": tank_data.get("trigger_filter_maintenance", False),
-        
-        "conductivity_us_cm": tank_data.get("conductivity_us_cm", 0.08),
-        "ph_value": tank_data.get("ph_value", 7.2),
-        "water_content_ppm": tank_data.get("water_content_ppm", 8.0),
-        
-        "hf_corrosion_risk": tank_data.get("hf_corrosion_risk", "low"),
-        "water_warning": tank_data.get("water_warning", False),
+        "water_content_ppm": tank_data.get("water_content_ppm", 15.0 if is_single else 8.0),
         "chem_severity": tank_data.get("chem_severity", "normal"),
-        "chem_description": tank_data.get("chem_description", "流體化學性質優良。雙相氟化液電導率與酸鹼值均處於安全標準區間。")
+        "chem_description": tank_data.get("chem_description", "單相冷卻油電介性質優良，黏度與絕緣強度均處於正常範圍。" if is_single else "流體化學性質優良。雙相氟化液電導率與酸鹼值均處於安全標準區間。")
     }
+    
+    if is_single:
+        res.update({
+            "dielectric_strength_kv": tank_data.get("dielectric_strength_kv", 50.0),
+            "tan_mg_koh_g": tank_data.get("tan_mg_koh_g", 0.02),
+            "viscosity_cst": tank_data.get("viscosity_cst", 10.0),
+            "regeneration_state": tank_data.get("regeneration_state", "standby"),
+            "delta_t": tank_data.get("delta_t", 15.0),
+            "outlet_temp": tank_data.get("outlet_temp", 50.0),
+            "max_gpu_temp": tank_data.get("max_gpu_temp", 55.0),
+            "hotspot_prob": tank_data.get("hotspot_prob", 15.0),
+            "condenser_inlet_temp": tank_data.get("condenser_inlet_temp", 35.0),
+            "condenser_flow_lpm": tank_data.get("condenser_flow_lpm", 15.0),
+            "fluid_health": {
+                "type": "SINGLE_PHASE",
+                "tan_mg_koh": tank_data.get("tan_mg_koh_g", 0.02),
+                "dielectric_kv": tank_data.get("dielectric_strength_kv", 50.0),
+                "water_content_ppm": tank_data.get("water_content_ppm", 15.0),
+                "viscosity_cst": tank_data.get("viscosity_cst", 10.0)
+            }
+        })
+    else:
+        res.update({
+            "void_fraction": tank_data.get("void_fraction", 12.5),
+            "boiling_regime": tank_data.get("boiling_regime", "nucleate"),
+            "purification_state": tank_data.get("purification_state", "standby"),
+            "theoretical_loss_rate_ml_hr": tank_data.get("theoretical_loss_rate_ml_hr", 0.2),
+            "observed_loss_rate_ml_hr": tank_data.get("observed_loss_rate_ml_hr", 0.1),
+            "fused_loss_rate_ml_hr": tank_data.get("fused_loss_rate_ml_hr", 0.15),
+            "leak_severity": tank_data.get("leak_severity", "normal"),
+            "conductivity_us_cm": tank_data.get("conductivity_us_cm", 0.08),
+            "ph_value": tank_data.get("ph_value", 7.2),
+            "hf_corrosion_risk": tank_data.get("hf_corrosion_risk", "low"),
+            "water_warning": tank_data.get("water_warning", False),
+            "fluid_health": {
+                "type": "TWO_PHASE",
+                "ph_value": tank_data.get("ph_value", 7.2),
+                "conductivity_us_cm": tank_data.get("conductivity_us_cm", 0.08),
+                "water_content_ppm": tank_data.get("water_content_ppm", 8.0)
+            }
+        })
+        
+    return res
 
 
 @router.post("/simulate")

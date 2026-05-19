@@ -41,7 +41,7 @@ const GPU_PFLOPS_MAP: Record<string, number> = {
     "8x Intel Gaudi 3": 8.0
 };
 
-const ImmersionPhysicsVisualizer = ({ voidFraction = 12.5, levelPercent = 95.0, isCondensating = true }: {
+const TwoPhaseTankView = ({ voidFraction = 12.5, levelPercent = 95.0, isCondensating = true }: {
     voidFraction?: number;
     levelPercent?: number;
     isCondensating?: boolean;
@@ -180,6 +180,142 @@ const ImmersionPhysicsVisualizer = ({ voidFraction = 12.5, levelPercent = 95.0, 
         </div>
     );
 };
+
+const SinglePhaseTankView = ({ pumpFlow = 15.0, maxGpuTemp = 45.0, deltaT = 15.0 }: {
+    pumpFlow?: number;
+    maxGpuTemp?: number;
+    deltaT?: number;
+}) => {
+    const canvasRef = useRef<HTMLCanvasElement | null>(null);
+    const animationFrameRef = useRef<number | null>(null);
+
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+
+        // 流場小光點粒子
+        let particles: Array<{ x: number; y: number; speed: number; phase: number }> = [];
+        for (let i = 0; i < 22; i++) {
+            particles.push({
+                x: 10 + Math.random() * 180,
+                y: 20 + Math.random() * 100,
+                speed: 0.6 + Math.random() * 1.6,
+                phase: Math.random() * Math.PI * 2
+            });
+        }
+
+        const render = () => {
+            const width = canvas.width;
+            const height = canvas.height;
+            ctx.clearRect(0, 0, width, height);
+
+            // 1. 繪製邊框
+            ctx.strokeStyle = "#0ea5e9";
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(5, 5, width - 10, height - 10);
+
+            // 2. 繪製平滑熱對流對流梯度背景
+            const grad = ctx.createLinearGradient(0, height - 10, 0, 10);
+            
+            const isHot = maxGpuTemp > 78.0;
+            const topColor = isHot ? "rgba(239, 68, 68, 0.45)" : maxGpuTemp > 65.0 ? "rgba(245, 158, 11, 0.3)" : "rgba(14, 116, 144, 0.3)";
+            const bottomColor = "rgba(30, 58, 138, 0.35)"; // 深藍 (冷油進)
+            
+            // 根據泵浦流量動態擴大底部藍色冷油區間，最高可至 0.85 比例的高度
+            const coldStop = Math.min(0.85, Math.max(0.15, 0.15 + (pumpFlow / 150.0) * 0.65));
+            
+            grad.addColorStop(0, bottomColor);
+            grad.addColorStop(coldStop, "rgba(8, 145, 178, 0.2)");
+            grad.addColorStop(1, topColor);
+            
+            ctx.fillStyle = grad;
+            ctx.fillRect(6, 6, width - 12, height - 12);
+
+            // 3. 繪製頂部氣室邊界 (無冷凝盤管，僅為基本的蓋板)
+            ctx.fillStyle = "rgba(15, 23, 42, 0.65)";
+            ctx.fillRect(6, 6, width - 12, 12);
+
+            // 4. 繪製伺服器晶片節點
+            const chipWidth = 80;
+            const chipHeight = 18;
+            const chipX = width / 2 - chipWidth / 2;
+            const chipY = height - 45;
+
+            ctx.fillStyle = maxGpuTemp > 78.0 ? "#ef4444" : maxGpuTemp > 65.0 ? "#f59e0b" : "#0284c7";
+            ctx.fillRect(chipX, chipY, chipWidth, chipHeight);
+            
+            ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
+            ctx.fillRect(chipX + 15, chipY + 4, chipWidth - 30, chipHeight - 8);
+
+            // 5. 繪製對流流動粒子 (Flow Vector Arrows)
+            ctx.fillStyle = maxGpuTemp > 78.0 ? "rgba(248, 113, 113, 0.8)" : "rgba(56, 189, 248, 0.8)";
+            
+            // 流動速度與泵浦流量成正比
+            const speedFactor = (pumpFlow / 15.0) * 0.85;
+            
+            particles.forEach((p) => {
+                // 繪製向上流動的向量流速小箭頭 (Flow Vector Arrow)
+                ctx.beginPath();
+                ctx.moveTo(p.x, p.y - 3.5); // 箭頭頂點
+                ctx.lineTo(p.x - 2.5, p.y + 1.5); // 左側翼
+                ctx.lineTo(p.x - 1, p.y + 0.5); // 左內折
+                ctx.lineTo(p.x - 1, p.y + 3.5); // 箭身左底
+                ctx.lineTo(p.x + 1, p.y + 3.5); // 箭身右底
+                ctx.lineTo(p.x + 1, p.y + 0.5); // 右內折
+                ctx.lineTo(p.x + 2.5, p.y + 1.5); // 右側翼
+                ctx.closePath();
+                ctx.fill();
+
+                // 強制循環流向：從底部向上湧流，遇到頂部向四周擴散後回落循環
+                p.y -= p.speed * speedFactor;
+                p.x += Math.sin(p.y * 0.05 + p.phase) * 0.35 * speedFactor;
+
+                if (p.y < 18) {
+                    p.y = height - 15 - Math.random() * 15;
+                    p.x = 10 + Math.random() * (width - 20);
+                }
+            });
+
+            // 6. 出水口與入水口箭頭示意
+            ctx.fillStyle = "#0284c7";
+            ctx.fillRect(12, height - 15, 10, 5); // 底部入水口
+            ctx.fillStyle = maxGpuTemp > 78.0 ? "#ef4444" : "#eab308";
+            ctx.fillRect(width - 22, 20, 10, 5);  // 頂部出水口
+
+            if (maxGpuTemp > 78.0) {
+                ctx.fillStyle = "rgba(239, 68, 68, 0.3)";
+                ctx.fillRect(chipX - 4, chipY - 4, chipWidth + 8, chipHeight + 4);
+                ctx.strokeStyle = "#ef4444";
+                ctx.lineWidth = 1;
+                ctx.strokeRect(chipX - 4, chipY - 4, chipWidth + 8, chipHeight + 4);
+                
+                ctx.fillStyle = "#ef4444";
+                ctx.font = "bold 8px monospace";
+                ctx.fillText("OVERHEAT RISK", chipX + 5, chipY - 5);
+            }
+
+            animationFrameRef.current = requestAnimationFrame(render);
+        };
+
+        render();
+
+        return () => {
+            if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+        };
+    }, [pumpFlow, maxGpuTemp, deltaT]);
+
+    return (
+        <div className="relative flex flex-col items-center bg-[#020712] border border-cyan-500/20 rounded-xl p-2.5 shadow-[inset_0_0_15px_rgba(6,182,212,0.1)]">
+            <span className="text-[9px] text-cyan-400 font-bold uppercase tracking-widest absolute top-1.5 left-2.5">
+                🧪 2D 槽體流場熱梯度模擬
+            </span>
+            <canvas ref={canvasRef} width={200} height={140} className="w-full max-w-[210px] h-[140px] rounded-lg mt-3" />
+        </div>
+    );
+};
+
 
 export default function TwinsPage() {
     useEffect(() => {
@@ -1252,74 +1388,128 @@ removeLocation(currentLocationId);
                             </div>
                         )}
 
-                        {/* 🔮 雙相浸沒式冷卻深度遙測面板 */}
+                        {/* 🔮 雙相/單相浸沒式冷卻深度遙測面板 */}
                         {(selectedRack.type === 'immersion_single' || selectedRack.type === 'immersion_dual') && immersionData && (
                             <div className="bg-[#03112b] p-4 rounded-lg border border-cyan-500/30 flex flex-col gap-4">
                                 <div className="flex items-center justify-between border-b border-cyan-800/30 pb-2">
                                     <div className="flex items-center gap-1.5">
                                         <Droplets size={14} className="text-cyan-400 animate-pulse" />
                                         <h3 className="text-xs font-bold text-cyan-400 tracking-widest uppercase">
-                                            雙相浸沒深度遙測
+                                            {selectedRack.type === 'immersion_single' ? '單相浸沒深度遙測' : '雙相浸沒深度遙測'}
                                         </h3>
                                     </div>
                                     <span className="rounded-full bg-cyan-500/20 px-2 py-0.5 text-[8px] font-bold text-cyan-300 border border-cyan-500/30 font-mono">
-                                        PHASE-CHANGE
+                                        {selectedRack.type === 'immersion_single' ? 'FORCED CONVECTION' : 'PHASE-CHANGE'}
                                     </span>
                                 </div>
 
-                                {/* 1. 🧪 槽體剖面視圖與物理沸騰 */}
+                                {/* 1. 🧪 槽體剖面視圖與物理流場/沸騰 */}
                                 <div className="grid grid-cols-1 gap-3">
-                                    <ImmersionPhysicsVisualizer 
-                                        voidFraction={immersionData.void_fraction} 
-                                        levelPercent={(immersionData.fluid_level_mm / 500) * 100}
-                                        isCondensating={immersionData.fused_loss_rate_ml_hr < 120} 
-                                    />
+                                    {selectedRack.type === 'immersion_single' ? (
+                                        <SinglePhaseTankView 
+                                            pumpFlow={simWaterFlow} 
+                                            maxGpuTemp={immersionData.max_gpu_temp || 45.0} 
+                                            deltaT={immersionData.delta_t || 15.0} 
+                                        />
+                                    ) : (
+                                        <TwoPhaseTankView 
+                                            voidFraction={immersionData.void_fraction} 
+                                            levelPercent={(immersionData.fluid_level_mm / 500) * 100}
+                                            isCondensating={immersionData.fused_loss_rate_ml_hr < 120} 
+                                        />
+                                    )}
                                     
-                                    <div className="bg-[#010613]/60 border border-cyan-900/30 p-2.5 rounded-lg text-[10px] font-mono space-y-1.5">
-                                        <div className="flex justify-between">
-                                            <span className="text-slate-400">氣泡佔比 (Void Fraction):</span>
-                                            <span className="text-cyan-300 font-bold">{immersionData.void_fraction}%</span>
-                                        </div>
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-slate-400">沸騰狀態 (Regime):</span>
-                                            <span className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider ${
-                                                immersionData.boiling_regime === 'film' 
-                                                    ? 'bg-red-500/20 text-red-400 border border-red-500/30 animate-bounce' 
-                                                    : immersionData.boiling_regime === 'transition'
-                                                        ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                                                        : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                                            }`}>
-                                                {immersionData.boiling_regime === 'film' ? 'Film (膜狀)' : immersionData.boiling_regime === 'transition' ? 'Transition (過渡)' : 'Nucleate (核沸騰)'}
-                                            </span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-slate-400">液流失率 (Evaporation):</span>
-                                            <span className={`font-bold ${immersionData.leak_severity === 'critical' ? 'text-red-400 font-bold' : 'text-slate-300'}`}>
-                                                {immersionData.fused_loss_rate_ml_hr} mL/hour
-                                            </span>
-                                        </div>
-                                        {immersionData.should_throttle && (
-                                            <div className="bg-red-950/40 border border-red-500/30 text-red-300 p-1.5 rounded text-[9px] font-sans font-semibold animate-pulse text-center">
-                                                ⚠️ CHF 臨界乾涸！已啟動功耗壓制！
+                                    {selectedRack.type === 'immersion_single' ? (
+                                        <div className="bg-[#010613]/60 border border-cyan-900/30 p-2.5 rounded-lg text-[10px] font-mono space-y-1.5">
+                                            <div className="flex justify-between">
+                                                <span className="text-slate-400">進油溫度 (Inlet Temp):</span>
+                                                <span className="text-cyan-300 font-bold">{immersionData.condenser_inlet_temp || 35.0} °C</span>
                                             </div>
-                                        )}
-                                    </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-slate-400">出油溫度 (Outlet Temp):</span>
+                                                <span className="text-cyan-300 font-bold">{immersionData.outlet_temp || (35.0 + (immersionData.delta_t || 15.0)).toFixed(1)} °C</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-slate-400">對流溫升 (ΔT):</span>
+                                                <span className="text-cyan-300 font-bold">{immersionData.delta_t || 15.0} °C</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-slate-400">動力黏度 (Viscosity):</span>
+                                                <span className="text-cyan-300 font-bold">{immersionData.viscosity_cst || 10.0} cSt</span>
+                                            </div>
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-slate-400">熱點機率 (Hotspot Prob):</span>
+                                                <span className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider ${
+                                                    (immersionData.hotspot_prob || 0.0) >= 75.0 
+                                                        ? 'bg-red-500/20 text-red-400 border border-red-500/30 animate-bounce' 
+                                                        : (immersionData.hotspot_prob || 0.0) >= 40.0
+                                                            ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                                                            : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                                }`}>
+                                                    {Number(immersionData.hotspot_prob || 0.0).toFixed(1)}%
+                                                </span>
+                                            </div>
+                                            {immersionData.should_throttle && (
+                                                <div className="bg-red-950/40 border border-red-500/30 text-red-300 p-1.5 rounded text-[9px] font-sans font-semibold animate-pulse text-center">
+                                                    ⚠️ 局部對流熱飽和！已啟動功耗壓制保護！
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div className="bg-[#010613]/60 border border-cyan-900/30 p-2.5 rounded-lg text-[10px] font-mono space-y-1.5">
+                                            <div className="flex justify-between">
+                                                <span className="text-slate-400">氣泡佔比 (Void Fraction):</span>
+                                                <span className="text-cyan-300 font-bold">{immersionData.void_fraction}%</span>
+                                            </div>
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-slate-400">沸騰狀態 (Regime):</span>
+                                                <span className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider ${
+                                                    immersionData.boiling_regime === 'film' 
+                                                        ? 'bg-red-500/20 text-red-400 border border-red-500/30 animate-bounce' 
+                                                        : immersionData.boiling_regime === 'transition'
+                                                            ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                                                            : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                                }`}>
+                                                    {immersionData.boiling_regime === 'film' ? 'Film (膜狀)' : immersionData.boiling_regime === 'transition' ? 'Transition (過渡)' : 'Nucleate (核沸騰)'}
+                                                </span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-slate-400">液流失率 (Evaporation):</span>
+                                                <span className={`font-bold ${immersionData.leak_severity === 'critical' ? 'text-red-400 font-bold' : 'text-slate-300'}`}>
+                                                    {immersionData.fused_loss_rate_ml_hr} mL/hour
+                                                </span>
+                                            </div>
+                                            {immersionData.should_throttle && (
+                                                <div className="bg-red-950/40 border border-red-500/30 text-red-300 p-1.5 rounded text-[9px] font-sans font-semibold animate-pulse text-center">
+                                                    ⚠️ CHF 臨界乾涸！已啟動功耗壓制！
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* 2. 🕸️ 流體健康度五軸雷達圖 */}
                                 <div className="bg-[#020712] border border-cyan-500/20 rounded-xl p-2.5 shadow-[inset_0_0_15px_rgba(6,182,212,0.1)] flex flex-col items-center">
                                     <span className="text-[9px] text-cyan-400 font-bold uppercase tracking-widest self-start mb-2">
-                                        🕸️ 流體健康劣化雷達
+                                        {selectedRack.type === 'immersion_single' ? '🕸️ 單相冷卻油劣化雷達' : '🕸️ 流體健康劣化雷達'}
                                     </span>
                                     <div className="h-40 w-full text-[9px] select-none">
                                         <ResponsiveContainer width="100%" height="100%">
-                                            <RadarChart cx="50%" cy="50%" outerRadius="65%" margin={{ top: 10, right: 30, left: 30, bottom: 10 }} data={[
-                                                { subject: '電導率', A: immersionData.conductivity_us_cm * 100, fullMark: 100 },
-                                                { subject: '酸化度', A: (8 - immersionData.ph_value) * 25, fullMark: 100 },
-                                                { subject: '含水量', A: immersionData.water_content_ppm * 2, fullMark: 100 },
-                                                { subject: '腐蝕風險', A: immersionData.hf_corrosion_risk === 'high' ? 95 : immersionData.hf_corrosion_risk === 'medium' ? 50 : 15, fullMark: 100 },
-                                                { subject: '雜質微粒', A: 25, fullMark: 100 }
-                                            ]}>
+                                            <RadarChart cx="50%" cy="50%" outerRadius="65%" margin={{ top: 10, right: 30, left: 30, bottom: 10 }} data={
+                                                selectedRack.type === 'immersion_single' ? [
+                                                    { subject: '介電強度', A: (immersionData.dielectric_strength_kv || 50.0) * 2.0, fullMark: 100 },
+                                                    { subject: '總酸值', A: (immersionData.tan_mg_koh_g || 0.02) * 333.0, fullMark: 100 },
+                                                    { subject: '含水量', A: (immersionData.water_content_ppm || 15.0) * 0.5, fullMark: 100 },
+                                                    { subject: '黏度偏離', A: 35, fullMark: 100 },
+                                                    { subject: '微粒雜質', A: 20, fullMark: 100 }
+                                                ] : [
+                                                    { subject: '電導率', A: immersionData.conductivity_us_cm * 100, fullMark: 100 },
+                                                    { subject: '酸化度', A: (8 - immersionData.ph_value) * 25, fullMark: 100 },
+                                                    { subject: '含水量', A: immersionData.water_content_ppm * 2, fullMark: 100 },
+                                                    { subject: '腐蝕風險', A: immersionData.hf_corrosion_risk === 'high' ? 95 : immersionData.hf_corrosion_risk === 'medium' ? 50 : 15, fullMark: 100 },
+                                                    { subject: '雜質微粒', A: 25, fullMark: 100 }
+                                                ]
+                                            }>
                                                 <PolarGrid stroke="#0f172a" />
                                                 <PolarAngleAxis dataKey="subject" stroke="#64748b" fontSize={7} />
                                                 <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} stroke="#0f172a" />
@@ -1332,7 +1522,9 @@ removeLocation(currentLocationId);
                                 {/* 3. ⏳ 過濾器壽命與工單自癒連動 */}
                                 <div className="bg-[#010613]/80 border border-slate-800 p-3 rounded-lg space-y-2">
                                     <div className="flex items-center justify-between text-[10px]">
-                                        <span className="text-slate-400 font-bold">循環過濾器壽命:</span>
+                                        <span className="text-slate-400 font-bold">
+                                            {selectedRack.type === 'immersion_single' ? '單相循環過濾器壽命:' : '循環過濾器壽命:'}
+                                        </span>
                                         <span className={`font-mono font-bold ${
                                             immersionData.filter_status === 'critical' ? 'text-red-400 font-bold' : 'text-emerald-400'
                                         }`}>
@@ -1409,7 +1601,7 @@ removeLocation(currentLocationId);
 
                                         <div>
                                             <div className="flex justify-between text-[9px] text-slate-400 mb-1">
-                                                <span>冷凝水量流量:</span>
+                                                <span>{selectedRack.type === 'immersion_single' ? '循環泵浦流量:' : '冷凝水量流量:'}</span>
                                                 <span className="text-cyan-300 font-mono">{simWaterFlow} LPM</span>
                                             </div>
                                             <input 
@@ -1437,7 +1629,9 @@ removeLocation(currentLocationId);
                                                         : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-300'
                                                 }`}
                                             >
-                                                {simSealLeak ? '🔴 密封洩漏中' : '⚪ 模擬密封洩漏'}
+                                                {simSealLeak 
+                                                    ? (selectedRack.type === 'immersion_single' ? '🔴 冷卻油洩漏中' : '🔴 密封洩漏中') 
+                                                    : (selectedRack.type === 'immersion_single' ? '⚪ 模擬冷卻油洩漏' : '⚪ 模擬密封洩漏')}
                                             </button>
 
                                             <button 
@@ -1467,7 +1661,9 @@ removeLocation(currentLocationId);
                                                         : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-300'
                                                 }`}
                                             >
-                                                {simWaterIntrusion ? '⚠️ 外部濕氣入侵中 (酸裂解)' : '⚪ 模擬水氣入侵'}
+                                                {simWaterIntrusion 
+                                                    ? (selectedRack.type === 'immersion_single' ? '⚠️ 外部濕氣入侵中 (絕緣驟降)' : '⚠️ 外部濕氣入侵中 (酸裂解)') 
+                                                    : (selectedRack.type === 'immersion_single' ? '⚪ 模擬濕氣入侵' : '⚪ 模擬水氣入侵')}
                                             </button>
                                         </div>
                                     </div>
