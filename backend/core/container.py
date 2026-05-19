@@ -45,6 +45,7 @@ from services.ml_worker import AnomalyDetectionEngine
 from services.workload_service import WorkloadSimulator
 from services.remediation_service import AutoRemediationEngine
 from services.power_service import PowerCappingService
+from services.thermal_service import ThermalPredictionService
 
 
 def _temperature_tier(temp: float) -> str:
@@ -110,6 +111,7 @@ class AppContainer:
         self.remediation_engine = AutoRemediationEngine(continuous_seconds=15)
         self.workload = WorkloadSimulator()
         self.power_service = PowerCappingService()
+        self.thermal_service = ThermalPredictionService()
         self.system_mode = "simulation"
         self.power_states: dict[str, str] = {} # { "SERVER-001": "on", "CDU-001": "off" }
         self.last_real_data_at: dict[str, float] = {} # { "SERVER-15": 1711956... }
@@ -318,6 +320,13 @@ class AppContainer:
             # Fallback to calculate from temp if backend simulated payload didn't include it
             calc_temp = min(temp, 99.9)
             data["fan_speed"] = min(100.0, max(20.0, ((calc_temp - 25) * 1.6) + 20))
+
+        # 預測性熱場分析特徵記錄與預判冷卻自癒
+        self.thermal_service.record_telemetry(server_id, data)
+        # 評估是否需要主動加速泵浦
+        self.thermal_service.evaluate_proactive_cooling(self.telemetry.list_latest())
+        # 套用預判冷卻到 data telemetry payload
+        self.thermal_service.apply_proactive_cooling_to_telemetry(server_id, data)
 
         self.telemetry.upsert_latest(server_id, data)
         

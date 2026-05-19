@@ -7,7 +7,7 @@ import { authFetch } from "@/shared/auth";
 import { buildTelemetryKeys, normalizeNodeId, resolveTelemetryRecordDeep } from "@/shared/nodeId";
 import dynamic from "next/dynamic";
 import { Activity, Download, Upload, Server, Trash, Save, Edit, Lock, Thermometer, Zap, Box, MonitorIcon, Globe, Link2, Droplets, Cpu, Leaf } from "lucide-react";
-
+import { LineChart, Line, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
 const TwinsSceneCanvas = dynamic(
     () => import("@/features/twins/TwinsSceneCanvas").then((mod) => mod.TwinsSceneCanvas),
     {
@@ -213,6 +213,118 @@ export default function TwinsPage() {
     });
 
     const [telemetry, setTelemetry] = useState<Record<string, any>>({});
+    
+    // 🔮 預測性熱場與異常分析狀態
+    const [predictionHorizon, setPredictionHorizon] = useState<number>(0);
+    const [predictedTemps, setPredictedTemps] = useState<Record<string, number>>({});
+    const [predictedHotspots, setPredictedHotspots] = useState<number>(0);
+    const [isPredictionLoading, setIsPredictionLoading] = useState<boolean>(false);
+    const [thermalChartData, setThermalChartData] = useState<any[]>([]);
+    const [chartActiveServerId, setChartActiveServerId] = useState<string | null>(null);
+    const [isChartLoading, setIsChartLoading] = useState(false);
+
+    // 獲取預測熱場資料
+    const fetchPrediction = useCallback(async (horizonVal: number) => {
+        if (horizonVal === 0) {
+            setPredictedTemps({});
+            setPredictedHotspots(0);
+            return;
+        }
+        setIsPredictionLoading(true);
+        try {
+            const res = await authFetch(apiUrl(`/api/thermal/status?horizon=${horizonVal}`), { cache: "no-store" });
+            if (res.ok) {
+                const json = await res.json();
+                const pTemps: Record<string, number> = {};
+                (json.servers || []).forEach((s: any) => {
+                    pTemps[s.server_id] = s.predicted_temperature;
+                });
+                setPredictedTemps(pTemps);
+                setPredictedHotspots(json.predicted_hotspots_count);
+            }
+        } catch (e) { } finally {
+            setIsPredictionLoading(false);
+        }
+    }, []);
+
+    // 當時間滑桿改變時發起獲取
+    useEffect(() => {
+        fetchPrediction(predictionHorizon);
+    }, [predictionHorizon, fetchPrediction]);
+
+    // 當點選伺服器時，自動拉取預測多軸關聯數據
+    useEffect(() => {
+        if (selectedRack && selectedRack.servers.length > 0) {
+            const firstServer = selectedRack.servers[0];
+            setChartActiveServerId(firstServer.name);
+        } else {
+            setChartActiveServerId(null);
+            setThermalChartData([]);
+        }
+    }, [selectedRackId]);
+
+    useEffect(() => {
+        if (!chartActiveServerId) return;
+        
+        let active = true;
+        const fetchChartDetail = async () => {
+            setIsChartLoading(true);
+            try {
+                const res = await authFetch(apiUrl(`/api/thermal/predict-detail?server_id=${chartActiveServerId}`), { cache: "no-store" });
+                if (res.ok && active) {
+                    const json = await res.json();
+                    setThermalChartData(json.data || []);
+                }
+            } catch (e) {
+            } finally {
+                if (active) setIsChartLoading(false);
+            }
+        };
+        
+        fetchChartDetail();
+        const interval = setInterval(fetchChartDetail, 5000);
+        
+        return () => {
+            active = false;
+            clearInterval(interval);
+        };
+    }, [chartActiveServerId]);
+
+    // 核心：動態覆寫 / 注入預測數值到 telemetry 中，使得 3D Canvas 自然渲染預測熱場
+    const displayTelemetry = useMemo(() => {
+        if (predictionHorizon === 0) return telemetry;
+        
+        const tCopy = { ...telemetry };
+        Object.keys(predictedTemps).forEach((sid) => {
+            const tempVal = predictedTemps[sid];
+            const keysToInject = [
+                sid,
+                sid.toUpperCase(),
+                sid.toLowerCase(),
+                sid.replace("-", "_"),
+                sid.replace("_", "-"),
+                sid.replace("-", "_").toUpperCase(),
+                sid.replace("-", "_").toLowerCase(),
+                normalizeNodeId(sid)
+            ];
+            
+            keysToInject.forEach((k) => {
+                const prevRecord = tCopy[k] || {};
+                tCopy[k] = { 
+                    ...prevRecord, 
+                    temperature: tempVal,
+                    // 當預測溫度高於 55°C 時，模擬觸發風扇與泵浦的預判加速，供 3D 渲染動態反映！
+                    fan_speed: tempVal > 55.0 ? 85.0 : (prevRecord.fan_speed || 40.0),
+                    pump_a_rpm: tempVal > 55.0 ? 5100.0 : (prevRecord.pump_a_rpm || 3000.0),
+                    pump_b_rpm: tempVal > 55.0 ? 5100.0 : (prevRecord.pump_b_rpm || 3000.0),
+                    outlet_temp_c: tempVal > 55.0 ? 38.0 : (prevRecord.outlet_temp_c || 42.0),
+                    inlet_temp_c: tempVal > 55.0 ? 28.5 : (prevRecord.inlet_temp_c || 30.0)
+                };
+            });
+        });
+        return tCopy;
+    }, [telemetry, predictionHorizon, predictedTemps]);
+
     /** 網路線與 CDU 管路預設不顯示，由 HUD 按鈕切換 */
     const [showConnectionLines, setShowConnectionLines] = useState(false);
 
@@ -309,6 +421,11 @@ export default function TwinsPage() {
                 });
             });
             setTelemetry(tMap);
+            
+            // 預測模式下同步定時更新預測溫度資料
+            if (predictionHorizon > 0) {
+                fetchPrediction(predictionHorizon);
+            }
         } catch (e) { }
     }, { intervalMs: 5000, immediate: true });
 
@@ -538,10 +655,62 @@ export default function TwinsPage() {
                     locationRacks={locationRacks}
                     locationEquipments={locationEquipments}
                     selectedRackId={selectedRackId}
-                    telemetry={telemetry}
+                    telemetry={displayTelemetry}
                     showConnectionLines={showConnectionLines}
                     onPointerMissed={clearSceneSelection}
                 />
+
+                {/* 🔮 預測性熱場時序控制面板 */}
+                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-3 rounded-2xl border border-cyan-500/40 bg-[#020b1e]/90 p-5 pb-5 text-slate-200 shadow-[0_0_25px_rgba(6,182,212,0.2),inset_0_1px_1px_rgba(255,255,255,0.15)] backdrop-blur-lg pointer-events-auto min-w-[440px]">
+                    <div className="flex w-full items-center justify-between gap-4 border-b border-slate-800 pb-2">
+                        <span className="flex items-center gap-1.5 text-xs font-bold tracking-wide text-cyan-400">
+                            <span className="relative flex h-2.5 w-2.5">
+                                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${predictionHorizon > 0 ? 'bg-amber-400' : 'bg-cyan-400'}`}></span>
+                                <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${predictionHorizon > 0 ? 'bg-amber-500' : 'bg-cyan-500'}`}></span>
+                            </span>
+                            {predictionHorizon === 0 ? "🔮 實時熱場監測模式" : `🔮 預測熱場模式 (+${predictionHorizon} 分鐘)`}
+                        </span>
+                        {predictionHorizon > 0 ? (
+                            <span className="rounded-full bg-amber-500/20 px-2.5 py-0.5 text-[9px] font-bold text-amber-300 border border-amber-500/30 animate-pulse">
+                                預判冷卻運作中 ({predictedHotspots} 熱點預警)
+                            </span>
+                        ) : (
+                            <span className="rounded-full bg-cyan-500/20 px-2.5 py-0.5 text-[9px] font-bold text-cyan-300 border border-cyan-500/30">
+                                遙測動態更新中
+                            </span>
+                        )}
+                    </div>
+                    
+                    <div className="flex w-full items-center gap-3 mt-0.5">
+                        <span className="text-[10px] font-semibold text-slate-400 w-8 text-right">實時</span>
+                        <input
+                            type="range"
+                            min="0"
+                            max="60"
+                            step="15"
+                            value={predictionHorizon === 0 ? 0 : predictionHorizon === 15 ? 15 : predictionHorizon === 30 ? 30 : predictionHorizon === 60 ? 45 : 60}
+                            onChange={(e) => {
+                                const val = parseInt(e.target.value, 10);
+                                if (val === 0) setPredictionHorizon(0);
+                                else if (val === 15) setPredictionHorizon(15);
+                                else if (val === 30) setPredictionHorizon(30);
+                                else if (val === 45) setPredictionHorizon(60);
+                                else if (val === 60) setPredictionHorizon(120);
+                            }}
+                            className="flex-1 accent-cyan-400 h-1 bg-slate-800 rounded-lg cursor-pointer appearance-none outline-none"
+                        />
+                        <span className="text-[10px] font-semibold text-slate-400 w-10">未來 2h</span>
+                    </div>
+                    
+                    {/* 時序刻度標籤 */}
+                    <div className="flex w-full justify-between text-[9px] font-semibold text-slate-500 px-9 mt-0.5">
+                        <span className={predictionHorizon === 0 ? "text-cyan-400 font-bold scale-105 transition-all" : "hover:text-slate-300 cursor-pointer transition-all"} onClick={() => setPredictionHorizon(0)}>即時</span>
+                        <span className={predictionHorizon === 15 ? "text-cyan-400 font-bold scale-105 transition-all" : "hover:text-slate-300 cursor-pointer transition-all"} onClick={() => setPredictionHorizon(15)}>+15m</span>
+                        <span className={predictionHorizon === 30 ? "text-cyan-400 font-bold scale-105 transition-all" : "hover:text-slate-300 cursor-pointer transition-all"} onClick={() => setPredictionHorizon(30)}>+30m</span>
+                        <span className={predictionHorizon === 60 ? "text-cyan-400 font-bold scale-105 transition-all" : "hover:text-slate-300 cursor-pointer transition-all"} onClick={() => setPredictionHorizon(60)}>+1h</span>
+                        <span className={predictionHorizon === 120 ? "text-cyan-400 font-bold scale-105 transition-all" : "hover:text-slate-300 cursor-pointer transition-all"} onClick={() => setPredictionHorizon(120)}>+2h</span>
+                    </div>
+                </div>
             </div>
 
             {/* 右側屬性面板 (Room) */}
@@ -839,6 +1008,33 @@ removeLocation(currentLocationId);
                                 </div>
                             );
                         })()}
+
+                        {/* 🔮 智慧預測熱場與冷卻多軸分析 */}
+                        {chartActiveServerId && thermalChartData.length > 0 && (
+                            <div className="bg-[#03112b] p-4 rounded-lg border border-cyan-900/30">
+                                <div className="flex items-center justify-between mb-3 border-b border-cyan-800/30 pb-1">
+                                    <h3 className="text-xs font-bold text-cyan-400 flex items-center gap-1.5 tracking-widest uppercase">
+                                        <span>🔮 熱場冷卻多軸預測 ({chartActiveServerId})</span>
+                                    </h3>
+                                    <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">PREDICTIVE DASH</span>
+                                </div>
+                                <div className="h-44 w-full text-[10px] select-none">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <LineChart data={thermalChartData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                                            <XAxis dataKey="time_label" stroke="#475569" fontSize={8} />
+                                            <YAxis yAxisId="left" stroke="#eab308" domain={[0, 100]} fontSize={8} />
+                                            <YAxis yAxisId="right" orientation="right" stroke="#ef4444" domain={[20, 80]} fontSize={8} />
+                                            <RechartsTooltip contentStyle={{ backgroundColor: "#020617", border: "1px solid #1e3a8a", fontSize: "9px" }} />
+                                            <Legend wrapperStyle={{ fontSize: '8px', marginTop: '2px' }} />
+                                            <Line yAxisId="left" name="負載 (%)" type="monotone" dataKey="cpu_usage" stroke="#eab308" strokeWidth={1.5} dot={false} />
+                                            <Line yAxisId="right" name="晶片溫 (°C)" type="monotone" dataKey="temperature" stroke="#ef4444" strokeWidth={2} activeDot={{ r: 4 }} />
+                                            <Line yAxisId="right" name="出回水溫 (°C)" type="monotone" dataKey="coolant_inlet_temp" stroke="#10b981" strokeWidth={1.2} strokeDasharray="3 3" dot={false} />
+                                        </LineChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </div>
+                        )}
 
                         {/* 現有設備清單 */}
                         <div>
