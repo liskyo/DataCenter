@@ -848,11 +848,18 @@ export default function Dashboard() {
     };
   }, [gridStatusRows]);
 
-  const totalFlops = useMemo(() => {
-    return allGridItems.reduce((acc, item: any) => {
-      return acc + (item.flops || 0);
-    }, 0);
-  }, [allGridItems]);
+  const { maxFlops, activeFlops } = useMemo(() => {
+    let max = 0;
+    let active = 0;
+    for (const row of gridStatusRows) {
+      const flops = (row.item as any).flops || 0;
+      max += flops;
+      if (row.status !== 'powered_off') {
+        active += flops;
+      }
+    }
+    return { maxFlops: max, activeFlops: active };
+  }, [gridStatusRows]);
 
   const itemNameSet = useMemo(() => {
     const set = new Set<string>();
@@ -1148,15 +1155,29 @@ export default function Dashboard() {
 
         {/* Right Column (Alarms & Details) */}
         <div className="col-span-3 flex flex-col gap-6">
-          <TechPanel title="AI COMPUTE (PFLOPS)" className="h-[140px] shrink-0 border-emerald-900/50">
-            <div className="h-full flex flex-col justify-center items-center relative overflow-hidden -mt-2">
+          <TechPanel title="AI COMPUTE (PFLOPS)" className="h-[200px] shrink-0 border-emerald-900/50">
+            <div className="h-full flex flex-col justify-center items-center relative overflow-hidden px-4">
               <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/10 blur-3xl rounded-full"></div>
               <div className="absolute bottom-0 left-0 w-16 h-16 bg-emerald-500/10 blur-2xl rounded-full"></div>
+              {/* MAX - Hero number */}
               <div className="text-4xl font-black text-emerald-400 font-mono flex items-center gap-2 z-10 drop-shadow-[0_0_10px_rgba(52,211,153,0.3)]">
                 <Cpu size={28} />
-                {totalFlops.toFixed(1)}
+                {maxFlops.toFixed(1)}
               </div>
-              <div className="text-[10px] text-emerald-600/80 tracking-widest mt-1 z-10 font-bold">TOTAL CLUSTER PERFORMANCE</div>
+              <div className="text-[10px] text-emerald-600/80 tracking-widest mt-0.5 z-10 font-bold">MAX CLUSTER CAPACITY</div>
+              {/* Utilization bar + ACTIVE */}
+              <div className="w-full mt-3 z-10">
+                <div className="flex justify-between items-baseline text-[9px] font-mono mb-1">
+                  <span className="text-cyan-400 text-lg font-black">{activeFlops.toFixed(1)} <span className="text-[10px] font-bold text-cyan-500/70">ACTIVE</span></span>
+                  <span className="text-emerald-600/60">{maxFlops > 0 ? Math.round((activeFlops / maxFlops) * 100) : 0}%</span>
+                </div>
+                <div className="h-1.5 w-full bg-[#0a1e3f] rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-cyan-500 to-emerald-400 rounded-full transition-all duration-700"
+                    style={{ width: `${maxFlops > 0 ? Math.min((activeFlops / maxFlops) * 100, 100) : 0}%` }}
+                  ></div>
+                </div>
+              </div>
             </div>
           </TechPanel>
 
