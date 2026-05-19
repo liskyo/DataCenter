@@ -44,6 +44,7 @@ from services.sse_manager import SSEManager
 from services.ml_worker import AnomalyDetectionEngine
 from services.workload_service import WorkloadSimulator
 from services.remediation_service import AutoRemediationEngine
+from services.power_service import PowerCappingService
 
 
 def _temperature_tier(temp: float) -> str:
@@ -108,6 +109,7 @@ class AppContainer:
         self.ml_engine = AnomalyDetectionEngine()
         self.remediation_engine = AutoRemediationEngine(continuous_seconds=15)
         self.workload = WorkloadSimulator()
+        self.power_service = PowerCappingService()
         self.system_mode = "simulation"
         self.power_states: dict[str, str] = {} # { "SERVER-001": "on", "CDU-001": "off" }
         self.last_real_data_at: dict[str, float] = {} # { "SERVER-15": 1711956... }
@@ -168,7 +170,15 @@ class AppContainer:
         }
         self.alert_storage.insert_alert(alert_doc)
         self.notifier.send_alert(server_id, msg_type, message)
-        print(f"[Webhook] {msg_type} FOR {server_id}: {message}")
+        try:
+            print(f"[Webhook] {msg_type} FOR {server_id}: {message}")
+        except Exception:
+            # Safe fallback for Windows CP950 consoles
+            safe_msg = message.replace("≤", "<=").replace("≥", ">=")
+            try:
+                print(f"[Webhook] {msg_type} FOR {server_id}: {safe_msg}".encode('ascii', errors='replace').decode('ascii'))
+            except Exception:
+                pass
 
     def log_system_event(self, source: str, event_type: str, message: str) -> None:
         self.alert_storage.insert_alert(
@@ -179,7 +189,14 @@ class AppContainer:
                 "timestamp": int(time.time() * 1000),
             }
         )
-        print(f"[SystemLog] {event_type} FOR {source}: {message}")
+        try:
+            print(f"[SystemLog] {event_type} FOR {source}: {message}")
+        except Exception:
+            safe_msg = message.replace("≤", "<=").replace("≥", ">=")
+            try:
+                print(f"[SystemLog] {event_type} FOR {source}: {safe_msg}".encode('ascii', errors='replace').decode('ascii'))
+            except Exception:
+                pass
 
     def process_message(self, data: dict) -> None:
         asset_id, server_id = self.resolve_ids(data)
@@ -303,6 +320,20 @@ class AppContainer:
             data["fan_speed"] = min(100.0, max(20.0, ((calc_temp - 25) * 1.6) + 20))
 
         self.telemetry.upsert_latest(server_id, data)
+        
+        # 套用動態電力限制與碳排閉環控制
+        latest_servers = self.telemetry.list_latest()
+        self.power_service.apply_capping_logic(latest_servers, facility_base_power=35.0)
+        
+        # 同步限電後之實際數值至當前廣播載入與資料庫
+        metric_after = self.telemetry.latest_metrics.get(server_id, {})
+        if "power_kw" in metric_after:
+            data["power_kw"] = metric_after["power_kw"]
+        if "power_capped" in metric_after:
+            data["power_capped"] = metric_after["power_capped"]
+        if "flops" in metric_after:
+            data["flops"] = metric_after["flops"]
+
         self.influx.write_metrics(server_id=server_id, temp=temp, cpu=cpu)
 
         # SSE: broadcast to all connected frontends in real-time

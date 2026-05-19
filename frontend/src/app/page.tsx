@@ -58,6 +58,7 @@ type MatrixItem = {
   name: string;
   rackName: string;
   type: string;
+  gpuModel?: string;
 };
 
 type MatrixRow = {
@@ -612,7 +613,7 @@ const FacilityPanel = memo(function FacilityPanel({
                 <div className="flex gap-4 text-xs font-mono">
                   <div className="flex flex-col items-end">
                     <span className="text-slate-500 text-[9px]">CPU</span>
-                    <span className={statusColor}>{(srv?.cpu_usage_percent || 0).toFixed(1)}%</span>
+                    <span className={statusColor}>{(srv?.cpu_usage || 0).toFixed(1)}%</span>
                   </div>
                   <div className="flex flex-col items-end">
                     <span className="text-slate-500 text-[9px]">TEMP</span>
@@ -742,7 +743,7 @@ export default function Dashboard() {
     if (nowTs - lastHistoryAtRef.current < 2000) return;
 
     const validCpu = data
-      .map((cur) => Number(cur.cpu_usage_percent || cur.cpu_usage || 0))
+      .map((cur) => Number(cur.cpu_usage || 0))
       .filter((v) => Number.isFinite(v));
     const validTemp = data
       .map((cur) => Number(cur.temperature || 0))

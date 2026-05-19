@@ -747,7 +747,7 @@ export const useDcimStore = create<DcimState>()(
         }),
         {
             name: 'datacenter-storage-v4', // key in IndexedDB
-            storage: createJSONStorage(() => indexedDBStorage),
+            storage: createJSONStorage(() => indexedDBStorage as any),
             partialize: (state) => ({
                 racks: state.racks,
                 equipments: state.equipments,

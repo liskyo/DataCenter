@@ -9,7 +9,7 @@ import { useAuth } from "@/shared/auth-context";
 import { useLanguage } from "@/shared/i18n/language";
 import {
   BarChart3, SlidersHorizontal, LineChart, LifeBuoy,
-  CloudDownload, Globe, FileText, Wrench, Settings, Languages, Factory, Box, MapPin, Plus, LogOut, Users, BrainCircuit
+  CloudDownload, Globe, FileText, Wrench, Settings, Languages, Factory, Box, MapPin, Plus, LogOut, Users, BrainCircuit, BatteryCharging
 } from "lucide-react";
 
 export default function Navbar() {
@@ -34,6 +34,7 @@ export default function Navbar() {
         control: "Control",
         analysis: "Analysis",
         workload: "Workload",
+        power: "Power",
         maintenance: "Maintenance",
         backup: "Backup",
         network: "Network",
@@ -53,6 +54,7 @@ export default function Navbar() {
       control: "設備控制",
       analysis: "趨勢分析",
       workload: "算力調度",
+      power: "電力管理",
       maintenance: "維護保養",
       backup: "系統備份",
       network: "網路通訊",
@@ -82,6 +84,7 @@ export default function Navbar() {
     { name: t.control, href: "/control", icon: SlidersHorizontal },
     { name: t.analysis, href: "/analysis", icon: LineChart },
     { name: t.workload, href: "/workload", icon: BrainCircuit },
+    { name: t.power, href: "/power", icon: BatteryCharging },
     { name: t.maintenance, href: "/maintenance", icon: LifeBuoy },
     { name: t.backup, href: "/backup", icon: CloudDownload },
     { name: t.network, href: "/network", icon: Globe },

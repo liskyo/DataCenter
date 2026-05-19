@@ -11,6 +11,7 @@ from routers.control import router as control_router
 from routers.auth import router as auth_router
 from routers.maintenance import router as maintenance_router
 from routers.workload import router as workload_router
+from routers.power import router as power_router
 
 
 def load_env_file(path: Path) -> None:
@@ -44,6 +45,7 @@ app.include_router(control_router)
 app.include_router(auth_router)
 app.include_router(maintenance_router)
 app.include_router(workload_router)
+app.include_router(power_router)
 
 
 @app.on_event("startup")
